@@ -14,6 +14,7 @@
 #include "UpdateManager.h"
 
 #include <sys/ioctl.h>
+#include <map>
 #include <unistd.h>
 
 #include <Alert.h>
@@ -428,19 +429,22 @@ UpdateManager::_PrintResult(InstalledRepository& installationRepository,
 	PackageList& packagesToDeactivate
 		= installationRepository.PackagesToDeactivate();
 
-	BStringList upgradedPackages;
-	BStringList upgradedPackageVersions;
+	std::map<BString, BString> upgradedPackages;
+	std::map<BString, BSolverPackage*> oldPackages;
+
+	for (int32 i = 0; BSolverPackage* package = packagesToDeactivate.ItemAt(i);
+		i++) {
+		oldPackages.insert(std::make_pair(package->Info().Name(), package));
+	}
+
 	for (int32 i = 0;
 		BSolverPackage* installPackage = packagesToActivate.ItemAt(i);
 		i++) {
-		for (int32 j = 0;
-			BSolverPackage* uninstallPackage = packagesToDeactivate.ItemAt(j);
-			j++) {
-			if (installPackage->Info().Name() == uninstallPackage->Info().Name()) {
-				upgradedPackages.Add(installPackage->Info().Name());
-				upgradedPackageVersions.Add(uninstallPackage->Info().Version().ToString());
-				break;
-			}
+		std::map<BString, BSolverPackage*>::iterator it
+			= oldPackages.find(installPackage->Info().Name());
+		if (it != oldPackages.end()) {
+			upgradedPackages.insert(std::make_pair(installPackage->Info().Name(),
+				it->second->Info().Version().ToString()));
 		}
 	}
 
@@ -453,17 +457,18 @@ UpdateManager::_PrintResult(InstalledRepository& installationRepository,
 			repository.SetToFormat("repository %s",
 				package->Repository()->Name().String());
 
-		int position = upgradedPackages.IndexOf(package->Info().Name());
-		if (position >= 0) {
+		std::map<BString, BString>::iterator it
+			= upgradedPackages.find(package->Info().Name());
+		if (it != upgradedPackages.end()) {
 			if (fVerbose)
 				printf("    upgrade package %s-%s to %s from %s\n",
 					package->Info().Name().String(),
-					upgradedPackageVersions.StringAt(position).String(),
+					it->second.String(),
 					package->Info().Version().ToString().String(),
 					repository.String());
 			fStatusWindow->AddPackageInfo(PACKAGE_UPDATE,
 				package->Info().Name().String(),
-				upgradedPackageVersions.StringAt(position).String(),
+				it->second.String(),
 				package->Info().Version().ToString().String(),
 				package->Info().Summary().String(),
 				package->Repository()->Name().String(),
@@ -489,8 +494,10 @@ UpdateManager::_PrintResult(InstalledRepository& installationRepository,
 	BStringList uninstallList;
 	for (int32 i = 0; BSolverPackage* package = packagesToDeactivate.ItemAt(i);
 		i++) {
-		if (upgradedPackages.HasString(package->Info().Name()))
+		if (upgradedPackages.find(package->Info().Name())
+				!= upgradedPackages.end()) {
 			continue;
+		}
 		if (fVerbose)
 			printf("    uninstall package %s\n",
 				package->VersionedName().String());
