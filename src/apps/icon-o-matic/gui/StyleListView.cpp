@@ -560,6 +560,35 @@ StyleListView::RemoveItemList(BList& items)
 }
 
 
+void
+StyleListView::RemoveSelected()
+{
+	if (!fCommandStack || !fStyleContainer)
+		return;
+
+	int32 count = CountSelectedItems();
+	if (count == 0)
+		return;
+
+	int32* indices = new (nothrow) int32[count];
+	if (indices == NULL)
+		return;
+
+	for (int32 i = 0; i < count; i++)
+		indices[i] = CurrentSelection(i);
+
+	RemoveStylesCommand* command
+		= new (nothrow) RemoveStylesCommand(fStyleContainer, indices, count);
+
+	delete[] indices;
+
+	if (command == NULL)
+		return;
+
+	fCommandStack->Perform(command);
+}
+
+
 BListItem*
 StyleListView::CloneItem(int32 index) const
 {
