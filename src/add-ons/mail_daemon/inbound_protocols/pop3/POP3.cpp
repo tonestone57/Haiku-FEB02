@@ -176,9 +176,29 @@ POP3Protocol::SyncMessages()
 	SetTotalItemsSize(fTotalSize);
 
 	printf("POP3: Messages to download: %i\n", (int)toDownload.CountStrings());
+
+	std::map<BString, int32> uidToIndex;
+	bool useMap = toDownload.CountStrings() > 64;
+	if (useMap) {
+		for (int32 i = 0; i < fUniqueIDs.CountStrings(); i++) {
+			BString key = fUniqueIDs.StringAt(i);
+			if (uidToIndex.find(key) == uidToIndex.end())
+				uidToIndex[key] = i;
+		}
+	}
+
 	for (int32 i = 0; i < toDownload.CountStrings(); i++) {
-		const char* uid = toDownload.StringAt(i);
-		int32 toRetrieve = fUniqueIDs.IndexOf(uid);
+		BString uidStr = toDownload.StringAt(i);
+		const char* uid = uidStr.String();
+		int32 toRetrieve = -1;
+
+		if (useMap) {
+			std::map<BString, int32>::iterator indexIt
+				= uidToIndex.find(uidStr);
+			if (indexIt != uidToIndex.end())
+				toRetrieve = indexIt->second;
+		} else
+			toRetrieve = fUniqueIDs.IndexOf(uid);
 
 		if (toRetrieve < 0) {
 			// should not happen!
@@ -228,7 +248,6 @@ POP3Protocol::SyncMessages()
 		}
 		ReportProgress(1, 0);
 
-		const BString uidStr(uid);
 		if (file.WriteAttrString("MAIL:unique_id", &uidStr) < 0)
 			error = B_ERROR;
 
