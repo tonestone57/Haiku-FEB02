@@ -287,7 +287,8 @@ private:
 			bool				_RemoveHorizontalTab(Tab* tab);
 			bool				_RemoveVerticalTab(Tab* tab);
 
-			Tab*				_FindTab(const TabList& list, float position);
+			Tab*				_FindTab(const TabList& list, float position,
+									bool sorted);
 
 			void				_SplitGroupIfNecessary(
 									WindowArea* removedArea);
