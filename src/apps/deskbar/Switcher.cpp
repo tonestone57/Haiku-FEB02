@@ -220,6 +220,9 @@ private:
 
 			// Next animation trigger
 			int32			fNextCurrent;
+
+			void			_SetupAnimationRects(const BBitmap* start,
+								const BBitmap* end);
 };
 
 class TBox : public BBox {
@@ -1929,6 +1932,46 @@ TIconView::KeyDown(const char* /*bytes*/, int32 /*numBytes*/)
 
 
 void
+TIconView::_SetupAnimationRects(const BBitmap* start, const BBitmap* end)
+{
+	fAnimStartBitmap = start;
+	fAnimEndBitmap = end;
+
+	BRect centerRect(fManager->CenterRect());
+	BRect bounds = Bounds();
+	float off = 0;
+
+	BRect startRect = fAnimStartBitmap->Bounds();
+	BRect endRect = fAnimEndBitmap->Bounds();
+	BRect rect = startRect;
+	int32 small = fManager->SmallIconSize();
+	bool out = startRect.Width() <= small;
+	int32 insetValue = small / 8;
+	fAnimInset = out ? -insetValue : insetValue;
+
+	off = roundf((centerRect.Width() - rect.Width()) / 2);
+	startRect.OffsetTo(off, off);
+	rect.OffsetTo(off, off);
+
+	off = roundf((centerRect.Width() - endRect.Width()) / 2);
+	endRect.OffsetTo(off, off);
+
+	centerRect.OffsetBy(bounds.left, 0);
+
+	BRect destRect = fOffBitmap->Bounds();
+	destRect.OffsetTo(centerRect.left, 0);
+
+	off = roundf((centerRect.Width() - destRect.Width()) / 2);
+	destRect.OffsetBy(off, off);
+
+	fAnimStartRect = startRect;
+	fAnimEndRect = endRect;
+	fAnimCurrentRect = rect;
+	fAnimDestRect = destRect;
+}
+
+
+void
 TIconView::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
@@ -1984,7 +2027,8 @@ TIconView::MessageReceived(BMessage* message)
 						fAnimPhase = 1;
 						fAnimStep = 0;
 						fAutoScrolling = true;
-						fScrollRunner->SetInterval(2000);
+						if (fScrollRunner)
+							fScrollRunner->SetInterval(2000);
 					} else {
 						delete fScrollRunner;
 						fScrollRunner = NULL;
@@ -2007,40 +2051,8 @@ TIconView::MessageReceived(BMessage* message)
 					TTeamGroup* currentGroup = (TTeamGroup*)fManager->GroupList()
 						->ItemAt(fNextCurrent);
 					if (currentGroup) {
-						fAnimStartBitmap = currentGroup->SmallIcon();
-						fAnimEndBitmap = currentGroup->LargeIcon();
-
-						BRect centerRect(fManager->CenterRect());
-						BRect bounds = Bounds();
-						float off = 0;
-
-						BRect startRect = fAnimStartBitmap->Bounds();
-						BRect endRect = fAnimEndBitmap->Bounds();
-						BRect rect = startRect;
-						int32 small = fManager->SmallIconSize();
-						bool out = startRect.Width() <= small;
-						int32 insetValue = small / 8;
-						fAnimInset = out ? -insetValue : insetValue;
-
-						off = roundf((centerRect.Width() - rect.Width()) / 2);
-						startRect.OffsetTo(off, off);
-						rect.OffsetTo(off, off);
-
-						off = roundf((centerRect.Width() - endRect.Width()) / 2);
-						endRect.OffsetTo(off, off);
-
-						centerRect.OffsetBy(bounds.left, 0);
-
-						BRect destRect = fOffBitmap->Bounds();
-						destRect.OffsetTo(centerRect.left, 0);
-
-						off = roundf((centerRect.Width() - destRect.Width()) / 2);
-						destRect.OffsetBy(off, off);
-
-						fAnimStartRect = startRect;
-						fAnimEndRect = endRect;
-						fAnimCurrentRect = rect;
-						fAnimDestRect = destRect;
+						_SetupAnimationRects(currentGroup->SmallIcon(),
+							currentGroup->LargeIcon());
 
 						if (fScrollRunner)
 							fScrollRunner->SetInterval(20000);
@@ -2064,6 +2076,8 @@ void
 TIconView::Update(int32 previous, int32 current,
 	int32 previousSlot, int32 currentSlot, bool forward)
 {
+	ScrollTo(previousSlot * fManager->SlotSize(), 0);
+
 	delete fScrollRunner;
 	fScrollRunner = NULL;
 
@@ -2092,40 +2106,8 @@ TIconView::Update(int32 previous, int32 current,
 	TTeamGroup* previousGroup = (TTeamGroup*)groupList->ItemAt(previous);
 	ASSERT(previousGroup);
 
-	fAnimStartBitmap = previousGroup->LargeIcon();
-	fAnimEndBitmap = previousGroup->SmallIcon();
-
-	BRect centerRect(fManager->CenterRect());
-	BRect bounds = Bounds();
-	float off = 0;
-
-	BRect startRect = fAnimStartBitmap->Bounds();
-	BRect endRect = fAnimEndBitmap->Bounds();
-	BRect rect = startRect;
-	int32 small = fManager->SmallIconSize();
-	bool out = startRect.Width() <= small;
-	int32 insetValue = small / 8;
-	fAnimInset = out ? -insetValue : insetValue;
-
-	off = roundf((centerRect.Width() - rect.Width()) / 2);
-	startRect.OffsetTo(off, off);
-	rect.OffsetTo(off, off);
-
-	off = roundf((centerRect.Width() - endRect.Width()) / 2);
-	endRect.OffsetTo(off, off);
-
-	centerRect.OffsetBy(bounds.left, 0);
-
-	BRect destRect = fOffBitmap->Bounds();
-	destRect.OffsetTo(centerRect.left, 0);
-
-	off = roundf((centerRect.Width() - destRect.Width()) / 2);
-	destRect.OffsetBy(off, off);
-
-	fAnimStartRect = startRect;
-	fAnimEndRect = endRect;
-	fAnimCurrentRect = rect;
-	fAnimDestRect = destRect;
+	_SetupAnimationRects(previousGroup->LargeIcon(),
+		previousGroup->SmallIcon());
 
 	fAnimPhase = 0;
 	fAnimStep = 0;
