@@ -15,6 +15,7 @@
 #include <Debug.h>
 #include <InterfaceDefs.h>
 #include <Menu.h>
+#include <MessageRunner.h>
 #include <Point.h>
 #include <Screen.h>
 #include <Window.h>
@@ -22,6 +23,9 @@
 
 const int kDefaultScrollStep = 19;
 const int kScrollerDimension = 12;
+const uint32 kScrollRepeat = 'scre';
+const bigtime_t kInitialRepeatDelay = 300000;
+const bigtime_t kRepeatDelay = 20000;
 
 
 class ScrollArrow : public BView {
@@ -32,8 +36,17 @@ public:
 			bool			IsEnabled() const { return fEnabled; };
 			void			SetEnabled(bool enabled);
 
+	virtual void			MouseDown(BPoint where);
+	virtual void			MouseUp(BPoint where);
+	virtual void			MessageReceived(BMessage* message);
+
+protected:
+	virtual void			DoScroll() = 0;
+
 private:
 			bool			fEnabled;
+			BMessageRunner*	fRepeatRunner;
+			bool			fFirstRepeat;
 };
 
 
@@ -43,7 +56,9 @@ public:
 	virtual					~UpScrollArrow();
 
 	virtual	void			Draw(BRect updateRect);
-	virtual	void			MouseDown(BPoint where);
+
+protected:
+	virtual	void			DoScroll();
 };
 
 
@@ -53,7 +68,9 @@ public:
 	virtual					~DownScrollArrow();
 
 	virtual	void			Draw(BRect updateRect);
-	virtual	void			MouseDown(BPoint where);
+
+protected:
+	virtual	void			DoScroll();
 };
 
 
@@ -63,7 +80,9 @@ public:
 	virtual					~LeftScrollArrow();
 
 	virtual	void			Draw(BRect updateRect);
-	virtual	void			MouseDown(BPoint where);
+
+protected:
+	virtual	void			DoScroll();
 };
 
 
@@ -73,7 +92,9 @@ public:
 	virtual					~RightScrollArrow();
 
 	virtual	void			Draw(BRect updateRect);
-	virtual	void			MouseDown(BPoint where);
+
+protected:
+	virtual	void			DoScroll();
 };
 
 
@@ -83,7 +104,9 @@ public:
 ScrollArrow::ScrollArrow(BRect frame)
 	:
 	BView(frame, "menu scroll arrow", B_FOLLOW_NONE, B_WILL_DRAW),
-	fEnabled(false)
+	fEnabled(false),
+	fRepeatRunner(NULL),
+	fFirstRepeat(false)
 {
 	SetViewUIColor(B_MENU_BACKGROUND_COLOR);
 }
@@ -91,6 +114,7 @@ ScrollArrow::ScrollArrow(BRect frame)
 
 ScrollArrow::~ScrollArrow()
 {
+	delete fRepeatRunner;
 }
 
 
@@ -99,6 +123,70 @@ ScrollArrow::SetEnabled(bool enabled)
 {
 	fEnabled = enabled;
 	Invalidate();
+}
+
+
+void
+ScrollArrow::MouseDown(BPoint where)
+{
+	if (!IsEnabled())
+		return;
+
+	DoScroll();
+
+	delete fRepeatRunner;
+	BMessage message(kScrollRepeat);
+	fRepeatRunner = new BMessageRunner(BMessenger(this), &message,
+		kInitialRepeatDelay, 1);
+	fFirstRepeat = true;
+
+	SetMouseEventMask(B_POINTER_EVENTS, B_LOCK_WINDOW_FOCUS | B_NO_POINTER_HISTORY);
+}
+
+
+void
+ScrollArrow::MouseUp(BPoint where)
+{
+	delete fRepeatRunner;
+	fRepeatRunner = NULL;
+}
+
+
+void
+ScrollArrow::MessageReceived(BMessage* message)
+{
+	switch (message->what) {
+		case kScrollRepeat:
+		{
+			if (fRepeatRunner == NULL)
+				break;
+
+			BPoint where;
+			uint32 buttons;
+			GetMouse(&where, &buttons);
+
+			if (buttons == 0) {
+				delete fRepeatRunner;
+				fRepeatRunner = NULL;
+				break;
+			}
+
+			if (Bounds().Contains(where))
+				DoScroll();
+
+			if (fFirstRepeat) {
+				fFirstRepeat = false;
+				delete fRepeatRunner;
+				BMessage repeatMessage(kScrollRepeat);
+				fRepeatRunner = new BMessageRunner(BMessenger(this),
+					&repeatMessage, kRepeatDelay);
+			}
+			break;
+		}
+
+		default:
+			BView::MessageReceived(message);
+	}
 }
 
 
@@ -140,11 +228,8 @@ UpScrollArrow::Draw(BRect updateRect)
 
 
 void
-UpScrollArrow::MouseDown(BPoint where)
+UpScrollArrow::DoScroll()
 {
-	if (!IsEnabled())
-		return;
-
 	TInlineScrollView* parent = dynamic_cast<TInlineScrollView*>(Parent());
 	if (parent == NULL)
 		return;
@@ -153,16 +238,11 @@ UpScrollArrow::MouseDown(BPoint where)
 	float largeStep;
 	parent->GetSteps(&smallStep, &largeStep);
 
-	BMessage* message = Window()->CurrentMessage();
-	int32 modifiers = 0;
-	message->FindInt32("modifiers", &modifiers);
 	// pressing the shift key scrolls faster
-	if ((modifiers & B_SHIFT_KEY) != 0)
+	if ((modifiers() & B_SHIFT_KEY) != 0)
 		parent->ScrollBy(-largeStep);
 	else
 		parent->ScrollBy(-smallStep);
-
-	snooze(5000);
 }
 
 
@@ -205,11 +285,8 @@ DownScrollArrow::Draw(BRect updateRect)
 
 
 void
-DownScrollArrow::MouseDown(BPoint where)
+DownScrollArrow::DoScroll()
 {
-	if (!IsEnabled())
-		return;
-
 	TInlineScrollView* grandparent
 		= dynamic_cast<TInlineScrollView*>(Parent()->Parent());
 	if (grandparent == NULL)
@@ -219,16 +296,11 @@ DownScrollArrow::MouseDown(BPoint where)
 	float largeStep;
 	grandparent->GetSteps(&smallStep, &largeStep);
 
-	BMessage* message = Window()->CurrentMessage();
-	int32 modifiers = 0;
-	message->FindInt32("modifiers", &modifiers);
 	// pressing the shift key scrolls faster
-	if ((modifiers & B_SHIFT_KEY) != 0)
+	if ((modifiers() & B_SHIFT_KEY) != 0)
 		grandparent->ScrollBy(largeStep);
 	else
 		grandparent->ScrollBy(smallStep);
-
-	snooze(5000);
 }
 
 
@@ -269,11 +341,8 @@ LeftScrollArrow::Draw(BRect updateRect)
 
 
 void
-LeftScrollArrow::MouseDown(BPoint where)
+LeftScrollArrow::DoScroll()
 {
-	if (!IsEnabled())
-		return;
-
 	TInlineScrollView* parent = dynamic_cast<TInlineScrollView*>(Parent());
 	if (parent == NULL)
 		return;
@@ -282,16 +351,11 @@ LeftScrollArrow::MouseDown(BPoint where)
 	float largeStep;
 	parent->GetSteps(&smallStep, &largeStep);
 
-	BMessage* message = Window()->CurrentMessage();
-	int32 modifiers = 0;
-	message->FindInt32("modifiers", &modifiers);
 	// pressing the shift key scrolls faster
-	if ((modifiers & B_SHIFT_KEY) != 0)
+	if ((modifiers() & B_SHIFT_KEY) != 0)
 		parent->ScrollBy(-largeStep);
 	else
 		parent->ScrollBy(-smallStep);
-
-	snooze(5000);
 }
 
 
@@ -333,11 +397,8 @@ RightScrollArrow::Draw(BRect updateRect)
 
 
 void
-RightScrollArrow::MouseDown(BPoint where)
+RightScrollArrow::DoScroll()
 {
-	if (!IsEnabled())
-		return;
-
 	TInlineScrollView* grandparent
 		= dynamic_cast<TInlineScrollView*>(Parent()->Parent());
 	if (grandparent == NULL)
@@ -347,16 +408,11 @@ RightScrollArrow::MouseDown(BPoint where)
 	float largeStep;
 	grandparent->GetSteps(&smallStep, &largeStep);
 
-	BMessage* message = Window()->CurrentMessage();
-	int32 modifiers = 0;
-	message->FindInt32("modifiers", &modifiers);
 	// pressing the shift key scrolls faster
-	if ((modifiers & B_SHIFT_KEY) != 0)
+	if ((modifiers() & B_SHIFT_KEY) != 0)
 		grandparent->ScrollBy(largeStep);
 	else
 		grandparent->ScrollBy(smallStep);
-
-	snooze(5000);
 }
 
 
