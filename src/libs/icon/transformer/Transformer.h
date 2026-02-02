@@ -46,6 +46,7 @@ public:
 	virtual						~Transformer() {}
 
 	virtual	Transformer*		Clone() const = 0;
+	virtual	uint32				Type() const = 0;
 };
 
 

@@ -458,57 +458,76 @@ FlatIconExporter::_WritePaths(LittleEndianBuffer& buffer, const Container<Vector
 static bool
 _WriteTransformer(LittleEndianBuffer& buffer, Transformer* t)
 {
-	if (AffineTransformer* affine
-		= dynamic_cast<AffineTransformer*>(t)) {
-		// affine
-		if (!buffer.Write((uint8)TRANSFORMER_TYPE_AFFINE))
-			return false;
-		double matrix[6];
-		affine->store_to(matrix);
-		for (int32 i = 0; i < 6; i++) {
-			if (!write_float_24(buffer, (float)matrix[i]))
+	if (t == NULL)
+		return true;
+
+	switch (t->Type()) {
+		case AffineTransformer::archive_code:
+		{
+			AffineTransformer* affine = static_cast<AffineTransformer*>(t);
+			// affine
+			if (!buffer.Write((uint8)TRANSFORMER_TYPE_AFFINE))
 				return false;
+			double matrix[6];
+			affine->store_to(matrix);
+			for (int32 i = 0; i < 6; i++) {
+				if (!write_float_24(buffer, (float)matrix[i]))
+					return false;
+			}
+			break;
 		}
 
-	} else if (ContourTransformer* contour
-		= dynamic_cast<ContourTransformer*>(t)) {
-		// contour
-		if (!buffer.Write((uint8)TRANSFORMER_TYPE_CONTOUR))
-			return false;
-		uint8 width = (uint8)((int8)contour->width() + 128);
-		uint8 lineJoin = (uint8)contour->line_join();
-		uint8 miterLimit = (uint8)contour->miter_limit();
-		if (!buffer.Write(width)
-			|| !buffer.Write(lineJoin)
-			|| !buffer.Write(miterLimit))
-			return false;
-
-	} else if (PerspectiveTransformer* perspective
-		= dynamic_cast<PerspectiveTransformer*>(t)) {
-		// perspective
-		if (!buffer.Write((uint8)TRANSFORMER_TYPE_PERSPECTIVE))
-			return false;
-		double matrix[9];
-		perspective->store_to(matrix);
-		for (int32 i = 0; i < 9; i++) {
-			if (!write_float_24(buffer, (float)matrix[i]))
+		case ContourTransformer::archive_code:
+		{
+			ContourTransformer* contour = static_cast<ContourTransformer*>(t);
+			// contour
+			if (!buffer.Write((uint8)TRANSFORMER_TYPE_CONTOUR))
 				return false;
+			uint8 width = (uint8)((int8)contour->width() + 128);
+			uint8 lineJoin = (uint8)contour->line_join();
+			uint8 miterLimit = (uint8)contour->miter_limit();
+			if (!buffer.Write(width)
+				|| !buffer.Write(lineJoin)
+				|| !buffer.Write(miterLimit))
+				return false;
+			break;
 		}
 
-	} else if (StrokeTransformer* stroke
-		= dynamic_cast<StrokeTransformer*>(t)) {
-		// stroke
-		if (!buffer.Write((uint8)TRANSFORMER_TYPE_STROKE))
-			return false;
-		uint8 width = (uint8)((int8)stroke->width() + 128);
-		uint8 lineOptions = (uint8)stroke->line_join();
-		lineOptions |= ((uint8)stroke->line_cap()) << 4;
-		uint8 miterLimit = (uint8)stroke->miter_limit();
+		case PerspectiveTransformer::archive_code:
+		{
+			PerspectiveTransformer* perspective = static_cast<PerspectiveTransformer*>(t);
+			// perspective
+			if (!buffer.Write((uint8)TRANSFORMER_TYPE_PERSPECTIVE))
+				return false;
+			double matrix[9];
+			perspective->store_to(matrix);
+			for (int32 i = 0; i < 9; i++) {
+				if (!write_float_24(buffer, (float)matrix[i]))
+					return false;
+			}
+			break;
+		}
 
-		if (!buffer.Write(width)
-			|| !buffer.Write(lineOptions)
-			|| !buffer.Write(miterLimit))
-			return false;
+		case StrokeTransformer::archive_code:
+		{
+			StrokeTransformer* stroke = static_cast<StrokeTransformer*>(t);
+			// stroke
+			if (!buffer.Write((uint8)TRANSFORMER_TYPE_STROKE))
+				return false;
+			uint8 width = (uint8)((int8)stroke->width() + 128);
+			uint8 lineOptions = (uint8)stroke->line_join();
+			lineOptions |= ((uint8)stroke->line_cap()) << 4;
+			uint8 miterLimit = (uint8)stroke->miter_limit();
+
+			if (!buffer.Write(width)
+				|| !buffer.Write(lineOptions)
+				|| !buffer.Write(miterLimit))
+				return false;
+			break;
+		}
+
+		default:
+			break;
 	}
 
 	return true;
