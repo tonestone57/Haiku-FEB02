@@ -93,8 +93,10 @@ mbrValid(int handle)
 		uint8_t *entry = &mbrBytes[16 * i];
 		uint8_t status = entry[0];
 		uint32_t type = entry[4];
-		uint32_t start = entry[8] | (entry[9] << 8) | (entry[10] << 16) | (entry[11] << 24);
-		uint32_t size = entry[12] | (entry[13] << 8) | (entry[14] << 16) | (entry[15] << 24);
+		uint32_t start = (uint32_t)entry[8] | ((uint32_t)entry[9] << 8)
+			| ((uint32_t)entry[10] << 16) | ((uint32_t)entry[11] << 24);
+		uint32_t size = (uint32_t)entry[12] | ((uint32_t)entry[13] << 8)
+			| ((uint32_t)entry[14] << 16) | ((uint32_t)entry[15] << 24);
 
 		if (status != 0x00 && status != 0x80)
 			return false;
@@ -114,10 +116,14 @@ mbrValid(int handle)
 			for (int j = 0; j < i; j++) {
 				uint8_t *prevEntry = &mbrBytes[16 * j];
 				if (prevEntry[4] != 0) {
-					uint32_t prevStart = prevEntry[8] | (prevEntry[9] << 8)
-						| (prevEntry[10] << 16) | (prevEntry[11] << 24);
-					uint32_t prevSize = prevEntry[12] | (prevEntry[13] << 8)
-						| (prevEntry[14] << 16) | (prevEntry[15] << 24);
+					uint32_t prevStart = (uint32_t)prevEntry[8]
+						| ((uint32_t)prevEntry[9] << 8)
+						| ((uint32_t)prevEntry[10] << 16)
+						| ((uint32_t)prevEntry[11] << 24);
+					uint32_t prevSize = (uint32_t)prevEntry[12]
+						| ((uint32_t)prevEntry[13] << 8)
+						| ((uint32_t)prevEntry[14] << 16)
+						| ((uint32_t)prevEntry[15] << 24);
 
 					uint64_t end = (uint64_t)start + size;
 					uint64_t prevEnd = (uint64_t)prevStart + prevSize;
