@@ -1066,7 +1066,14 @@ TSwitchManager::WindowInfo(int32 groupIndex, int32 windowIndex)
 		return NULL;
 
 	int32 tokenCount;
-	int32* tokens = get_token_list(-1, &tokenCount);
+	int32* tokens;
+	if (teamGroup->TeamList()->CountItems() == 1) {
+		tokens = get_token_list((team_id)(addr_t)teamGroup->TeamList()->ItemAt(0),
+			&tokenCount);
+	} else {
+		tokens = get_token_list(-1, &tokenCount);
+	}
+
 	if (tokens == NULL)
 		return NULL;
 
@@ -1160,7 +1167,14 @@ TSwitchManager::SwitchWindow(team_id team, bool, bool activate)
 
 	// cycle through the windows in the active application
 	int32 count;
-	int32* tokens = get_token_list(-1, &count);
+	int32* tokens;
+	if (teamGroup->TeamList()->CountItems() == 1) {
+		tokens = get_token_list((team_id)(addr_t)teamGroup->TeamList()->ItemAt(0),
+			&count);
+	} else {
+		tokens = get_token_list(-1, &count);
+	}
+
 	if (tokens == NULL)
 		return;
 
