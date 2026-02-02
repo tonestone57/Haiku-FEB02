@@ -18,6 +18,7 @@
 #include <InterfaceDefs.h>
 
 #include <new>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -546,6 +547,23 @@ set_mouse_type(int32 type)
 	if (err != B_OK)
 		return err;
 	return _control_input_server_(&command, &reply);
+}
+
+
+const float kDoubleClickThreshold = 6.0f;
+
+
+bool
+is_double_click(const BPoint& lastClick, const BPoint& currentClick,
+	bigtime_t lastTime, bigtime_t currentTime)
+{
+	bigtime_t clickSpeed;
+	if (get_click_speed(&clickSpeed) != B_OK)
+		clickSpeed = 500000;
+
+	return currentTime - lastTime < clickSpeed
+		&& fabs(lastClick.x - currentClick.x) < kDoubleClickThreshold
+		&& fabs(lastClick.y - currentClick.y) < kDoubleClickThreshold;
 }
 
 
