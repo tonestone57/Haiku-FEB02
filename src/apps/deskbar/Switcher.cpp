@@ -37,6 +37,7 @@ All rights reserved.
 #include "Switcher.h"
 
 #include <float.h>
+#include <math.h>
 #include <stdlib.h>
 #include <strings.h>
 
