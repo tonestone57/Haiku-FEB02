@@ -209,6 +209,7 @@ static int on_text(const char bytes[], size_t len, void *user)
   int npoints = 0;
   size_t eaten = 0;
   int i = 0;
+  int pre_scrolled = 0;
 
   VTermEncodingInstance *encoding =
     state->gsingle_set     ? &state->encoding[state->gsingle_set] :
@@ -300,20 +301,52 @@ static int on_text(const char bytes[], size_t len, void *user)
       linefeed(state);
       state->pos.col = 0;
       state->at_phantom = 0;
+      pre_scrolled = 0;
     }
 
     if(state->mode.insert) {
-      /* TODO: This will be a little inefficient for large bodies of text, as
-       * it'll have to 'ICH' effectively before every glyph. We should scan
-       * ahead and ICH as many times as required
-       */
-      VTermRect rect = {
-        .start_row = state->pos.row,
-        .end_row   = state->pos.row + 1,
-        .start_col = state->pos.col,
-        .end_col   = THISROWWIDTH(state),
-      };
-      scroll(state, rect, 0, -1);
+      if(pre_scrolled < width) {
+        /* This will be a little inefficient for large bodies of text, as
+         * it'll have to 'ICH' effectively before every glyph. We should scan
+         * ahead and ICH as many times as required
+         */
+        int count = 0;
+        int lookahead_i = glyph_ends;
+        int available_width = THISROWWIDTH(state) - state->pos.col - width;
+
+        count += width;
+
+        while(lookahead_i < npoints && available_width > 0) {
+          int next_width = 0;
+          int next_ends;
+          int k;
+
+          for(next_ends = lookahead_i + 1; next_ends < npoints; next_ends++)
+            if(!vterm_unicode_is_combining(codepoints[next_ends]))
+              break;
+
+          for(k = lookahead_i; k < next_ends; k++)
+            next_width += vterm_unicode_width(codepoints[k]);
+
+          if(next_width > available_width)
+            break;
+
+          count += next_width;
+          available_width -= next_width;
+          lookahead_i = next_ends;
+        }
+
+        VTermRect rect = {
+          .start_row = state->pos.row,
+          .end_row   = state->pos.row + 1,
+          .start_col = state->pos.col,
+          .end_col   = THISROWWIDTH(state),
+        };
+        scroll(state, rect, 0, -count);
+        pre_scrolled += count;
+      }
+
+      pre_scrolled -= width;
     }
 
     putglyph(state, chars, width, state->pos);
