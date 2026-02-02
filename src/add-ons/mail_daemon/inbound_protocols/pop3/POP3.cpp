@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include <arpa/inet.h>
+#include <map>
 
 #include "md5.h"
 
