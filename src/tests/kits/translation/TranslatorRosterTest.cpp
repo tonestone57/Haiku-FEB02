@@ -505,7 +505,7 @@ TranslatorRosterTest::AddTranslatorsTest()
 	CPPUNIT_ASSERT(translators);
 	CPPUNIT_ASSERT(instcount > 0);
 
-	int32 file_count = 0;
+	int32 fileCount = 0;
 	std::string paths = translatorPaths;
 	size_t start = 0;
 	while (start < paths.length()) {
@@ -520,12 +520,12 @@ TranslatorRosterTest::AddTranslatorsTest()
 			BEntry entry;
 			while (dir.GetNextEntry(&entry, true) == B_OK) {
 				if (entry.IsFile())
-					file_count++;
+					fileCount++;
 			}
 		}
 		start = end + 1;
 	}
-	CPPUNIT_ASSERT(instcount == file_count);
+	CPPUNIT_ASSERT(instcount == fileCount);
 
 	delete[] translators;
 	translators = NULL;
