@@ -1618,13 +1618,18 @@ ShowImageWindow::_UpdateRatingMenu()
 	ssize_t size = sizeof(rating);
 	if (file.ReadAttr("Media:Rating", B_INT32_TYPE, 0, &rating, size) != size)
 		rating = 0;
-	// TODO: Finding the correct item could be more robust, like by looking
-	// at the message of each item.
-	for (int32 i = 1; i <= 10; i++) {
-		BMenuItem* item = fRatingMenu->ItemAt(i - 1);
+	int32 count = fRatingMenu->CountItems();
+	for (int32 i = 0; i < count; i++) {
+		BMenuItem* item = fRatingMenu->ItemAt(i);
 		if (item == NULL)
-			break;
-		item->SetMarked(i == rating);
+			continue;
+
+		BMessage* message = item->Message();
+		if (message != NULL && message->what == MSG_SET_RATING) {
+			int32 itemRating;
+			if (message->FindInt32("rating", &itemRating) == B_OK)
+				item->SetMarked(itemRating == rating);
+		}
 	}
 	fResetRatingItem->SetEnabled(rating > 0);
 }
