@@ -45,6 +45,7 @@ All rights reserved.
 #include <Debug.h>
 #include <Font.h>
 #include <LayoutUtils.h>
+#include <MessageRunner.h>
 #include <Mime.h>
 #include <Node.h>
 #include <NodeInfo.h>
@@ -174,6 +175,7 @@ public:
 	virtual void			Pulse();
 	virtual void			MouseDown(BPoint point);
 	virtual void			Draw(BRect updateRect);
+	virtual void			MessageReceived(BMessage* message);
 
 			void			ScrollTo(float x, float y)
 								{ ScrollTo(BPoint(x, y)); }
@@ -191,13 +193,33 @@ public:
 			void			CenterOn(int32 index);
 
 private:
-			void			AnimateIcon(const BBitmap* start, const BBitmap* end);
-
 			bool			fAutoScrolling;
 			TSwitcherWindow* fSwitcher;
 			TSwitchManager*	fManager;
 			BBitmap*		fOffBitmap;
 			BView*			fOffView;
+
+			BMessageRunner*	fScrollRunner;
+			int32			fAnimPhase;
+			int32			fAnimStep;
+
+			// Scroll state
+			int32			fScrollTotal;
+			int32			fScrollTarget;
+			int32			fScrollStep;
+			int32			fScrollValue;
+
+			// Icon animation state
+			const BBitmap*	fAnimStartBitmap;
+			const BBitmap*	fAnimEndBitmap;
+			BRect			fAnimStartRect;
+			BRect			fAnimEndRect;
+			BRect			fAnimDestRect;
+			BRect			fAnimCurrentRect;
+			int32			fAnimInset;
+
+			// Next animation trigger
+			int32			fNextCurrent;
 };
 
 class TBox : public BBox {
@@ -230,6 +252,7 @@ static const int32 kTeamIconSize = 48;
 
 static const int32 kWindowScrollSteps = 3;
 
+static const uint32 kMsgAnimate = 'anim';
 
 
 //	#pragma mark -
@@ -1882,7 +1905,8 @@ TIconView::TIconView(BRect frame, TSwitchManager* manager,
 	fSwitcher(switcherWindow),
 	fManager(manager),
 	fOffBitmap(NULL),
-	fOffView(NULL)
+	fOffView(NULL),
+	fScrollRunner(NULL)
 {
 	BRect slot(0, 0, fManager->SlotSize() - 1, fManager->SlotSize() - 1);
 
@@ -1894,6 +1918,7 @@ TIconView::TIconView(BRect frame, TSwitchManager* manager,
 
 TIconView::~TIconView()
 {
+	delete fScrollRunner;
 }
 
 
@@ -1904,86 +1929,134 @@ TIconView::KeyDown(const char* /*bytes*/, int32 /*numBytes*/)
 
 
 void
-TIconView::AnimateIcon(const BBitmap* start, const BBitmap* end)
+TIconView::MessageReceived(BMessage* message)
 {
-	BRect centerRect(fManager->CenterRect());
-	BRect bounds = Bounds();
-	float off = 0;
+	switch (message->what) {
+		case kMsgAnimate:
+		{
+			if (fAnimPhase == 0 || fAnimPhase == 2) {
+				fOffBitmap->Lock();
 
-	BRect startRect = start->Bounds();
-	BRect endRect = end->Bounds();
-	BRect rect = startRect;
-	int32 small = fManager->SmallIconSize();
-	bool out = startRect.Width() <= small;
-	int32 insetValue = small / 8;
-	int32 inset = out ? -insetValue : insetValue;
+				rgb_color bg = ui_color(B_PANEL_BACKGROUND_COLOR);
+				fOffView->SetHighColor(tint_color(bg, bg.IsLight()
+					? B_DARKEN_1_TINT : 0.85));
 
-	// center start rect in center rect
-	off = roundf((centerRect.Width() - rect.Width()) / 2);
-	startRect.OffsetTo(off, off);
-	rect.OffsetTo(off, off);
+				if (fAnimStep < 2) {
+					fAnimCurrentRect.InsetBy(fAnimInset, fAnimInset);
+					fOffView->SetDrawingMode(B_OP_COPY);
+					fOffView->FillRect(fOffView->Bounds());
+					fOffView->SetDrawingMode(B_OP_ALPHA);
+					fOffView->DrawBitmap(fAnimPhase == 0 ? fAnimStartBitmap
+						: fAnimEndBitmap, fAnimCurrentRect);
+					fOffView->Sync();
+					DrawBitmap(fOffBitmap, fAnimDestRect);
+				} else if (fAnimStep == 2) {
+					fOffView->SetDrawingMode(B_OP_COPY);
+					fOffView->FillRect(fOffView->Bounds());
+					fOffView->SetDrawingMode(B_OP_ALPHA);
+					fOffView->DrawBitmap(fAnimPhase == 0 ? fAnimStartBitmap
+						: fAnimEndBitmap, fAnimPhase == 0 ? fAnimStartRect
+						: fAnimEndRect);
+					fOffView->Sync();
+					DrawBitmap(fOffBitmap, fAnimDestRect);
+				} else if (fAnimStep < 5) {
+					fAnimCurrentRect.InsetBy(fAnimInset, fAnimInset);
+					fOffView->SetDrawingMode(B_OP_COPY);
+					fOffView->FillRect(fOffView->Bounds());
+					fOffView->SetDrawingMode(B_OP_ALPHA);
+					fOffView->DrawBitmap(fAnimEndBitmap, fAnimCurrentRect);
+					fOffView->Sync();
+					DrawBitmap(fOffBitmap, fAnimDestRect);
+				} else {
+					fOffView->SetDrawingMode(B_OP_COPY);
+					fOffView->FillRect(fOffView->Bounds());
+					fOffView->SetDrawingMode(B_OP_ALPHA);
+					fOffView->DrawBitmap(fAnimEndBitmap, fAnimEndRect);
+					fOffView->Sync();
+					DrawBitmap(fOffBitmap, fAnimDestRect);
+				}
 
-	// center end rect in center rect
-	off = roundf((centerRect.Width() - endRect.Width()) / 2);
-	endRect.OffsetTo(off, off);
+				fOffBitmap->Unlock();
 
-	// scroll center rect to the draw slot
-	centerRect.OffsetBy(bounds.left, 0);
+				fAnimStep++;
+				if (fAnimStep > 5) {
+					if (fAnimPhase == 0) {
+						fAnimPhase = 1;
+						fAnimStep = 0;
+						fAutoScrolling = true;
+						fScrollRunner->SetInterval(2000);
+					} else {
+						delete fScrollRunner;
+						fScrollRunner = NULL;
+						fAutoScrolling = false;
+						Invalidate();
+					}
+				}
+			} else if (fAnimPhase == 1) {
+				if (fScrollTotal < fScrollTarget) {
+					ScrollBy(fScrollValue, 0);
+					fScrollTotal += fScrollStep;
+					Window()->UpdateIfNeeded();
+				}
 
-	// scroll dest rect to draw slow
-	BRect destRect = fOffBitmap->Bounds();
-	destRect.OffsetTo(centerRect.left, 0);
+				if (fScrollTotal >= fScrollTarget) {
+					fAnimPhase = 2;
+					fAnimStep = 0;
+					fAutoScrolling = false;
 
-	// center dest rect in center rect
-	off = roundf((centerRect.Width() - destRect.Width()) / 2);
-	destRect.OffsetBy(off, off);
+					TTeamGroup* currentGroup = (TTeamGroup*)fManager->GroupList()
+						->ItemAt(fNextCurrent);
+					if (currentGroup) {
+						fAnimStartBitmap = currentGroup->SmallIcon();
+						fAnimEndBitmap = currentGroup->LargeIcon();
 
-	fOffBitmap->Lock();
+						BRect centerRect(fManager->CenterRect());
+						BRect bounds = Bounds();
+						float off = 0;
 
-	rgb_color bg = ui_color(B_PANEL_BACKGROUND_COLOR);
-	fOffView->SetHighColor(tint_color(bg, bg.IsLight() ? B_DARKEN_1_TINT : 0.85));
+						BRect startRect = fAnimStartBitmap->Bounds();
+						BRect endRect = fAnimEndBitmap->Bounds();
+						BRect rect = startRect;
+						int32 small = fManager->SmallIconSize();
+						bool out = startRect.Width() <= small;
+						int32 insetValue = small / 8;
+						fAnimInset = out ? -insetValue : insetValue;
 
-	// animate start icon
-	for (int i = 0; i < 2; i++) {
-		rect.InsetBy(inset, inset);
-		snooze(20000);
-		fOffView->SetDrawingMode(B_OP_COPY);
-		fOffView->FillRect(fOffView->Bounds());
-		fOffView->SetDrawingMode(B_OP_ALPHA);
-		fOffView->DrawBitmap(start, rect);
-		fOffView->Sync();
-		DrawBitmap(fOffBitmap, destRect);
+						off = roundf((centerRect.Width() - rect.Width()) / 2);
+						startRect.OffsetTo(off, off);
+						rect.OffsetTo(off, off);
+
+						off = roundf((centerRect.Width() - endRect.Width()) / 2);
+						endRect.OffsetTo(off, off);
+
+						centerRect.OffsetBy(bounds.left, 0);
+
+						BRect destRect = fOffBitmap->Bounds();
+						destRect.OffsetTo(centerRect.left, 0);
+
+						off = roundf((centerRect.Width() - destRect.Width()) / 2);
+						destRect.OffsetBy(off, off);
+
+						fAnimStartRect = startRect;
+						fAnimEndRect = endRect;
+						fAnimCurrentRect = rect;
+						fAnimDestRect = destRect;
+
+						if (fScrollRunner)
+							fScrollRunner->SetInterval(20000);
+					} else {
+						delete fScrollRunner;
+						fScrollRunner = NULL;
+						fAutoScrolling = false;
+						Invalidate();
+					}
+				}
+			}
+			break;
+		}
+		default:
+			BView::MessageReceived(message);
 	}
-
-	// draw cached start icon again to clear composed icon rounding errors
-	fOffView->SetDrawingMode(B_OP_COPY);
-	fOffView->FillRect(fOffView->Bounds());
-	fOffView->SetDrawingMode(B_OP_ALPHA);
-	fOffView->DrawBitmap(start, startRect);
-	fOffView->Sync();
-	DrawBitmap(fOffBitmap, destRect);
-
-	// animate end icon
-	for (int i = 0; i < 2; i++) {
-		rect.InsetBy(inset, inset);
-		snooze(20000);
-		fOffView->SetDrawingMode(B_OP_COPY);
-		fOffView->FillRect(fOffView->Bounds());
-		fOffView->SetDrawingMode(B_OP_ALPHA);
-		fOffView->DrawBitmap(end, rect);
-		fOffView->Sync();
-		DrawBitmap(fOffBitmap, destRect);
-	}
-
-	// draw cached end icon again
-	fOffView->SetDrawingMode(B_OP_COPY);
-	fOffView->FillRect(fOffView->Bounds());
-	fOffView->SetDrawingMode(B_OP_ALPHA);
-	fOffView->DrawBitmap(end, endRect);
-	fOffView->Sync();
-	DrawBitmap(fOffBitmap, destRect);
-
-	fOffBitmap->Unlock();
 }
 
 
@@ -1991,46 +2064,75 @@ void
 TIconView::Update(int32 previous, int32 current,
 	int32 previousSlot, int32 currentSlot, bool forward)
 {
+	delete fScrollRunner;
+	fScrollRunner = NULL;
+
 	BList* groupList = fManager->GroupList();
 	ASSERT(groupList);
-
-	// animate shrinking previously centered icon
-	TTeamGroup* previousGroup = (TTeamGroup*)groupList->ItemAt(previous);
-	ASSERT(previousGroup);
-	AnimateIcon(previousGroup->LargeIcon(), previousGroup->SmallIcon());
 
 	int32 nslots = abs(previousSlot - currentSlot);
 	int32 stepSize = fManager->ScrollStep();
 
 	if (forward && (currentSlot < previousSlot)) {
-		// we were at the end of the list and we just moved to the start
 		forward = false;
 		if (previousSlot - currentSlot > 4)
 			stepSize *= 2;
 	} else if (!forward && (currentSlot > previousSlot)) {
-		// we're are moving backwards and we just hit start of list and
-		// we wrapped to the end.
 		forward = true;
 		if (currentSlot - previousSlot > 4)
 			stepSize *= 2;
 	}
 
-	int32 scrollValue = forward ? stepSize : -stepSize;
-	int32 total = 0;
+	fScrollValue = forward ? stepSize : -stepSize;
+	fScrollStep = stepSize;
+	fScrollTarget = nslots * fManager->SlotSize();
+	fScrollTotal = 0;
+	fNextCurrent = current;
 
-	fAutoScrolling = true;
-	while (total < (nslots * fManager->SlotSize())) {
-		ScrollBy(scrollValue, 0);
-		snooze(1000);
-		total += stepSize;
-		Window()->UpdateIfNeeded();
-	}
+	TTeamGroup* previousGroup = (TTeamGroup*)groupList->ItemAt(previous);
+	ASSERT(previousGroup);
+
+	fAnimStartBitmap = previousGroup->LargeIcon();
+	fAnimEndBitmap = previousGroup->SmallIcon();
+
+	BRect centerRect(fManager->CenterRect());
+	BRect bounds = Bounds();
+	float off = 0;
+
+	BRect startRect = fAnimStartBitmap->Bounds();
+	BRect endRect = fAnimEndBitmap->Bounds();
+	BRect rect = startRect;
+	int32 small = fManager->SmallIconSize();
+	bool out = startRect.Width() <= small;
+	int32 insetValue = small / 8;
+	fAnimInset = out ? -insetValue : insetValue;
+
+	off = roundf((centerRect.Width() - rect.Width()) / 2);
+	startRect.OffsetTo(off, off);
+	rect.OffsetTo(off, off);
+
+	off = roundf((centerRect.Width() - endRect.Width()) / 2);
+	endRect.OffsetTo(off, off);
+
+	centerRect.OffsetBy(bounds.left, 0);
+
+	BRect destRect = fOffBitmap->Bounds();
+	destRect.OffsetTo(centerRect.left, 0);
+
+	off = roundf((centerRect.Width() - destRect.Width()) / 2);
+	destRect.OffsetBy(off, off);
+
+	fAnimStartRect = startRect;
+	fAnimEndRect = endRect;
+	fAnimCurrentRect = rect;
+	fAnimDestRect = destRect;
+
+	fAnimPhase = 0;
+	fAnimStep = 0;
 	fAutoScrolling = false;
 
-	// animate expanding currently centered icon
-	TTeamGroup* currentGroup = (TTeamGroup*)groupList->ItemAt(current);
-	ASSERT(currentGroup != NULL);
-	AnimateIcon(currentGroup->SmallIcon(), currentGroup->LargeIcon());
+	BMessage msg(kMsgAnimate);
+	fScrollRunner = new BMessageRunner(BMessenger(this), &msg, 20000);
 }
 
 
