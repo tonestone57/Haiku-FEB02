@@ -258,24 +258,17 @@ total_address_ranges_size(addr_range* ranges, uint32 numRanges)
 }
 
 
+static bool
+compare_address_ranges(const addr_range& a, const addr_range& b)
+{
+	return a.start < b.start;
+}
+
+
 void
 sort_address_ranges(addr_range* ranges, uint32 numRanges)
 {
-	// TODO: This is a pretty sucky bubble sort implementation!
-	bool done;
-
-	do {
-		done = true;
-		for (uint32 i = 1; i < numRanges; i++) {
-			if (ranges[i].start < ranges[i - 1].start) {
-				done = false;
-				addr_range tempRange;
-				memcpy(&tempRange, &ranges[i], sizeof(addr_range));
-				memcpy(&ranges[i], &ranges[i - 1], sizeof(addr_range));
-				memcpy(&ranges[i - 1], &tempRange, sizeof(addr_range));
-			}
-		}
-	} while (!done);
+	std::sort(ranges, ranges + numRanges, compare_address_ranges);
 }
 
 
