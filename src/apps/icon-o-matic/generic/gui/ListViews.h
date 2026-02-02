@@ -90,7 +90,7 @@ class DragSortableListView : public BListView,
 	virtual	void			MoveItems(BList& items, int32 toIndex);
 	virtual	void			CopyItems(BList& items, int32 toIndex);
 	virtual	void			RemoveItemList(BList& indices);
-			void			RemoveSelected(); // uses RemoveItemList()
+	virtual	void			RemoveSelected(); // uses RemoveItemList()
 	virtual	bool			DeleteItem(int32 index);
 
 							// selection
