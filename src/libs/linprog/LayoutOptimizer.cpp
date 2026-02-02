@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <new>
+#include <set>
 #include <stdio.h>
 #include <string.h>
 
@@ -680,6 +681,7 @@ TRACE_ONLY(
 
 	// init active set
 	ConstraintList activeConstraints(constraintCount);
+	std::set<Constraint*> activeConstraintsSet;
 
 	for (int32 i = 0; i < constraintCount; i++) {
 		Constraint* constraint = fConstraints->ItemAt(i);
@@ -688,8 +690,10 @@ TRACE_ONLY(
 		double actualValue = _ActualValue(constraint, x);
 		TRACE("constraint %ld: actual: %f  constraint: %f\n", i, actualValue,
 			_RightSide(constraint));
-		if (fuzzy_equals(actualValue, _RightSide(constraint)))
+		if (fuzzy_equals(actualValue, _RightSide(constraint))) {
 			activeConstraints.AddItem(constraint);
+			activeConstraintsSet.insert(constraint);
+		}
 	}
 
 	// The main loop: Each iteration we try to get closer to the optimum
@@ -821,7 +825,9 @@ TRACE_ONLY(
 			}
 
 			// remove i from the active set
+			Constraint* constraint = activeConstraints.ItemAt(minIndex);
 			activeConstraints.RemoveItemAt(minIndex);
+			activeConstraintsSet.erase(constraint);
 		} else {
 			// compute alpha_k
 			double alpha = 1;
@@ -829,8 +835,10 @@ TRACE_ONLY(
 			// if alpha_k < 1, add a barrier constraint to W^k
 			for (int32 i = 0; i < constraintCount; i++) {
 				Constraint* constraint = fConstraints->ItemAt(i);
-				if (activeConstraints.HasItem(constraint))
+				if (activeConstraintsSet.find(constraint)
+						!= activeConstraintsSet.end()) {
 					continue;
+				}
 
 				double divider = _ActualValue(constraint, p);
 				if (divider > 0 || fuzzy_equals(divider, 0))
@@ -847,8 +855,11 @@ TRACE_ONLY(
 			}
 			TRACE("alpha: %f, barrier: %d\n", alpha, barrier);
 
-			if (alpha < 1)
-				activeConstraints.AddItem(fConstraints->ItemAt(barrier));
+			if (alpha < 1) {
+				Constraint* constraint = fConstraints->ItemAt(barrier);
+				activeConstraints.AddItem(constraint);
+				activeConstraintsSet.insert(constraint);
+			}
 
 			// x += p * alpha;
 			add_vectors_scaled(x, p, alpha, fVariableCount);
