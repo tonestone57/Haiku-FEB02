@@ -252,15 +252,19 @@ StyleTransformer*
 IconRenderer::StyleHandler::_MergeTransformers(const Transformable* styleTransformation,
 	const Container<Transformer>* transformers, const Transformable* shapeTransformation)
 {
+	BList validTransformers(transformers->CountItems());
+	for (int32 i = 0; i < transformers->CountItems(); i++) {
+		Transformer* transformer = transformers->ItemAtFast(i);
+		if (dynamic_cast<StyleTransformer*>(transformer)) {
+			if (!validTransformers.AddItem(transformer))
+				return NULL;
+		}
+	}
+
 	// Figure out how large to make the array
-	int32 count = 0;
+	int32 count = validTransformers.CountItems() + 1;
 	if (styleTransformation != NULL)
 		count++;
-	for (int i = 0; i < transformers->CountItems(); i++) {
-		if (dynamic_cast<StyleTransformer*>(transformers->ItemAtFast(i)))
-			count++;
-	}
-	count++;
 
 	// Populate the array
 	StyleTransformer** styleTransformers = new (nothrow) StyleTransformer*[count];
@@ -270,18 +274,20 @@ IconRenderer::StyleHandler::_MergeTransformers(const Transformable* styleTransfo
 	int i = 0;
 	if (styleTransformation != NULL)
 		styleTransformers[i++] = new (nothrow) Transformable(*styleTransformation);
-	for (int j = 0; j < transformers->CountItems(); j++) {
-		Transformer* transformer = transformers->ItemAtFast(j);
-		if (dynamic_cast<StyleTransformer*>(transformer) != NULL) {
-			styleTransformers[i++]
-				= dynamic_cast<StyleTransformer*>(transformer->Clone());
-		}
+
+	for (int j = 0; j < validTransformers.CountItems(); j++) {
+		Transformer* transformer = static_cast<Transformer*>(
+			validTransformers.ItemAtFast(j));
+		styleTransformers[i++]
+			= dynamic_cast<StyleTransformer*>(transformer->Clone());
 	}
 	styleTransformers[i++] = new (nothrow) Transformable(*shapeTransformation);
 
 	CompoundStyleTransformer* styleTransformer
 		= new (nothrow) CompoundStyleTransformer(styleTransformers, count);
 	if (styleTransformer == NULL) {
+		for (int j = 0; j < count; j++)
+			delete styleTransformers[j];
 		delete[] styleTransformers;
 		return NULL;
 	}
