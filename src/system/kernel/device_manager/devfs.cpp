@@ -1555,15 +1555,20 @@ devfs_ioctl(fs_volume* _volume, fs_vnode* _vnode, void* _cookie, uint32 op,
 
 			case B_GET_PATH_FOR_DEVICE:
 			{
-				char path[256];
+				KPath pathBuffer;
+				if (pathBuffer.InitCheck() != B_OK)
+					return B_NO_MEMORY;
+
+				char* path = pathBuffer.LockBuffer();
+
 				// TODO: we might want to actually find the mountpoint
 				// of that instance of devfs...
 				// but for now we assume it's mounted on /dev
-				strcpy(path, "/dev/");
-				get_device_name(vnode, path + 5, sizeof(path) - 5);
+				strlcpy(path, "/dev/", pathBuffer.BufferSize());
+				get_device_name(vnode, path + 5, pathBuffer.BufferSize() - 5);
 				if (length && (length <= strlen(path)))
 					return ERANGE;
-				return user_strlcpy((char*)buffer, path, sizeof(path));
+				return user_strlcpy((char*)buffer, path, pathBuffer.BufferSize());
 			}
 
 			// old unsupported R5 private stuff
