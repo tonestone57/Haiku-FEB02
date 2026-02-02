@@ -132,6 +132,60 @@ TransformerListView::~TransformerListView()
 }
 
 
+bool
+TransformerListView::AddItem(BListItem* item)
+{
+	if (SimpleListView::AddItem(item)) {
+		if (TransformerItem* transformerItem = dynamic_cast<TransformerItem*>(item))
+			fItemMap.insert(std::make_pair(transformerItem->transformer, transformerItem));
+		return true;
+	}
+	return false;
+}
+
+
+bool
+TransformerListView::AddItem(BListItem* item, int32 atIndex)
+{
+	if (SimpleListView::AddItem(item, atIndex)) {
+		if (TransformerItem* transformerItem = dynamic_cast<TransformerItem*>(item))
+			fItemMap.insert(std::make_pair(transformerItem->transformer, transformerItem));
+		return true;
+	}
+	return false;
+}
+
+
+bool
+TransformerListView::RemoveItem(BListItem* item)
+{
+	if (SimpleListView::RemoveItem(item)) {
+		if (TransformerItem* transformerItem = dynamic_cast<TransformerItem*>(item))
+			fItemMap.erase(transformerItem->transformer);
+		return true;
+	}
+	return false;
+}
+
+
+BListItem*
+TransformerListView::RemoveItem(int32 index)
+{
+	BListItem* item = SimpleListView::RemoveItem(index);
+	if (TransformerItem* transformerItem = dynamic_cast<TransformerItem*>(item))
+		fItemMap.erase(transformerItem->transformer);
+	return item;
+}
+
+
+void
+TransformerListView::MakeEmpty()
+{
+	fItemMap.clear();
+	SimpleListView::MakeEmpty();
+}
+
+
 void
 TransformerListView::Draw(BRect updateRect)
 {
@@ -568,12 +622,10 @@ TransformerListView::_RemoveTransformer(Transformer* transformer)
 TransformerItem*
 TransformerListView::_ItemForTransformer(Transformer* transformer) const
 {
-	for (int32 i = 0;
-		 TransformerItem* item = dynamic_cast<TransformerItem*>(ItemAt(i));
-		 i++) {
-		if (item->transformer == transformer)
-			return item;
-	}
+	std::map<Transformer*, TransformerItem*>::const_iterator it
+		= fItemMap.find(transformer);
+	if (it != fItemMap.end())
+		return it->second;
 	return NULL;
 }
 
