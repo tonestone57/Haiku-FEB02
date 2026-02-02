@@ -10,6 +10,7 @@
 #include "TransformerListView.h"
 
 #include <new>
+#include <set>
 #include <stdio.h>
 
 #include <Application.h>
@@ -347,13 +348,34 @@ TransformerListView::RemoveItemList(BList& items)
 		return;
 
 	int32 count = items.CountItems();
-	int32 indices[count];
+	if (count == 0)
+		return;
+
+	std::set<BListItem*> itemsToRemove;
 	for (int32 i = 0; i < count; i++)
-		indices[i] = IndexOf((BListItem*)items.ItemAtFast(i));
+		itemsToRemove.insert((BListItem*)items.ItemAtFast(i));
+
+	int32* indices = new (nothrow) int32[count];
+	if (indices == NULL)
+		return;
+
+	int32 indexCount = 0;
+
+	for (int32 i = 0; i < CountItems(); i++) {
+		if (itemsToRemove.find(ItemAt(i)) != itemsToRemove.end()) {
+			indices[indexCount++] = i;
+			if (indexCount == count)
+				break;
+		}
+	}
 
 	RemoveTransformersCommand* command
-		= new (nothrow) RemoveTransformersCommand(fShape->Transformers(), indices, count);
-	fCommandStack->Perform(command);
+		= new (nothrow) RemoveTransformersCommand(fShape->Transformers(), indices, indexCount);
+
+	delete[] indices;
+
+	if (command != NULL)
+		fCommandStack->Perform(command);
 }
 
 
