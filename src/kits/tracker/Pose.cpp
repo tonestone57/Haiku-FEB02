@@ -385,6 +385,20 @@ BPose::UpdateWasBrokenSymlink(BPoint poseLoc, BPoseView* poseView)
 
 
 void
+BPose::_StartWidgetEdit(BTextWidget* widget, BColumn* column, BPoseView* poseView,
+	BPoint poseLoc)
+{
+	BRect bounds;
+	if (poseView->ViewMode() == kListMode)
+		bounds = widget->CalcRect(poseLoc, column, poseView);
+	else
+		bounds = widget->CalcRect(poseLoc, NULL, poseView);
+
+	widget->StartEdit(bounds, poseView, this);
+}
+
+
+void
 BPose::EditFirstWidget(BPoint poseLoc, BPoseView* poseView)
 {
 	// find first editable widget
@@ -393,15 +407,7 @@ BPose::EditFirstWidget(BPoint poseLoc, BPoseView* poseView)
 		BTextWidget* widget = WidgetFor(column->AttrHash());
 
 		if (widget != NULL && widget->IsEditable()) {
-			BRect bounds;
-			// ToDo:
-			// fold the three StartEdit code sequences into a cover call
-			if (poseView->ViewMode() == kListMode)
-				bounds = widget->CalcRect(poseLoc, column, poseView);
-			else
-				bounds = widget->CalcRect(Location(poseView), NULL, poseView);
-
-			widget->StartEdit(bounds, poseView, this);
+			_StartWidgetEdit(widget, column, poseView, poseLoc);
 			break;
 		}
 	}
@@ -434,15 +440,14 @@ BPose::EditPreviousNextWidgetCommon(BPoseView* poseView, bool next)
 		}
 
 		if (found && column->Editable()) {
-			BRect bounds;
+			BPoint poseLoc;
 			if (poseView->ViewMode() == kListMode) {
 				int32 poseIndex = poseView->IndexOfPose(this);
-				BPoint poseLoc(0, poseIndex* poseView->ListElemHeight());
-				bounds = widget->CalcRect(poseLoc, column, poseView);
+				poseLoc = BPoint(0, poseIndex * poseView->ListElemHeight());
 			} else
-				bounds = widget->CalcRect(Location(poseView), NULL, poseView);
+				poseLoc = Location(poseView);
 
-			widget->StartEdit(bounds, poseView, this);
+			_StartWidgetEdit(widget, column, poseView, poseLoc);
 			break;
 		}
 	}

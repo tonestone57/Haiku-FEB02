@@ -130,6 +130,8 @@ private:
 		BView* drawView, bool selected, uint32 clipboardMode, BPoint offset);
 	static bool _PeriodicUpdateCallback(BPose* pose, void* cookie);
 	void EditPreviousNextWidgetCommon(BPoseView* poseView, bool next);
+	void _StartWidgetEdit(BTextWidget* widget, BColumn* column,
+		BPoseView* poseView, BPoint poseLoc);
 	void CreateWidgets(BPoseView*);
 
 	BRect _ListIconRect(const BPoseView* poseView, BPoint location) const;
