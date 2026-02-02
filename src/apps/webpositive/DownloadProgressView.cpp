@@ -7,6 +7,7 @@
 #include "DownloadProgressView.h"
 
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include <Alert.h>
 #include <Application.h>
@@ -409,12 +410,31 @@ DownloadProgressView::MessageReceived(BMessage* message)
 			break;
 		case OPEN_DOWNLOAD:
 		{
-			// TODO: In case of executable files, ask the user first!
 			entry_ref ref;
 			status_t status = get_ref_for_path(fPath.Path(), &ref);
-			if (status == B_OK)
-				status = be_roster->Launch(&ref);
-			if (status != B_OK && status != B_ALREADY_RUNNING) {
+			if (status == B_OK) {
+				BNode node(&ref);
+				struct stat st;
+				if (node.InitCheck() == B_OK && node.GetStat(&st) == B_OK
+					&& S_ISREG(st.st_mode)
+					&& (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0) {
+					BAlert* alert = new BAlert(B_TRANSLATE("Open executable"),
+						B_TRANSLATE("The file is an executable. "
+							"Are you sure you want to open it?"),
+						B_TRANSLATE("Cancel"), B_TRANSLATE("Open"), NULL,
+						B_WIDTH_AS_USUAL, B_WARNING_ALERT);
+					alert->SetShortcut(0, B_ESCAPE);
+
+					if (alert->Go() == 0)
+						status = B_CANCELED;
+				}
+
+				if (status == B_OK)
+					status = be_roster->Launch(&ref);
+			}
+
+			if (status != B_OK && status != B_ALREADY_RUNNING
+				&& status != B_CANCELED) {
 				BAlert* alert = new BAlert(B_TRANSLATE("Open download error"),
 					B_TRANSLATE("The download could not be opened."),
 					B_TRANSLATE("OK"));
