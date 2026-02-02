@@ -2541,8 +2541,10 @@ Inode::TransactionDone(bool success)
 {
 	if (!success) {
 		// Revert any changes made to the cached bfs_inode
-		// TODO: return code gets eaten
-		UpdateNodeFromDisk();
+		if (UpdateNodeFromDisk() != B_OK) {
+			FATAL(("Could not revert inode %" B_PRIdINO " from disk!\n", ID()));
+			Node().flags &= ~HOST_ENDIAN_TO_BFS_INT32(INODE_IN_USE);
+		}
 	}
 }
 
