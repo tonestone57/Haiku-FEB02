@@ -7,6 +7,7 @@
 
 #include <OS.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 #include <algorithm>
@@ -258,24 +259,25 @@ total_address_ranges_size(addr_range* ranges, uint32 numRanges)
 }
 
 
-void
+static int
+compare_address_ranges(const void* _a, const void* _b)
+{
+	const addr_range* a = (const addr_range*)_a;
+	const addr_range* b = (const addr_range*)_b;
+
+	if (a->start < b->start)
+		return -1;
+	else if (a->start > b->start)
+		return 1;
+
+	return 0;
+}
+
+
+extern "C" void
 sort_address_ranges(addr_range* ranges, uint32 numRanges)
 {
-	// TODO: This is a pretty sucky bubble sort implementation!
-	bool done;
-
-	do {
-		done = true;
-		for (uint32 i = 1; i < numRanges; i++) {
-			if (ranges[i].start < ranges[i - 1].start) {
-				done = false;
-				addr_range tempRange;
-				memcpy(&tempRange, &ranges[i], sizeof(addr_range));
-				memcpy(&ranges[i], &ranges[i - 1], sizeof(addr_range));
-				memcpy(&ranges[i - 1], &tempRange, sizeof(addr_range));
-			}
-		}
-	} while (!done);
+	qsort(ranges, numRanges, sizeof(addr_range), compare_address_ranges);
 }
 
 
