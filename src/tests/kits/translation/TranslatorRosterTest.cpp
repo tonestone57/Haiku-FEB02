@@ -341,7 +341,54 @@ TranslatorRosterTest::InstantiateTest()
 	delete proster;
 	proster = NULL;	
 			
-	// TODO: add a case with a BMessage containing multiple Translators to load
+	// BMessage containing multiple Translators to load
+	NextSubTest();
+	result = bmsg.MakeEmpty();
+	CPPUNIT_ASSERT(result == B_OK);
+	result = bmsg.AddString("class", "BTranslatorRoster");
+	CPPUNIT_ASSERT(result == B_OK);
+	result = bmsg.AddString("be:translator_path",
+		"/boot/home/config/add-ons/Translators/BMPTranslator");
+	CPPUNIT_ASSERT(result == B_OK);
+	result = bmsg.AddString("be:translator_path",
+		"/boot/home/config/add-ons/Translators/TGATranslator");
+	CPPUNIT_ASSERT(result == B_OK);
+
+	proster = dynamic_cast<BTranslatorRoster *>
+		(BTranslatorRoster::Instantiate(&bmsg));
+	CPPUNIT_ASSERT(proster);
+
+	pids = NULL;
+	ncount = -1;
+	result = proster->GetAllTranslators(&pids, &ncount);
+	CPPUNIT_ASSERT(result == B_OK);
+	CPPUNIT_ASSERT(pids);
+	CPPUNIT_ASSERT(ncount == 2);
+
+	int32 matches = 0;
+	for (int32 i = 0; i < ncount; i++) {
+		const char *strName = NULL;
+		const char *strInfo = NULL;
+		int32 nversion = -1;
+
+		result = proster->GetTranslatorInfo(pids[i], &strName, &strInfo,
+			&nversion);
+		CPPUNIT_ASSERT(result == B_OK);
+		CPPUNIT_ASSERT(strName);
+		CPPUNIT_ASSERT(strInfo);
+		CPPUNIT_ASSERT(nversion > 0);
+
+		if (strcmp("BMP Images", strName) == 0)
+			matches++;
+		else if (strcmp("TGA Images", strName) == 0)
+			matches++;
+	}
+	CPPUNIT_ASSERT(matches == 2);
+
+	delete proster;
+	proster = NULL;
+	delete[] pids;
+	pids = NULL;
 	
 	// slightly corrupt BMessage, Instantiate 
 	// should fail because class information is missing
