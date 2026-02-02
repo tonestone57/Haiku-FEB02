@@ -17,6 +17,7 @@ KernelMergeObject kernel_vm.o :
 	VMAnonymousNoSwapCache.cpp
 	VMArea.cpp
 	VMCache.cpp
+	VMCacheFactory.cpp
 	VMDeviceCache.cpp
 	VMKernelAddressSpace.cpp
 	VMKernelArea.cpp
