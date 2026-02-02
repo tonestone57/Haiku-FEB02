@@ -151,10 +151,21 @@ TReplicantTray::TReplicantTray(TBarView* barView)
 	// but not bigger than TabHeight which depends on be_bold_font
 	// TODO this should only apply to mini-mode but we set it once here for all
 	fMaxReplicantHeight = std::min(fMaxReplicantHeight, fBarView->TabHeight() - 1);
-	// TODO: depends on window size... (so use something like
-	// max(129, height * 3), and restrict the minimum window width for it)
+
 	// Use bold font because it depends on the window tab height.
-	fMaxReplicantWidth = 129;
+	fMaxReplicantWidth = std::max(129.0f, fMaxReplicantHeight * 3.0f);
+
+	float minWindowWidth = kGutter + fMaxReplicantWidth + gDragRegionWidth;
+	if (minWindowWidth > gMinimumWindowWidth) {
+		gMinimumWindowWidth = minWindowWidth;
+		gMaximumWindowWidth = gMinimumWindowWidth * 2.0f;
+		gMinimumTrayWidth = gMinimumWindowWidth - kGutter - gDragRegionWidth;
+		fMinimumTrayWidth = gMinimumTrayWidth;
+
+		desk_settings* settings = static_cast<TBarApp*>(be_app)->Settings();
+		if (settings->width < gMinimumWindowWidth)
+			settings->width = gMinimumWindowWidth;
+	}
 
 	fMinTrayHeight = kGutter + fMaxReplicantHeight + kGutter;
 	if (fBarView != NULL && fBarView->Vertical()
