@@ -53,6 +53,10 @@ private:
 			BStringView*		fDeviceText;
 			BStringView*		fAddressLabel;
 			BStringView*		fAddressText;
+			BStringView*		fClassLabel;
+			BStringView*		fClassText;
+			BStringView*		fStatusLabel;
+			BStringView*		fStatusText;
 };
 
 }
