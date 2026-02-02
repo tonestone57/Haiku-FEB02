@@ -7,6 +7,7 @@
 
 #include <OS.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 #include <algorithm>
@@ -258,17 +259,25 @@ total_address_ranges_size(addr_range* ranges, uint32 numRanges)
 }
 
 
-static bool
-compare_address_ranges(const addr_range& a, const addr_range& b)
+static int
+compare_address_ranges(const void* _a, const void* _b)
 {
-	return a.start < b.start;
+	const addr_range* a = (const addr_range*)_a;
+	const addr_range* b = (const addr_range*)_b;
+
+	if (a->start < b->start)
+		return -1;
+	else if (a->start > b->start)
+		return 1;
+
+	return 0;
 }
 
 
-void
+extern "C" void
 sort_address_ranges(addr_range* ranges, uint32 numRanges)
 {
-	std::sort(ranges, ranges + numRanges, compare_address_ranges);
+	qsort(ranges, numRanges, sizeof(addr_range), compare_address_ranges);
 }
 
 
