@@ -803,7 +803,7 @@ get_device_name(struct devfs_vnode* vnode, char* buffer, size_t size)
 		size_t start = offset - length - 1;
 
 		if (size >= offset) {
-			strcpy(buffer + start, vnode->name);
+			strlcpy(buffer + start, vnode->name, size - start);
 			if (vnode != leaf)
 				buffer[offset - 1] = '/';
 		}
@@ -1566,9 +1566,9 @@ devfs_ioctl(fs_volume* _volume, fs_vnode* _vnode, void* _cookie, uint32 op,
 				// but for now we assume it's mounted on /dev
 				strlcpy(path, "/dev/", pathBuffer.BufferSize());
 				get_device_name(vnode, path + 5, pathBuffer.BufferSize() - 5);
-				if (length && (length <= strlen(path)))
+				if (length > 0 && length <= strlen(path))
 					return ERANGE;
-				return user_strlcpy((char*)buffer, path, pathBuffer.BufferSize());
+				return user_strlcpy((char*)buffer, path, length);
 			}
 
 			// old unsupported R5 private stuff

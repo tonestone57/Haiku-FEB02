@@ -3519,7 +3519,7 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		length = 25;
 
 	memcpy(name, fileName, length);
-	strcpy(name + length, "_text");
+	strlcpy(name + length, "_text", sizeof(name) - length);
 	address = (void*)ROUNDDOWN(image->text_region.start, B_PAGE_SIZE);
 	image->text_region.id = create_area(name, &address, B_EXACT_ADDRESS,
 		PAGE_ALIGN(image->text_region.size), B_ALREADY_WIRED,
@@ -3527,7 +3527,7 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		// this will later be remapped read-only/executable by the
 		// ELF initialization code
 
-	strcpy(name + length, "_data");
+	strlcpy(name + length, "_data", sizeof(name) - length);
 	address = (void*)ROUNDDOWN(image->data_region.start, B_PAGE_SIZE);
 	image->data_region.id = create_area(name, &address, B_EXACT_ADDRESS,
 		PAGE_ALIGN(image->data_region.size), B_ALREADY_WIRED,

@@ -2052,7 +2052,8 @@ get_dir_path_and_leaf(char* path, char* filename)
 		if (strlcpy(filename, path, B_FILE_NAME_LENGTH) >= B_FILE_NAME_LENGTH)
 			return B_NAME_TOO_LONG;
 
-		strcpy(path, ".");
+		path[0] = '.';
+		path[1] = '\0';
 	} else {
 		last++;
 		if (last[0] == '\0') {
@@ -2062,7 +2063,7 @@ get_dir_path_and_leaf(char* path, char* filename)
 
 			if (last == path && last[0] == '/') {
 				// This path points to the root of the file system
-				strcpy(filename, ".");
+				strlcpy(filename, ".", B_FILE_NAME_LENGTH);
 				return B_OK;
 			}
 			for (; last != path && *(last - 1) != '/'; last--);

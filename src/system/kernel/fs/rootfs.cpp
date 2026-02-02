@@ -1017,7 +1017,10 @@ rootfs_rename(fs_volume* _volume, fs_vnode* _fromDir, const char* fromName,
 	}
 
 	// we try to reuse the existing name buffer if possible
-	if (strlen(fromName) < strlen(toName)) {
+	size_t fromLength = strlen(fromName);
+	size_t toLength = strlen(toName);
+
+	if (fromLength < toLength) {
 		char* nameBuffer = strdup(toName);
 		if (nameBuffer == NULL)
 			return B_NO_MEMORY;
@@ -1026,7 +1029,7 @@ rootfs_rename(fs_volume* _volume, fs_vnode* _fromDir, const char* fromName,
 		vnode->name = nameBuffer;
 	} else {
 		// we can just copy it
-		strcpy(vnode->name, toName);
+		memcpy(vnode->name, toName, toLength + 1);
 	}
 
 	// remove it from the dir

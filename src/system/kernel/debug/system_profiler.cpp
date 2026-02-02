@@ -896,9 +896,9 @@ SystemProfiler::_TeamAdded(Team* team)
 		return false;
 
 	event->team = team->id;
-	strcpy(event->name, team->Name());
+	memcpy(event->name, team->Name(), nameLen + 1);
 	event->args_offset = nameLen + 1;
-	strcpy(event->name + nameLen + 1, team->Args());
+	memcpy(event->name + nameLen + 1, team->Args(), argsLen + 1);
 
 	fHeader->size = fBufferSize;
 
@@ -949,7 +949,7 @@ SystemProfiler::_TeamExec(Team* team)
 	event->team = team->id;
 	strlcpy(event->thread_name, team->main_thread->name,
 		sizeof(event->thread_name));
-	strcpy(event->args, team->Args());
+	memcpy(event->args, team->Args(), argsLen + 1);
 
 	fHeader->size = fBufferSize;
 
@@ -1078,7 +1078,7 @@ SystemProfiler::_IOSchedulerAdded(IOScheduler* scheduler)
 		return false;
 
 	event->scheduler = scheduler->ID();
-	strcpy(event->name, scheduler->Name());
+	memcpy(event->name, scheduler->Name(), nameLen + 1);
 
 	fHeader->size = fBufferSize;
 
@@ -1315,7 +1315,7 @@ SystemProfiler::_WaitObjectUsed(addr_t object, uint32 type)
 	event->object = object;
 	event->referenced_object = (addr_t)referencedObject;
 	if (name != NULL)
-		strcpy(event->name, name);
+		memcpy(event->name, name, nameLen + 1);
 	else
 		event->name[0] = '\0';
 

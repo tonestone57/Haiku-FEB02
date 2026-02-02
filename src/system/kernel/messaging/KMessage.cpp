@@ -764,7 +764,7 @@ KMessage::_AddField(const char* name, type_code type, int32 elementSize,
 	fieldHeader->elementCount = 0;
 	fieldHeader->fieldSize = alignedSize;
 	fieldHeader->headerSize = alignedSize;
-	strcpy(fieldHeader->name, name);
+	memcpy(fieldHeader->name, name, strlen(name) + 1);
 	fLastFieldOffset = _BufferOffsetFor(fieldHeader);
 	if (field)
 		field->SetTo(this, _BufferOffsetFor(fieldHeader));
