@@ -476,7 +476,13 @@ TeamWindow::MessageReceived(BMessage* message)
 						fInspectorWindow->Show();
 					}
 				} catch (...) {
-					// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Error",
+						"Failed to create inspector window.",
+						"Close");
+					if (alert != NULL) {
+						alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+						alert->Go();
+					}
 				}
 			}
 
@@ -508,7 +514,13 @@ TeamWindow::MessageReceived(BMessage* message)
 					if (fExpressionEvalWindow != NULL)
 						fExpressionEvalWindow->Show();
 				} catch (...) {
-					// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Error",
+						"Failed to create expression evaluation window.",
+						"Close");
+					if (alert != NULL) {
+						alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+						alert->Go();
+					}
 				}
 			}
 			break;
@@ -531,7 +543,13 @@ TeamWindow::MessageReceived(BMessage* message)
 					if (fExpressionPromptWindow != NULL)
 						fExpressionPromptWindow->Show();
 				} catch (...) {
-					// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Error",
+						"Failed to create expression prompt window.",
+						"Close");
+					if (alert != NULL) {
+						alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+						alert->Go();
+					}
 				}
 			}
 			break;
@@ -555,7 +573,13 @@ TeamWindow::MessageReceived(BMessage* message)
 					if (fTeamSettingsWindow != NULL)
 						fTeamSettingsWindow->Show();
 				} catch (...) {
-					// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Error",
+						"Failed to create team settings window.",
+						"Close");
+					if (alert != NULL) {
+						alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+						alert->Go();
+					}
 				}
 			}
 			break;
@@ -585,7 +609,13 @@ TeamWindow::MessageReceived(BMessage* message)
 					if (fBreakpointEditWindow != NULL)
 						fBreakpointEditWindow->Show();
 				} catch (...) {
-					// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Error",
+						"Failed to create breakpoint edit window.",
+						"Close");
+					if (alert != NULL) {
+						alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+						alert->Go();
+					}
 				}
 			}
 			break;
@@ -613,7 +643,13 @@ TeamWindow::MessageReceived(BMessage* message)
 					fListener);
 				window->Show();
 			} catch (...) {
-				// TODO: notify user
+				BAlert* alert = new(std::nothrow) BAlert("Error",
+					"Failed to create watch variable prompt.",
+					"Close");
+				if (alert != NULL) {
+					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+					alert->Go();
+				}
 			}
 			break;
 		}
