@@ -158,9 +158,18 @@ ScrollArrow::MessageReceived(BMessage* message)
 	switch (message->what) {
 		case kScrollRepeat:
 		{
+			if (fRepeatRunner == NULL)
+				break;
+
 			BPoint where;
 			uint32 buttons;
 			GetMouse(&where, &buttons);
+
+			if (buttons == 0) {
+				delete fRepeatRunner;
+				fRepeatRunner = NULL;
+				break;
+			}
 
 			if (Bounds().Contains(where))
 				DoScroll();
