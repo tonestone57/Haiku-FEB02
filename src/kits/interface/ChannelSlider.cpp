@@ -305,9 +305,9 @@ BChannelSlider::MouseDown(BPoint where)
 				fMinPoint = frame.top + frame.Height() / 2;
 				frame.bottom += range;
 			} else {
-				// TODO: Fix this, the clickzone isn't perfect
+				frame.OffsetBy(-frame.Width() / 2.0, 0.0);
+				fMinPoint = frame.left + frame.Width() / 2.0 + range;
 				frame.right += range;
-				fMinPoint = frame.Width();
 			}
 
 			// Click was on a slider.
