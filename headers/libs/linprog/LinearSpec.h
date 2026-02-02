@@ -174,6 +174,9 @@ private:
 
 			void				_AddConstraintRef(Variable* var);
 			void				_RemoveConstraintRef(Variable* var);
+
+			void				_UpdateGlobalIndices(int32 fromIndex);
+			void				_UpdateUsedIndices(int32 fromIndex);
 			
 			VariableList		fVariables;
 			VariableList		fUsedVariables;

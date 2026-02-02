@@ -72,6 +72,10 @@ private:
 			bool				fIsValid;
 
 			int32				fReferenceCount;
+
+			int32				fIndex;
+			int32				fGlobalIndex;
+
 public:
 	friend class		LinearSpec;
 };
