@@ -10,6 +10,7 @@ This directory contains Markdown files describing various coding errors and bugs
 - [more_bugs.md](more_bugs.md): Bugs in Terminal and Debugger.
 - [deskbar.md](deskbar.md): Bugs in the Deskbar application.
 - [tracker.md](tracker.md): Bugs in the Tracker application and kit.
+- [kernel.md](kernel.md): Bugs in the Haiku Kernel.
 
 ## Summary of Bugs Found
 - **Icon-O-Matic**: Missing allocation checks, potential NULL pointer dereferences in command creation, and problematic use of Variable Length Arrays (VLAs).
@@ -19,3 +20,4 @@ This directory contains Markdown files describing various coding errors and bugs
 - **Terminal & Debugger**: Missing allocation checks, potential memory leaks, and blocking handshake protocols.
 - **Deskbar**: Unhandled exceptions and inconsistent memory management.
 - **Tracker**: Memory leaks and unchecked string operations.
+- **Kernel**: Race conditions during lock destruction, team ID wrap-around issues, missing deadlock detection in VFS, unreliable resource iteration, and excessive stack usage.
