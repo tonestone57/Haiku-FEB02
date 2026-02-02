@@ -6,6 +6,7 @@
 
 #include "DiskProbe.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,6 +15,7 @@
 #include <Application.h>
 #include <Autolock.h>
 #include <Catalog.h>
+#include <ControlLook.h>
 #include <Directory.h>
 #include <Entry.h>
 #include <FilePanel.h>
@@ -111,8 +113,8 @@ Settings::Settings()
 	fUpdated(false)
 {
 	float fontSize = be_plain_font->Size();
-	int32 windowWidth = DataView::WidthForFontSize(fontSize) + 20;
-		// TODO: make scrollbar width variable
+	int32 windowWidth = DataView::WidthForFontSize(fontSize)
+		+ (int32)ceilf(be_control_look->GetScrollBarWidth(B_VERTICAL));
 
 	BScreen screen;
 	fMessage.AddRect("window_frame", BLayoutUtils::AlignInFrame(screen.Frame(),
