@@ -270,7 +270,11 @@ SwapDataTest::test(void)
 	// length checking
 	CHK(swap_data(B_INT32_TYPE, &num32, 3, B_SWAP_ALWAYS) == B_BAD_VALUE);
 	CHK(swap_data(B_INT16_TYPE, &num32, 1, B_SWAP_ALWAYS) == B_BAD_VALUE);
-	CHK(swap_data(B_INT64_TYPE, &num32, 7, B_SWAP_ALWAYS) == B_BAD_VALUE);
+
+	// Use a buffer large enough for 64-bit swap to avoid potential overread
+	// in the test if the safety check fails.
+	uint64 num64 = 0;
+	CHK(swap_data(B_INT64_TYPE, &num64, 7, B_SWAP_ALWAYS) == B_BAD_VALUE);
 
 	// algorithm checking
 #define TEST(type, source, target) \
