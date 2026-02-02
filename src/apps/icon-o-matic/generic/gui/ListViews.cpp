@@ -347,27 +347,29 @@ DragSortableListView::ObjectChanged(const Observable* object)
 	fSyncingToSelection = true;
 
 	// try to sync to Selection
-	BList selectedItems;
-
+	std::unordered_set<Selectable*> selectedSelectables;
 	int32 count = fSelection->CountSelected();
 	for (int32 i = 0; i < count; i++) {
-		int32 index = IndexOfSelectable(fSelection->SelectableAtFast(i));
-		if (index >= 0) {
-			BListItem* item = ItemAt(index);
-			if (item && !selectedItems.HasItem((void*)item))
-				selectedItems.AddItem((void*)item);
-		}
+		selectedSelectables.insert(fSelection->SelectableAtFast(i));
 	}
 
-	count = selectedItems.CountItems();
-	if (count == 0) {
+	std::unordered_set<BListItem*> selectedItems;
+
+	count = CountItems();
+	for (int32 i = 0; i < count; i++) {
+		BListItem* item = ItemAt(i);
+		if (IsItemInSelection(item, selectedSelectables))
+			selectedItems.insert(item);
+	}
+
+	if (selectedItems.empty()) {
 		if (CurrentSelection(0) >= 0)
 			DeselectAll();
 	} else {
 		count = CountItems();
 		for (int32 i = 0; i < count; i++) {
 			BListItem* item = ItemAt(i);
-			bool selected = selectedItems.RemoveItem((void*)item);
+			bool selected = selectedItems.find(item) != selectedItems.end();
 			if (item->IsSelected() != selected) {
 				Select(i, true);
 			}
@@ -591,6 +593,16 @@ Selectable*
 DragSortableListView::SelectableFor(BListItem* item) const
 {
 	return NULL;
+}
+
+
+bool
+DragSortableListView::IsItemInSelection(BListItem* item,
+	const std::unordered_set<Selectable*>& selectedSelectables) const
+{
+	Selectable* selectable = SelectableFor(item);
+	return selectable && selectedSelectables.find(selectable)
+		!= selectedSelectables.end();
 }
 
 
