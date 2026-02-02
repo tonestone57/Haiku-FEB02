@@ -25,6 +25,7 @@
 
 #include <bluetooth/RemoteDevice.h>
 #include <bluetooth/LocalDevice.h>
+#include <bluetooth/DeviceClass.h>
 #include <bluetooth/bdaddrUtils.h>
 #include <bluetooth/bluetooth_error.h>
 
@@ -66,13 +67,48 @@ PincodeWindow::PincodeWindow(bdaddr_t address, hci_id hid)
 PincodeWindow::PincodeWindow(RemoteDevice* rDevice)
 	: BWindow(BRect(700, 200, 1000, 400), "PIN Code Request",
 		B_FLOATING_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL,
-		B_NOT_ZOOMABLE | B_NOT_RESIZABLE)
+		B_NOT_ZOOMABLE | B_NOT_RESIZABLE),
+	fBdaddr(rDevice->GetBluetoothAddress())
 {
 	InitUI();
 
-	// TODO: Get more info about device" ote name/features/encry/auth... etc
-	SetBDaddr(bdaddrUtils::ToString(rDevice->GetBluetoothAddress()));
-	fHid = (rDevice->GetLocalDeviceOwner())->ID();
+	if (rDevice->GetLocalDeviceOwner() != NULL)
+		fHid = rDevice->GetLocalDeviceOwner()->ID();
+	else
+		fHid = -1;
+
+	SetBDaddr(bdaddrUtils::ToString(fBdaddr));
+
+	fDeviceText->SetText(rDevice->GetFriendlyName(true));
+
+	DeviceClass deviceClass = rDevice->GetDeviceClass();
+	BString classString;
+	BString temp;
+
+	deviceClass.GetMajorDeviceClass(temp);
+	classString << temp << " / ";
+	deviceClass.GetMinorDeviceClass(temp);
+	classString << temp << " (";
+	deviceClass.GetServiceClass(temp);
+	classString << temp << ")";
+
+	fClassText->SetText(classString);
+
+	BString status;
+	if (rDevice->IsTrustedDevice())
+		status << "Trusted, ";
+	if (rDevice->IsAuthenticated())
+		status << "Authenticated, ";
+	if (rDevice->IsEncrypted())
+		status << "Encrypted, ";
+
+	if (status.Length() > 2)
+		status.Truncate(status.Length() - 2);
+
+	if (status.Length() == 0)
+		status = "Unknown";
+
+	fStatusText->SetText(status);
 }
 
 
@@ -95,6 +131,16 @@ PincodeWindow::InitUI()
 	fAddressLabel->SetFont(be_bold_font);
 
 	fAddressText = new BStringView("fAddressText", "<mac_address>");
+
+	fClassLabel = new BStringView("fClassLabel", "Device Class: ");
+	fClassLabel->SetFont(be_bold_font);
+
+	fClassText = new BStringView("fClassText", "<unknown_class>");
+
+	fStatusLabel = new BStringView("fStatusLabel", "Status: ");
+	fStatusLabel->SetFont(be_bold_font);
+
+	fStatusText = new BStringView("fStatusText", "<unknown_status>");
 
 	fPincodeText = new BTextControl("fPINCode", "PIN Code:", "0000", NULL);
 	fPincodeText->TextView()->SetMaxBytes(16 * sizeof(fPincodeText->Text()[0]));
@@ -126,6 +172,16 @@ PincodeWindow::InitUI()
 			.Add(fAddressLabel)
 			.AddGlue()
 			.Add(fAddressText)
+		)
+		.Add(BGroupLayoutBuilder(B_HORIZONTAL, 0)
+			.Add(fClassLabel)
+			.AddGlue()
+			.Add(fClassText)
+		)
+		.Add(BGroupLayoutBuilder(B_HORIZONTAL, 0)
+			.Add(fStatusLabel)
+			.AddGlue()
+			.Add(fStatusText)
 		)
 		.AddGlue()
 		.Add(fPincodeText)
