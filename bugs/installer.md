@@ -9,3 +9,6 @@ In `src/apps/installer/WorkerThread.cpp`, the `make_partition_label` function us
 
 ## 3. Filenames with Spaces Bug in `UnzipEngine`
 In `src/apps/installer/UnzipEngine.cpp`, the `_ReadLineListing` method uses `sscanf` with a format that includes `%s` for the file path. This causes parsing to fail for filenames that contain spaces, as `sscanf` will stop at the first space. A more robust parsing method using offsets should be used.
+
+## 4. Potential Buffer Overflow in `Group::SetGroupName`
+In `src/apps/installer/PackageViews.h`, the `SetGroupName` method (line 25) uses `strcpy(fGroup, group);`. Since `fGroup` is a fixed-size array of 64 bytes (line 29), this can lead to a buffer overflow if `group` is 64 characters or longer.
