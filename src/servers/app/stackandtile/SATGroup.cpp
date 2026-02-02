@@ -10,6 +10,7 @@
 
 #include "SATGroup.h"
 
+#include <math.h>
 #include <vector>
 
 #include <Debug.h>
@@ -24,6 +25,18 @@
 
 using namespace std;
 using namespace LinearProgramming;
+
+
+static int
+CompareTabPosition(const float* position, const Tab* tab)
+{
+	float diff = *position - tab->Position();
+	if (fabs(diff) < 0.00001)
+		return 0;
+	if (*position < tab->Position())
+		return -1;
+	return 1;
+}
 
 
 const float kExtentPenalty = 1;
@@ -980,14 +993,14 @@ SATGroup::VerticalTabs()
 Tab*
 SATGroup::FindHorizontalTab(float position)
 {
-	return _FindTab(fHorizontalTabs, position);
+	return _FindTab(fHorizontalTabs, position, fHorizontalTabsSorted);
 }
 
 
 Tab*
 SATGroup::FindVerticalTab(float position)
 {
-	return _FindTab(fVerticalTabs, position);
+	return _FindTab(fVerticalTabs, position, fVerticalTabsSorted);
 }
 
 
@@ -1174,8 +1187,11 @@ SATGroup::_RemoveVerticalTab(Tab* tab)
 
 
 Tab*
-SATGroup::_FindTab(const TabList& list, float position)
+SATGroup::_FindTab(const TabList& list, float position, bool sorted)
 {
+	if (sorted)
+		return list.BinarySearchByKey(position, CompareTabPosition);
+
 	for (int i = 0; i < list.CountItems(); i++)
 		if (fabs(list.ItemAt(i)->Position() - position) < 0.00001)
 			return list.ItemAt(i);
