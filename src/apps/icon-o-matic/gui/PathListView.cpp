@@ -9,6 +9,7 @@
 
 #include "PathListView.h"
 
+#include <algorithm>
 #include <new>
 #include <stdio.h>
 
@@ -643,12 +644,48 @@ PathListView::RemoveItemList(BList& items)
 		return;
 
 	int32 count = items.CountItems();
-	int32 indices[count];
+	if (count == 0)
+		return;
+
+	int32* indices = new (nothrow) int32[count];
+	if (indices == NULL)
+		return;
+
 	for (int32 i = 0; i < count; i++)
 		indices[i] = IndexOf((BListItem*)items.ItemAtFast(i));
 
 	RemovePathsCommand* command = new (nothrow) RemovePathsCommand(
 		fPathContainer, indices, count);
+
+	delete[] indices;
+
+	fCommandStack->Perform(command);
+}
+
+
+void
+PathListView::RemoveSelected()
+{
+	if (fCommandStack == NULL || fPathContainer == NULL)
+		return;
+
+	int32 count = CountSelectedItems();
+	if (count == 0)
+		return;
+
+	int32* indices = new (nothrow) int32[count];
+	if (indices == NULL)
+		return;
+
+	for (int32 i = 0; i < count; i++)
+		indices[i] = CurrentSelection(i);
+
+	std::sort(indices, indices + count);
+
+	RemovePathsCommand* command = new (nothrow) RemovePathsCommand(
+		fPathContainer, indices, count);
+
+	delete[] indices;
 
 	fCommandStack->Perform(command);
 }
