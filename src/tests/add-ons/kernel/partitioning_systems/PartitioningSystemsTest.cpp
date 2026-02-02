@@ -32,6 +32,7 @@ struct partition_entry : partition_data {
 
 typedef std::map<partition_id, partition_entry*> PartitionMap;
 typedef std::map<partition_id, disk_device_data*> DiskDeviceMap;
+typedef std::map<partition_id, int32> LockMap;
 
 
 static PartitionMap sPartitions;
@@ -175,8 +176,8 @@ scan_partition(int fd, partition_id partitionID)
 // #pragma mark - disk device manager API
 
 
-static std::map<partition_id, int32> sWriteLocks;
-static std::map<partition_id, int32> sReadLocks;
+static LockMap sWriteLocks;
+static LockMap sReadLocks;
 
 
 disk_device_data*
@@ -418,16 +419,16 @@ main(int argc, char** argv)
 	}
 
 	int result = 0;
-	for (std::map<partition_id, int32>::iterator it = sWriteLocks.begin();
-			it != sWriteLocks.end(); ++it) {
+	for (LockMap::iterator it = sWriteLocks.begin(); it != sWriteLocks.end();
+			++it) {
 		if (it->second != 0) {
 			fprintf(stderr, "Partition %ld still write locked %d times!\n",
 				it->first, it->second);
 			result = 1;
 		}
 	}
-	for (std::map<partition_id, int32>::iterator it = sReadLocks.begin();
-			it != sReadLocks.end(); ++it) {
+	for (LockMap::iterator it = sReadLocks.begin(); it != sReadLocks.end();
+			++it) {
 		if (it->second != 0) {
 			fprintf(stderr, "Partition %ld still read locked %d times!\n",
 				it->first, it->second);
