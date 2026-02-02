@@ -838,15 +838,6 @@ StyleListView::_UpdateMarks()
 
 
 void
-StyleListView::_SetStyleMarked(Style* style, bool marked)
-{
-	StyleListItem* item = _ItemForStyle(style);
-	if (item != NULL)
-		item->SetMarked(marked);
-}
-
-
-void
 StyleListView::_UpdateMenu()
 {
 	if (fMenu == NULL)

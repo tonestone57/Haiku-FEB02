@@ -55,9 +55,6 @@ Shape::Shape(::Style* style)
 	  fLastBounds(0, 0, -1, -1),
 
 	  fHinting(false)
-
-#ifdef ICON_O_MATIC
-#endif
 {
 	SetStyle(style);
 
@@ -90,9 +87,6 @@ Shape::Shape(const Shape& other)
 	  fLastBounds(0, 0, -1, -1),
 
 	  fHinting(false)
-
-#ifdef ICON_O_MATIC
-#endif
 {
 	SetStyle(other.fStyle);
 
