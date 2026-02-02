@@ -493,10 +493,10 @@ TranslatorRosterTest::AddTranslatorsTest()
 	//create basic translatorroster
 	NextSubTest();
 	BTranslatorRoster* proster = new BTranslatorRoster();
+	const char* translatorPaths = "/boot/home/config/add-ons/Translators/:"
+		"/system/add-ons/Translators/";
 	CPPUNIT_ASSERT(proster);
-	CPPUNIT_ASSERT(proster->AddTranslators(
-		"/boot/home/config/add-ons/Translators/:"
-		"/system/add-ons/Translators/") == B_OK);
+	CPPUNIT_ASSERT(proster->AddTranslators(translatorPaths) == B_OK);
 
 	NextSubTest();
 	int32 instcount = 0;
@@ -506,8 +506,7 @@ TranslatorRosterTest::AddTranslatorsTest()
 	CPPUNIT_ASSERT(instcount > 0);
 
 	int32 file_count = 0;
-	std::string paths = "/boot/home/config/add-ons/Translators/:"
-		"/system/add-ons/Translators/";
+	std::string paths = translatorPaths;
 	size_t start = 0;
 	while (start < paths.length()) {
 		size_t end = paths.find(':', start);
