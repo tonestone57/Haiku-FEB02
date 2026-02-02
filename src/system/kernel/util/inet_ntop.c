@@ -96,7 +96,7 @@ inet_ntop4(src, dst, size)
 		errno = ENOSPC;
 		return (NULL);
 	}
-	strcpy(dst, tmp);
+	strlcpy(dst, tmp, size);
 	return (dst);
 }
 
@@ -192,11 +192,11 @@ inet_ntop6(src, dst, size)
 	/*
 	 * Check for overflow, copy, and we're done.
 	 */
-	if ((size_t)(tp - tmp) > size) {
+	if ((size_t)(tp - tmp) >= size) {
 		errno = ENOSPC;
 		return (NULL);
 	}
-	strcpy(dst, tmp);
+	strlcpy(dst, tmp, size);
 	return (dst);
 }
 
