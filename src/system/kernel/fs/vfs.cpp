@@ -2910,7 +2910,8 @@ normalize_path(char* path, size_t pathSize, bool traverseLink, bool kernel)
 		error = vnode_and_path_to_dir_vnode(dir.Detach(), path, dir, leaf, kernel);
 		if (error != B_OK)
 			return error;
-		strcpy(path, leaf);
+		if (strlcpy(path, leaf, pathSize) >= pathSize)
+			return B_BUFFER_OVERFLOW;
 
 		// get file vnode, if we shall resolve links
 		bool fileExists = false;

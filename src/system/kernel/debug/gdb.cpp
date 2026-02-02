@@ -91,7 +91,7 @@ gdb_reply(char const* format, ...)
 
 	va_start(args, format);
 	sReply[0] = '$';
-	vsprintf(sReply + 1, format, args);
+	vsnprintf(sReply + 1, sizeof(sReply) - 1, format, args);
 	va_end(args);
 
 	len = strlen(sReply);
@@ -101,7 +101,7 @@ gdb_reply(char const* format, ...)
 	}
 	sum %= 256;
 
-	sprintf(sReply + len, "#%02x", sum);
+	snprintf(sReply + len, sizeof(sReply) - len, "#%02x", sum);
 
 	gdb_resend_reply();
 }
@@ -150,7 +150,7 @@ gdb_memreply(char const* bytes, int numbytes)
 
 	sReply[0] = '$';
 	for (i = 0; i < numbytes; i++)
-		sprintf(sReply + 1 + 2 * i, "%02x", (uint8)bytes[i]);
+		snprintf(sReply + 1 + 2 * i, sizeof(sReply) - (1 + 2 * i), "%02x", (uint8)bytes[i]);
 
 	len = strlen(sReply);
 	sum = 0;
@@ -158,7 +158,7 @@ gdb_memreply(char const* bytes, int numbytes)
 		sum += sReply[i];
 	sum %= 256;
 
-	sprintf(sReply + len, "#%02x", sum);
+	snprintf(sReply + len, sizeof(sReply) - len, "#%02x", sum);
 
 	gdb_resend_reply();
 }
