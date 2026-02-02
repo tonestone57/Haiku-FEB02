@@ -69,6 +69,7 @@ public:
 
 	// Transformer interface
 	virtual	Transformer*		Clone() const;
+	virtual	uint32				Type() const { return archive_code; }
 
 	// PathTransformer interface
 	virtual	void				rewind(unsigned path_id);
