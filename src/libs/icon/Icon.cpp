@@ -9,6 +9,7 @@
 
 #include "Icon.h"
 
+#include <map>
 #include <new>
 #include <stdio.h>
 
@@ -54,6 +55,7 @@ Icon::Icon(const Icon& other)
 	fShapes.AddListener(this);
 #endif
 
+	std::map<const Style*, Style*> styleMap;
 	int32 styleCount = other.fStyles.CountItems();
 	for (int32 i = 0; i < styleCount; i++) {
 		Style* style = other.fStyles.ItemAtFast(i);
@@ -62,8 +64,10 @@ Icon::Icon(const Icon& other)
 			delete clone;
 			return;
 		}
+		styleMap[style] = clone;
 	}
 
+	std::map<const VectorPath*, VectorPath*> pathMap;
 	int32 pathCount = other.fPaths.CountItems();
 	for (int32 i = 0; i < pathCount; i++) {
 		VectorPath* path = other.fPaths.ItemAtFast(i);
@@ -72,6 +76,7 @@ Icon::Icon(const Icon& other)
 			delete clone;
 			return;
 		}
+		pathMap[path] = clone;
 	}
 
 	int32 shapeCount = other.fShapes.CountItems();
@@ -91,21 +96,27 @@ Icon::Icon(const Icon& other)
 			// the "other" icon, replace them with "local" styles
 			// and paths
 
-			int32 styleIndex = other.fStyles.IndexOf(pathSourceShape->Style());
-			pathSourceShapeClone->SetStyle(fStyles.ItemAt(styleIndex));
+			Style* remoteStyle = pathSourceShape->Style();
+			Style* localStyle = NULL;
+			std::map<const Style*, Style*>::const_iterator styleIt
+				= styleMap.find(remoteStyle);
+			if (styleIt != styleMap.end())
+				localStyle = styleIt->second;
+
+			pathSourceShapeClone->SetStyle(localStyle);
 
 			pathSourceShapeClone->Paths()->MakeEmpty();
 			pathCount = pathSourceShape->Paths()->CountItems();
 			for (int32 j = 0; j < pathCount; j++) {
 				VectorPath* remote = pathSourceShape->Paths()->ItemAtFast(j);
-				int32 index = other.fPaths.IndexOf(remote);
-				VectorPath* local = fPaths.ItemAt(index);
-				if (!local) {
+				std::map<const VectorPath*, VectorPath*>::const_iterator pathIt
+					= pathMap.find(remote);
+				if (pathIt == pathMap.end()) {
 					printf("failed to match remote and "
 						   "local paths while cloning icon\n");
 					continue;
 				}
-				if (!pathSourceShapeClone->Paths()->AddItem(local)) {
+				if (!pathSourceShapeClone->Paths()->AddItem(pathIt->second)) {
 					return;
 				}
 			}
