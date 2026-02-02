@@ -22,7 +22,7 @@ public:
 								Group();
 	virtual						~Group();
 			void				SetGroupName(const char* group)
-									{ strcpy(fGroup, group); }
+									{ strlcpy(fGroup, group, sizeof(fGroup)); }
 			const char*			GroupName() const
 									{ return fGroup; }
 private:
