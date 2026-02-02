@@ -33,8 +33,6 @@ public:
 									phys_addr_t physicalAddress,
 									uint8 attributes);
 
-	virtual	bool				IsKernelPageAccessible(addr_t virtualAddress,
-									uint32 protection);
 #if 0//X86
 	inline	page_table_entry*	PageHole() const
 									{ return fPageHole; }

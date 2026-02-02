@@ -269,34 +269,6 @@ PPCPagingMethod460::MapEarly(kernel_args* args, addr_t virtualAddress,
 }
 
 
-bool
-PPCPagingMethod460::IsKernelPageAccessible(addr_t virtualAddress,
-	uint32 protection)
-{
-	// TODO:factor out to baseclass
-	VMAddressSpace *addressSpace = VMAddressSpace::Kernel();
-
-//XXX:
-//	PPCVMTranslationMap* map = static_cast<PPCVMTranslationMap*>(
-//		addressSpace->TranslationMap());
-//	VMTranslationMap* map = addressSpace->TranslationMap();
-	PPCVMTranslationMap460* map = static_cast<PPCVMTranslationMap460*>(
-		addressSpace->TranslationMap());
-
-	phys_addr_t physicalAddress;
-	uint32 flags;
-	if (map->Query(virtualAddress, &physicalAddress, &flags) != B_OK)
-		return false;
-
-	if ((flags & PAGE_PRESENT) == 0)
-		return false;
-
-	// present means kernel-readable, so check for writable
-	return (protection & B_KERNEL_WRITE_AREA) == 0
-		|| (flags & B_KERNEL_WRITE_AREA) != 0;
-}
-
-
 void
 PPCPagingMethod460::FillPageTableEntry(page_table_entry *entry,
 	uint32 virtualSegmentID, addr_t virtualAddress, phys_addr_t physicalAddress,
