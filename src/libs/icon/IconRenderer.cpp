@@ -276,7 +276,8 @@ IconRenderer::StyleHandler::_MergeTransformers(const Transformable* styleTransfo
 		styleTransformers[i++] = new (nothrow) Transformable(*styleTransformation);
 
 	for (int j = 0; j < validTransformers.CountItems(); j++) {
-		Transformer* transformer = (Transformer*)validTransformers.ItemAtFast(j);
+		Transformer* transformer = static_cast<Transformer*>(
+			validTransformers.ItemAtFast(j));
 		styleTransformers[i++]
 			= dynamic_cast<StyleTransformer*>(transformer->Clone());
 	}
