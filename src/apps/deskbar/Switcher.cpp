@@ -1066,7 +1066,14 @@ TSwitchManager::WindowInfo(int32 groupIndex, int32 windowIndex)
 		return NULL;
 
 	int32 tokenCount;
-	int32* tokens = get_token_list(-1, &tokenCount);
+	int32* tokens;
+	if (teamGroup->TeamList()->CountItems() == 1) {
+		tokens = get_token_list((team_id)(addr_t)teamGroup->TeamList()->ItemAt(0),
+			&tokenCount);
+	} else {
+		tokens = get_token_list(-1, &tokenCount);
+	}
+
 	if (tokens == NULL)
 		return NULL;
 
