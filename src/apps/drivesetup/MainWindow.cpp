@@ -679,7 +679,33 @@ MainWindow::MessageReceived(BMessage* message)
 bool
 MainWindow::QuitRequested()
 {
-	// TODO: ask about any unsaved changes
+	if (fCurrentDisk != NULL && fCurrentDisk->IsModified()) {
+		BAlert* alert = new BAlert("unsaved changes",
+			B_TRANSLATE("There are unsaved changes. Do you want to save them "
+				"before quitting?"),
+			B_TRANSLATE("Cancel"), B_TRANSLATE("Don't save"),
+			B_TRANSLATE("Save"), B_WIDTH_AS_USUAL, B_OFFSET_SPACING,
+			B_WARNING_ALERT);
+		alert->SetShortcut(0, B_ESCAPE);
+
+		int32 choice = alert->Go();
+		switch (choice) {
+			case 0:
+				return false;
+			case 1:
+				fCurrentDisk->CancelModifications();
+				break;
+			case 2:
+				status_t status = fCurrentDisk->CommitModifications();
+				if (status != B_OK) {
+					_DisplayPartitionError(B_TRANSLATE("Could not save changes."),
+						fCurrentDisk, status);
+					return false;
+				}
+				break;
+		}
+	}
+
 	be_app->PostMessage(B_QUIT_REQUESTED);
 	Hide();
 	return false;
