@@ -1437,7 +1437,6 @@ DrawingEngine::ReadBitmap(ServerBitmap* bitmap, bool drawCursor, BRect bounds)
 BRect
 DrawingEngine::CopyRect(BRect src, int32 xOffset, int32 yOffset) const
 {
-	// TODO: assumes drawing buffer is 32 bits (which it currently always is)
 	BRect dst;
 	RenderingBuffer* buffer = fGraphicsCard->DrawingBuffer();
 	if (buffer) {
@@ -1447,6 +1446,16 @@ DrawingEngine::CopyRect(BRect src, int32 xOffset, int32 yOffset) const
 		dst.OffsetBy(xOffset, yOffset);
 
 		if (clip.Intersects(src) && clip.Intersects(dst)) {
+			size_t pixelChunk;
+			size_t rowAlignment;
+			size_t pixelsPerChunk;
+			if (get_pixel_size_for(buffer->ColorSpace(), &pixelChunk,
+					&rowAlignment, &pixelsPerChunk) != B_OK
+				|| pixelsPerChunk != 1) {
+				return dst;
+			}
+			uint32 bytesPerPixel = pixelChunk;
+
 			uint32 bytesPerRow = buffer->BytesPerRow();
 			uint8* bits = (uint8*)buffer->Bits();
 
@@ -1459,12 +1468,13 @@ DrawingEngine::CopyRect(BRect src, int32 xOffset, int32 yOffset) const
 			src = src & dst;
 
 			// calc offset in buffer
-			bits += (ssize_t)src.left * 4 + (ssize_t)src.top * bytesPerRow;
+			bits += (ssize_t)src.left * bytesPerPixel
+				+ (ssize_t)src.top * bytesPerRow;
 
 			uint32 width = src.IntegerWidth() + 1;
 			uint32 height = src.IntegerHeight() + 1;
 
-			_CopyRect(bits, width, height, bytesPerRow,
+			_CopyRect(bits, width, height, bytesPerRow, bytesPerPixel,
 				xOffset, yOffset);
 
 			// offset dest again, because it is return value
@@ -1484,11 +1494,12 @@ DrawingEngine::SetRendererOffset(int32 offsetX, int32 offsetY)
 
 void
 DrawingEngine::_CopyRect(uint8* src, uint32 width, uint32 height,
-	uint32 bytesPerRow, int32 xOffset, int32 yOffset) const
+	uint32 bytesPerRow, uint32 bytesPerPixel, int32 xOffset,
+	int32 yOffset) const
 {
-	// TODO: assumes drawing buffer is 32 bits (which it currently always is)
 	int32 yIncrement;
-	const bool needMemmove = (yOffset == 0 && xOffset > 0 && uint32(xOffset) <= width);
+	const bool needMemmove = (yOffset == 0 && xOffset > 0
+		&& uint32(xOffset) <= width);
 
 	if (yOffset > 0) {
 		// copy from bottom to top
@@ -1499,17 +1510,18 @@ DrawingEngine::_CopyRect(uint8* src, uint32 width, uint32 height,
 		yIncrement = bytesPerRow;
 	}
 
-	uint8* dst = src + (ssize_t)yOffset * bytesPerRow + (ssize_t)xOffset * 4;
+	uint8* dst = src + (ssize_t)yOffset * bytesPerRow
+		+ (ssize_t)xOffset * bytesPerPixel;
 
 	if (!needMemmove) {
 		for (uint32 y = 0; y < height; y++) {
-			memcpy(dst, src, width * 4);
+			memcpy(dst, src, width * bytesPerPixel);
 			src += yIncrement;
 			dst += yIncrement;
 		}
 	} else {
 		for (uint32 y = 0; y < height; y++) {
-			memmove(dst, src, width * 4);
+			memmove(dst, src, width * bytesPerPixel);
 			src += yIncrement;
 			dst += yIncrement;
 		}
