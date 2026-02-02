@@ -1343,32 +1343,31 @@ SATGroup::_FindConnectedGroup(WindowAreaList& seedList, WindowArea* removedArea,
 	WindowArea* area = seedList.RemoveItemAt(0);
 	newGroup.AddItem(area);
 
-	_FollowSeed(area, removedArea, seedList, newGroup);
+	std::set<WindowArea*> visited;
+	visited.insert(area);
+
+	_FollowSeed(area, removedArea, seedList, newGroup, visited);
 	return true;
 }
 
 
 void
 SATGroup::_FollowSeed(WindowArea* area, WindowArea* veto,
-	WindowAreaList& seedList, WindowAreaList& newGroup)
+	WindowAreaList& seedList, WindowAreaList& newGroup,
+	std::set<WindowArea*>& visited)
 {
 	WindowAreaList neighbours;
 	_FillNeighbourList(neighbours, area);
 	for (int i = 0; i < neighbours.CountItems(); i++) {
 		WindowArea* currentArea = neighbours.ItemAt(i);
-		if (currentArea != veto && !newGroup.HasItem(currentArea)) {
+		if (currentArea != veto && visited.insert(currentArea).second) {
 			newGroup.AddItem(currentArea);
 			// if we get a area from the seed list it is not a seed any more
 			seedList.RemoveItem(currentArea);
-		} else {
-			// don't _FollowSeed of invalid areas
-			neighbours.RemoveItemAt(i);
-			i--;
+
+			_FollowSeed(currentArea, veto, seedList, newGroup, visited);
 		}
 	}
-
-	for (int i = 0; i < neighbours.CountItems(); i++)
-		_FollowSeed(neighbours.ItemAt(i), veto, seedList, newGroup);
 }
 
 
