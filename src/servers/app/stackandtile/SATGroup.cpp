@@ -1360,9 +1360,7 @@ SATGroup::_FollowSeed(WindowArea* area, WindowArea* veto,
 	_FillNeighbourList(neighbours, area);
 	for (int i = 0; i < neighbours.CountItems(); i++) {
 		WindowArea* currentArea = neighbours.ItemAt(i);
-		if (currentArea != veto
-			&& visited.find(currentArea) == visited.end()) {
-			visited.insert(currentArea);
+		if (currentArea != veto && visited.insert(currentArea).second) {
 			newGroup.AddItem(currentArea);
 			// if we get a area from the seed list it is not a seed any more
 			seedList.RemoveItem(currentArea);
