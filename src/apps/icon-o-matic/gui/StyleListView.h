@@ -10,6 +10,8 @@
 #define STYLE_LIST_VIEW_H
 
 
+#include <map>
+
 #include "ListViews.h"
 #include "Container.h"
 
@@ -61,6 +63,14 @@ public:
 	virtual	int32				IndexOfSelectable(Selectable* selectable) const;
 	virtual	Selectable*			SelectableFor(BListItem* item) const;
 
+	// BListView interface
+	virtual	bool				AddItem(BListItem* item);
+	virtual	bool				AddItem(BListItem* item, int32 atIndex);
+	virtual	bool				RemoveItem(BListItem* item);
+	virtual	BListItem*			RemoveItem(int32 index);
+	virtual	bool				RemoveItems(int32 index, int32 count);
+	virtual	void				MakeEmpty();
+
 	// ContainerListener<Style> interface
 	virtual	void				ItemAdded(Style* style, int32 index);
 	virtual	void				ItemRemoved(Style* style);
@@ -104,6 +114,8 @@ private:
 			BMenuItem*			fDuplicateItem;
 			BMenuItem*			fResetTransformationItem;
 			BMenuItem*			fRemoveItem;
+
+			std::map<Style*, StyleListItem*> fStyleMap;
 };
 
 
