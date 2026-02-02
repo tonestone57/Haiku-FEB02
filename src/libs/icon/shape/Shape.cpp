@@ -32,18 +32,6 @@
 using std::nothrow;
 
 
-#ifdef ICON_O_MATIC
-ShapeListener::ShapeListener()
-{
-}
-
-
-ShapeListener::~ShapeListener()
-{
-}
-#endif // ICON_O_MATIC
-
-
 // #pragma mark -
 
 
@@ -67,10 +55,6 @@ Shape::Shape(::Style* style)
 	  fLastBounds(0, 0, -1, -1),
 
 	  fHinting(false)
-
-#ifdef ICON_O_MATIC
-	, fListeners(8)
-#endif
 {
 	SetStyle(style);
 
@@ -103,10 +87,6 @@ Shape::Shape(const Shape& other)
 	  fLastBounds(0, 0, -1, -1),
 
 	  fHinting(false)
-
-#ifdef ICON_O_MATIC
-	, fListeners(8)
-#endif
 {
 	SetStyle(other.fStyle);
 
@@ -260,7 +240,6 @@ Shape::SetToPropertyObject(const PropertyObject* object)
 void
 Shape::TransformationChanged()
 {
-	// TODO: notify appearance change
 	_NotifyRerender();
 }
 
@@ -353,8 +332,6 @@ Shape::ItemAdded(Transformer* transformer, int32 index)
 {
 #ifdef ICON_O_MATIC
 	transformer->AddObserver(this);
-
-	// TODO: merge Observable and ShapeListener interface
 	_NotifyRerender();
 #else
 	fNeedsUpdate = true;
@@ -399,7 +376,6 @@ Shape::SetStyle(::Style* style)
 		fStyle->RemoveObserver(this);
 		fStyle->ReleaseReference();
 	}
-	::Style* oldStyle = fStyle;
 #endif
 
 	fStyle = style;
@@ -410,7 +386,7 @@ Shape::SetStyle(::Style* style)
 		fStyle->AddObserver(this);
 	}
 
-	_NotifyStyleChanged(oldStyle, fStyle);
+	_NotifyRerender();
 #endif
 }
 
@@ -481,40 +457,6 @@ Shape::SetGlobalScale(double scale)
 
 
 #ifdef ICON_O_MATIC
-bool
-Shape::AddListener(ShapeListener* listener)
-{
-	if (listener && !fListeners.HasItem((void*)listener))
-		return fListeners.AddItem((void*)listener);
-	return false;
-}
-
-
-bool
-Shape::RemoveListener(ShapeListener* listener)
-{
-	return fListeners.RemoveItem((void*)listener);
-}
-
-
-// #pragma mark -
-
-
-void
-Shape::_NotifyStyleChanged(::Style* oldStyle, ::Style* newStyle) const
-{
-	BList listeners(fListeners);
-	int32 count = listeners.CountItems();
-	for (int32 i = 0; i < count; i++) {
-		ShapeListener* listener
-			= (ShapeListener*)listeners.ItemAtFast(i);
-		listener->StyleChanged(oldStyle, newStyle);
-	}
-	// TODO: merge Observable and ShapeListener interface
-	_NotifyRerender();
-}
-
-
 void
 Shape::_NotifyRerender() const
 {
@@ -533,4 +475,3 @@ Shape::SetHinting(bool hinting)
 	fHinting = hinting;
 	Notify();
 }
-

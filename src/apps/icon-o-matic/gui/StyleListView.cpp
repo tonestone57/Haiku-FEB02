@@ -184,7 +184,7 @@ private:
 };
 
 
-class ShapeStyleListener : public ShapeListener,
+class ShapeStyleListener : public Observer,
 	public ContainerListener<Shape> {
 public:
 	ShapeStyleListener(StyleListView* listView)
@@ -199,19 +199,10 @@ public:
 		SetShape(NULL);
 	}
 
-	// ShapeListener interface
-	virtual	void TransformerAdded(Transformer* t, int32 index)
+	// Observer interface
+	virtual	void	ObjectChanged(const Observable* object)
 	{
-	}
-	
-	virtual	void TransformerRemoved(Transformer* t)
-	{
-	}
-
-	virtual void StyleChanged(Style* oldStyle, Style* newStyle)
-	{
-		fListView->_SetStyleMarked(oldStyle, false);
-		fListView->_SetStyleMarked(newStyle, true);
+		fListView->_UpdateMarks();
 	}
 
 	// ContainerListener<Shape> interface
@@ -231,12 +222,12 @@ public:
 			return;
 
 		if (fShape)
-			fShape->RemoveListener(this);
+			fShape->RemoveObserver(this);
 
 		fShape = shape;
 
 		if (fShape)
-			fShape->AddListener(this);
+			fShape->AddObserver(this);
 	}
 
 	PathSourceShape* CurrentShape() const
@@ -843,15 +834,6 @@ StyleListView::_UpdateMarks()
 	}
 
 	Invalidate();
-}
-
-
-void
-StyleListView::_SetStyleMarked(Style* style, bool marked)
-{
-	StyleListItem* item = _ItemForStyle(style);
-	if (item != NULL)
-		item->SetMarked(marked);
 }
 
 

@@ -84,7 +84,6 @@ private:
 
 			friend class ShapeStyleListener;
 			void				_UpdateMarks();
-			void				_SetStyleMarked(Style* style, bool marked);
 			void				_UpdateMenu();
 
 			BMessage*			fMessage;

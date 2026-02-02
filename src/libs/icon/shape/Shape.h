@@ -20,7 +20,6 @@
 #include "Transformable.h"
 #include "VectorPath.h"
 
-#include <List.h>
 #include <Rect.h>
 
 
@@ -30,20 +29,6 @@ _BEGIN_ICON_NAMESPACE
 
 class Style;
 
-
-#ifdef ICON_O_MATIC
-// TODO: merge Observer and ShapeListener interface
-// ie add "AppearanceChanged(Shape* shape)"
-class ShapeListener {
- public:
-								ShapeListener();
-	virtual						~ShapeListener();
-
-	// TODO: this is not useful for all subclasses of Shape (e.g. ReferenceImage)
-	virtual	void				StyleChanged(Style* oldStyle,
-											 Style* newStyle) = 0;
-};
-#endif // ICON_O_MATIC
 
 #ifdef ICON_O_MATIC
 class Shape : public IconObject,
@@ -126,13 +111,7 @@ class Shape : public _ICON_NAMESPACE Transformable,
 	virtual bool					Visible(float scale) const = 0;
 
 #ifdef ICON_O_MATIC
-			bool					AddListener(ShapeListener* listener);
-			bool					RemoveListener(ShapeListener* listener);
-
  private:
-			void					_NotifyStyleChanged(_ICON_NAMESPACE Style* oldStyle,
-														_ICON_NAMESPACE Style* newStyle) const;
-
 			void					_NotifyRerender() const;
 #endif // ICON_O_MATIC
 
@@ -150,10 +129,6 @@ class Shape : public _ICON_NAMESPACE Transformable,
 	mutable	BRect					fLastBounds;
 
 			bool					fHinting;
-
-#ifdef ICON_O_MATIC
-			BList					fListeners;
-#endif
 };
 
 _END_ICON_NAMESPACE
