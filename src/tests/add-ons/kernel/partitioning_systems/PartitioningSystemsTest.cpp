@@ -175,31 +175,49 @@ scan_partition(int fd, partition_id partitionID)
 // #pragma mark - disk device manager API
 
 
+static std::map<partition_id, int32> sWriteLocks;
+static std::map<partition_id, int32> sReadLocks;
+
+
 disk_device_data*
 write_lock_disk_device(partition_id partitionID)
 {
-	// TODO: we could check if the device is properly unlocked again
-	return get_disk_device(partitionID);
+	disk_device_data* device = get_disk_device(partitionID);
+	if (device != NULL)
+		sWriteLocks[partitionID]++;
+
+	return device;
 }
 
 
 void
 write_unlock_disk_device(partition_id partitionID)
 {
+	if (sWriteLocks[partitionID] > 0)
+		sWriteLocks[partitionID]--;
+	else
+		fprintf(stderr, "Unbalanced write unlock for partition %ld\n", partitionID);
 }
 
 
 disk_device_data*
 read_lock_disk_device(partition_id partitionID)
 {
-	// TODO: we could check if the device is properly unlocked again
-	return get_disk_device(partitionID);
+	disk_device_data* device = get_disk_device(partitionID);
+	if (device != NULL)
+		sReadLocks[partitionID]++;
+
+	return device;
 }
 
 
 void
 read_unlock_disk_device(partition_id partitionID)
 {
+	if (sReadLocks[partitionID] > 0)
+		sReadLocks[partitionID]--;
+	else
+		fprintf(stderr, "Unbalanced read unlock for partition %ld\n", partitionID);
 }
 
 
@@ -399,7 +417,25 @@ main(int argc, char** argv)
 		print_partition(iterator->first);
 	}
 
+	int result = 0;
+	for (std::map<partition_id, int32>::iterator it = sWriteLocks.begin();
+			it != sWriteLocks.end(); ++it) {
+		if (it->second != 0) {
+			fprintf(stderr, "Partition %ld still write locked %d times!\n",
+				it->first, it->second);
+			result = 1;
+		}
+	}
+	for (std::map<partition_id, int32>::iterator it = sReadLocks.begin();
+			it != sReadLocks.end(); ++it) {
+		if (it->second != 0) {
+			fprintf(stderr, "Partition %ld still read locked %d times!\n",
+				it->first, it->second);
+			result = 1;
+		}
+	}
+
 	close(device);
-	return 0;
+	return result;
 }
 
