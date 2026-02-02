@@ -10,6 +10,8 @@
 #define TRANSFORMER_LIST_VIEW_H
 
 
+#include <map>
+
 #include "Container.h"
 #include "ListViews.h"
 #include "IconBuild.h"
@@ -40,6 +42,12 @@ class TransformerListView : public SimpleListView,
 	virtual						~TransformerListView();
 
 	// SimpleListView interface
+	virtual	bool				AddItem(BListItem* item);
+	virtual	bool				AddItem(BListItem* item, int32 atIndex);
+	virtual	bool				RemoveItem(BListItem* item);
+	virtual	BListItem*			RemoveItem(int32 index);
+	virtual	void				MakeEmpty();
+
 	virtual	void				Draw(BRect updateRect);
 
 	virtual	void				SelectionChanged();
@@ -79,6 +87,8 @@ class TransformerListView : public SimpleListView,
 			void				_UpdateMenu();
 
 			BMessage*			fMessage;
+
+			std::map<Transformer*, TransformerItem*> fItemMap;
 
 			Shape*				fShape;
 			CommandStack*		fCommandStack;
