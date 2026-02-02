@@ -267,6 +267,11 @@ SwapDataTest::test(void)
 	CHK(swap_data(B_INT32_TYPE, NULL, 4, B_SWAP_HOST_TO_BENDIAN) == B_BAD_VALUE);
 #endif
 
+	// length checking
+	CHK(swap_data(B_INT32_TYPE, &num32, 3, B_SWAP_ALWAYS) == B_BAD_VALUE);
+	CHK(swap_data(B_INT16_TYPE, &num32, 1, B_SWAP_ALWAYS) == B_BAD_VALUE);
+	CHK(swap_data(B_INT64_TYPE, &num32, 7, B_SWAP_ALWAYS) == B_BAD_VALUE);
+
 	// algorithm checking
 #define TEST(type, source, target) \
 	memcpy(target, source, sizeof(source)); \

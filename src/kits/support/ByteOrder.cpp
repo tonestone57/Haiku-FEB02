@@ -27,14 +27,14 @@ swap_data(type_code type, void *_data, size_t length, swap_action action)
 	if (_data == NULL)
 		return B_BAD_VALUE;
 
-	// ToDo: these are not safe. If the length is smaller than the size of
-	// the type to be converted, too much data may be read. R5 behaves in the
-	// same way though.
 	switch (type) {
 		// 16 bit types
 		case B_INT16_TYPE:
 		case B_UINT16_TYPE:
 		{
+			if (length % 2 != 0)
+				return B_BAD_VALUE;
+
 			uint16 *data = (uint16 *)_data;
 			uint16 *end = (uint16 *)((addr_t)_data + length);
 
@@ -58,6 +58,9 @@ swap_data(type_code type, void *_data, size_t length, swap_action action)
 		case B_POINTER_TYPE:
 #endif
 		{
+			if (length % 4 != 0)
+				return B_BAD_VALUE;
+
 			uint32 *data = (uint32 *)_data;
 			uint32 *end = (uint32 *)((addr_t)_data + length);
 
@@ -79,6 +82,9 @@ swap_data(type_code type, void *_data, size_t length, swap_action action)
 		case B_POINTER_TYPE:
 #endif
 		{
+			if (length % 8 != 0)
+				return B_BAD_VALUE;
+
 			uint64 *data = (uint64 *)_data;
 			uint64 *end = (uint64 *)((addr_t)_data + length);
 
@@ -92,6 +98,9 @@ swap_data(type_code type, void *_data, size_t length, swap_action action)
 		// special types
 		case B_MESSENGER_TYPE:
 		{
+			if (length % sizeof(BMessenger) != 0)
+				return B_BAD_VALUE;
+
 			BMessenger *messenger = (BMessenger *)_data;
 			BMessenger *end = (BMessenger *)((addr_t)_data + length);
 
