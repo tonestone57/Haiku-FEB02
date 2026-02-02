@@ -11,6 +11,7 @@
 
 
 #include <Rect.h>
+#include <set>
 
 #include <AutoDeleter.h>
 #include "ObjectList.h"
@@ -310,7 +311,8 @@ private:
 									WindowAreaList& newGroup);
 			void				_FollowSeed(WindowArea* area, WindowArea* veto,
 									WindowAreaList& seedList,
-									WindowAreaList& newGroup);
+									WindowAreaList& newGroup,
+									std::set<WindowArea*>& visited);
 			void				_SpawnNewGroup(const WindowAreaList& newGroup);
 
 			void				_EnsureGroupIsOnScreen(SATGroup* group);
