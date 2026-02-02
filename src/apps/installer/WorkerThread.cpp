@@ -917,8 +917,9 @@ WorkerThread::_SetStatusMessage(const char *status)
 
 
 static void
-make_partition_label(BPartition* partition, char* label, char* menuLabel,
-	bool showContentType, bool markBootDisk)
+make_partition_label(BPartition* partition, char* label, size_t labelSize,
+	char* menuLabel, size_t menuLabelSize, bool showContentType,
+	bool markBootDisk)
 {
 	char size[20];
 	string_for_size(partition->Size(), size, sizeof(size));
@@ -936,14 +937,17 @@ make_partition_label(BPartition* partition, char* label, char* menuLabel,
 		if (type == NULL)
 			type = B_TRANSLATE_COMMENT("Unknown type", "Partition content type");
 
-		sprintf(label, "%s%s - %s [%s] (%s)", partition->ContentName().String(), bootMark.String(),
-			size, path.Path(), type);
+		snprintf(label, labelSize, "%s%s - %s [%s] (%s)",
+			partition->ContentName().String(), bootMark.String(), size,
+			path.Path(), type);
 	} else {
-		sprintf(label, "%s%s - %s [%s]", partition->ContentName().String(), bootMark.String(),
-			size, path.Path());
+		snprintf(label, labelSize, "%s%s - %s [%s]",
+			partition->ContentName().String(), bootMark.String(), size,
+			path.Path());
 	}
 
-	sprintf(menuLabel, "%s%s - %s", partition->ContentName().String(), bootMark.String(), size);
+	snprintf(menuLabel, menuLabelSize, "%s%s - %s",
+		partition->ContentName().String(), bootMark.String(), size);
 }
 
 
@@ -990,9 +994,10 @@ SourceVisitor::Visit(BPartition *partition, int32 level)
 	// from your BFS volume containing the music collection?
 	// TODO: Then the check for BFS could also be removed above.
 
-	char label[255];
-	char menuLabel[255];
-	make_partition_label(partition, label, menuLabel, false, false);
+	char label[2048];
+	char menuLabel[2048];
+	make_partition_label(partition, label, sizeof(label), menuLabel,
+		sizeof(menuLabel), false, false);
 	PartitionMenuItem* item = new PartitionMenuItem(partition->ContentName(),
 		label, menuLabel, new BMessage(SOURCE_PARTITION), partition->ID());
 	item->SetMarked(isBootPartition);
@@ -1052,9 +1057,10 @@ TargetVisitor::Visit(BPartition *partition, int32 level)
 		&& partition->ContentType() != NULL
 		&& strcmp(partition->ContentType(), kPartitionTypeBFS) == 0;
 
-	char label[255];
-	char menuLabel[255];
-	make_partition_label(partition, label, menuLabel, !isValidTarget, false);
+	char label[2048];
+	char menuLabel[2048];
+	make_partition_label(partition, label, sizeof(label), menuLabel,
+		sizeof(menuLabel), !isValidTarget, false);
 	PartitionMenuItem* item = new PartitionMenuItem(partition->ContentName(),
 		label, menuLabel, new BMessage(TARGET_PARTITION), partition->ID());
 
@@ -1102,9 +1108,10 @@ EFIVisitor::Visit(BPartition *partition, int32 level)
 		|| strcmp(partition->Parent()->ContentType(), kPartitionTypeEFI) != 0)
 		return false;
 
-	char label[255];
-	char menuLabel[255];
-	make_partition_label(partition, label, menuLabel, false, partition->Parent()->ID() == fBootId);
+	char label[2048];
+	char menuLabel[2048];
+	make_partition_label(partition, label, sizeof(label), menuLabel,
+		sizeof(menuLabel), false, partition->Parent()->ID() == fBootId);
 	BMessage* message = new BMessage(EFI_PARTITION);
 	message->AddInt32("id", partition->ID());
 	BMenuItem* item = new BMenuItem(label, message);
