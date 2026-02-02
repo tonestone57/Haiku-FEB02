@@ -14,7 +14,7 @@
 #include "UpdateManager.h"
 
 #include <sys/ioctl.h>
-#include <map>
+#include <unordered_map>
 #include <unistd.h>
 
 #include <Alert.h>
@@ -38,6 +38,14 @@ using namespace BPackageKit::BManager::BPrivate;
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "UpdateManager"
+
+
+struct BStringHash {
+	size_t operator()(const BString& string) const
+	{
+		return string.HashValue();
+	}
+};
 
 
 UpdateManager::UpdateManager(BPackageInstallationLocation location,
@@ -429,8 +437,8 @@ UpdateManager::_PrintResult(InstalledRepository& installationRepository,
 	PackageList& packagesToDeactivate
 		= installationRepository.PackagesToDeactivate();
 
-	std::map<BString, BString> upgradedPackages;
-	std::map<BString, BSolverPackage*> oldPackages;
+	std::unordered_map<BString, BString, BStringHash> upgradedPackages;
+	std::unordered_map<BString, BSolverPackage*, BStringHash> oldPackages;
 
 	for (int32 i = 0; BSolverPackage* package = packagesToDeactivate.ItemAt(i);
 		i++) {
@@ -440,7 +448,7 @@ UpdateManager::_PrintResult(InstalledRepository& installationRepository,
 	for (int32 i = 0;
 		BSolverPackage* installPackage = packagesToActivate.ItemAt(i);
 		i++) {
-		std::map<BString, BSolverPackage*>::iterator it
+		std::unordered_map<BString, BSolverPackage*, BStringHash>::iterator it
 			= oldPackages.find(installPackage->Info().Name());
 		if (it != oldPackages.end()) {
 			upgradedPackages.insert(std::make_pair(installPackage->Info().Name(),
@@ -457,7 +465,7 @@ UpdateManager::_PrintResult(InstalledRepository& installationRepository,
 			repository.SetToFormat("repository %s",
 				package->Repository()->Name().String());
 
-		std::map<BString, BString>::iterator it
+		std::unordered_map<BString, BString, BStringHash>::iterator it
 			= upgradedPackages.find(package->Info().Name());
 		if (it != upgradedPackages.end()) {
 			if (fVerbose)
