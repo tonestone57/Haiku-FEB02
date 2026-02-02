@@ -63,6 +63,9 @@ class ShapeListView : public SimpleListView,
 
 	virtual	int32					IndexOfSelectable(Selectable* selectable) const;
 	virtual	Selectable*				SelectableFor(BListItem* item) const;
+	virtual	bool					IsItemInSelection(BListItem* item,
+										const std::unordered_set<Selectable*>& selectedSelectables)
+											const;
 
 	// ContainerListener<Shape> interface
 	virtual	void					ItemAdded(Shape* shape, int32 index);

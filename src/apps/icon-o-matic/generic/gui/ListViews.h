@@ -13,6 +13,7 @@
 #include <ListItem.h>
 #include <ListView.h>
 #include <Message.h>
+#include <unordered_set>
 
 #include "MouseWheelFilter.h"
 #include "Observer.h"
@@ -98,6 +99,9 @@ class DragSortableListView : public BListView,
 
 	virtual	int32			IndexOfSelectable(Selectable* selectable) const;
 	virtual	Selectable*		SelectableFor(BListItem* item) const;
+	virtual	bool			IsItemInSelection(BListItem* item,
+								const std::unordered_set<Selectable*>& selectedSelectables)
+									const;
 
 			void			SetDeselectAllInGlobalSelection(bool deselect);
 

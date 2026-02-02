@@ -596,6 +596,28 @@ ShapeListView::SelectableFor(BListItem* item) const
 }
 
 
+bool
+ShapeListView::IsItemInSelection(BListItem* item,
+	const std::unordered_set<Selectable*>& selectedSelectables) const
+{
+	if (DragSortableListView::IsItemInSelection(item, selectedSelectables))
+		return true;
+
+	ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item);
+	if (shapeItem != NULL && shapeItem->shape != NULL) {
+		int32 count = shapeItem->shape->Transformers()->CountItems();
+		for (int32 i = 0; i < count; i++) {
+			if (selectedSelectables.find(
+					(Selectable*)shapeItem->shape->Transformers()->ItemAtFast(i))
+					!= selectedSelectables.end()) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+
 // #pragma mark -
 
 
