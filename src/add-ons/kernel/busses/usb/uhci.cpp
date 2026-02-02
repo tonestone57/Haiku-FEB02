@@ -533,7 +533,8 @@ UHCI::UHCI(pci_info *info, pci_device_module_info* pci, pci_device* device, Stac
 		fRootHubAddress(0),
 		fPortResetChange(0),
 		fIRQ(0),
-		fUseMSI(false)
+		fUseMSI(false),
+		fHostControllerHalted(false)
 {
 	// Create a lock for the isochronous transfer list
 	mutex_init(&fIsochronousLock, "UHCI isochronous lock");
@@ -826,6 +827,9 @@ UHCI::Start()
 status_t
 UHCI::SubmitTransfer(Transfer *transfer)
 {
+	if (fHostControllerHalted)
+		return B_NO_INIT;
+
 	// Short circuit the root hub
 	Pipe *pipe = transfer->TransferPipe();
 	if (pipe->DeviceAddress() == fRootHubAddress)
@@ -876,6 +880,9 @@ UHCI::SubmitTransfer(Transfer *transfer)
 status_t
 UHCI::StartDebugTransfer(Transfer *transfer)
 {
+	if (fHostControllerHalted)
+		return B_NO_INIT;
+
 	if ((transfer->TransferPipe()->Type() & USB_OBJECT_CONTROL_PIPE) != 0)
 		return B_UNSUPPORTED;
 
@@ -1183,6 +1190,12 @@ UHCI::AddPendingTransfer(Transfer *transfer, Queue *queue,
 		return B_ERROR;
 	}
 
+	if (fHostControllerHalted) {
+		Unlock();
+		delete data;
+		return B_NO_INIT;
+	}
+
 	// We do not support queuing other transfers in tandem with a fragmented one.
 	transfer_data *it = fFirstTransfer;
 	while (it) {
@@ -1238,6 +1251,12 @@ UHCI::AddPendingIsochronousTransfer(Transfer *transfer, uhci_td **isoRequest,
 	if (!LockIsochronous()) {
 		delete data;
 		return B_ERROR;
+	}
+
+	if (fHostControllerHalted) {
+		UnlockIsochronous();
+		delete data;
+		return B_NO_INIT;
 	}
 
 	if (fLastIsochronousTransfer)
@@ -1497,6 +1516,33 @@ UHCI::FinishTransfers()
 
 		if (!Lock())
 			continue;
+
+		if (fHostControllerHalted) {
+			TRACE_ERROR("host controller halted, canceling all transfers\n");
+			Unlock();
+			ControllerReset();
+			if (!Lock())
+				continue;
+
+			transfer_data *transfer = fFirstTransfer;
+			while (transfer) {
+				transfer->transfer->Finished(B_CANCELED, 0);
+
+				transfer->queue->RemoveTransfer(transfer->transfer_queue);
+				FreeDescriptorChain(transfer->first_descriptor);
+				FreeTransferQueue(transfer->transfer_queue);
+				delete transfer->transfer;
+
+				transfer_data *next = transfer->link;
+				delete transfer;
+				transfer = next;
+			}
+
+			fFirstTransfer = NULL;
+			fLastTransfer = NULL;
+			Unlock();
+			continue;
+		}
 
 		TRACE("finishing transfers (first transfer: 0x%08lx; last"
 			" transfer: 0x%08lx)\n", (addr_t)fFirstTransfer,
@@ -1762,6 +1808,41 @@ UHCI::FinishIsochronousTransfers()
 		// Go to sleep if there are not isochronous transfer to process
 		if (acquire_sem(fFinishIsochronousTransfersSem) < B_OK)
 			return;
+
+		if (fHostControllerHalted) {
+			if (LockIsochronous()) {
+				isochronous_transfer_data *transfer = fFirstIsochronousTransfer;
+				while (transfer) {
+					transfer->transfer->Finished(B_CANCELED, 0);
+
+					uint32 packetCount
+						= transfer->transfer->IsochronousData()->packet_count;
+					for (uint32 i = 0; i < packetCount; i++)
+						FreeDescriptor(transfer->descriptors[i]);
+
+					delete [] transfer->descriptors;
+					delete transfer->transfer;
+
+					isochronous_transfer_data *next = transfer->link;
+					delete transfer;
+					transfer = next;
+				}
+
+				fFirstIsochronousTransfer = NULL;
+				fLastIsochronousTransfer = NULL;
+
+				for (int32 i = 0; i < NUMBER_OF_FRAMES; i++) {
+					fFirstIsochronousDescriptor[i] = NULL;
+					fLastIsochronousDescriptor[i] = NULL;
+					fFrameList[i] = fQueues[UHCI_INTERRUPT_QUEUE]->PhysicalAddress()
+						| FRAMELIST_NEXT_IS_QH;
+					fFrameBandwidth[i] = MAX_AVAILABLE_BANDWIDTH;
+				}
+
+				UnlockIsochronous();
+			}
+			continue;
+		}
 
 		bool transferDone = false;
 		uint16 currentFrame = ReadReg16(UHCI_FRNUM);
@@ -2062,8 +2143,10 @@ UHCI::Interrupt()
 		// at least disable interrupts so we do not flood the system
 		WriteReg16(UHCI_USBINTR, 0);
 		fEnabledInterrupts = 0;
-		// ToDo: cancel all transfers and reset the host controller
-		// acknowledge not needed
+
+		fHostControllerHalted = true;
+		release_sem_etc(fFinishIsochronousTransfersSem, 1, B_DO_NOT_RESCHEDULE);
+		finishTransfers = true;
 	}
 
 	if (acknowledge)
