@@ -37,10 +37,14 @@
 
 #include <Application.h>
 #include <Archivable.h>
+#include <Directory.h>
+#include <Entry.h>
 #include <File.h>
 #include <Message.h>
 #include <OS.h>
 #include <TranslatorFormats.h>
+
+#include <string>
 
 /* cppunit framework */
 #include <cppunit/Test.h>
@@ -500,8 +504,30 @@ TranslatorRosterTest::AddTranslatorsTest()
 	proster->GetAllTranslators(&translators, &instcount);
 	CPPUNIT_ASSERT(translators);
 	CPPUNIT_ASSERT(instcount > 0);
-	// TODO: count the number of files in all of the directories specified
-	// TODO: above and make certain that it matches instcount
+
+	int32 file_count = 0;
+	std::string paths = "/boot/home/config/add-ons/Translators/:"
+		"/system/add-ons/Translators/";
+	size_t start = 0;
+	while (start < paths.length()) {
+		size_t end = paths.find(':', start);
+		if (end == std::string::npos)
+			end = paths.length();
+
+		std::string dirPath = paths.substr(start, end - start);
+
+		BDirectory dir(dirPath.c_str());
+		if (dir.InitCheck() == B_OK) {
+			BEntry entry;
+			while (dir.GetNextEntry(&entry, true) == B_OK) {
+				if (entry.IsFile())
+					file_count++;
+			}
+		}
+		start = end + 1;
+	}
+	CPPUNIT_ASSERT(instcount == file_count);
+
 	delete[] translators;
 	translators = NULL;
 	
