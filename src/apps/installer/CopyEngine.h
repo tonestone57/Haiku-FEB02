@@ -12,6 +12,7 @@
 #include <File.h>
 #include <Messenger.h>
 #include <String.h>
+#include <SupportDefs.h>
 
 #include "BlockingQueue.h"
 
@@ -63,27 +64,60 @@ private:
 				BUFFER_COUNT	= 16,
 				BUFFER_SIZE		= 1024 * 1024
 			};
+
+			class SharedFile {
+			public:
+				SharedFile(BFile* file)
+					:
+					fFile(file),
+					fRefCount(1)
+				{
+				}
+
+				void AddRef()
+				{
+					atomic_add(&fRefCount, 1);
+				}
+
+				void Release()
+				{
+					if (atomic_add(&fRefCount, -1) == 1) {
+						delete fFile;
+						delete this;
+					}
+				}
+
+				BFile* Get() const
+				{
+					return fFile;
+				}
+
+			private:
+				BFile*	fFile;
+				int32	fRefCount;
+			};
+
 			struct Buffer {
-				Buffer(BFile* file)
+				Buffer(SharedFile* file)
 					:
 					file(file),
 					buffer(malloc(BUFFER_SIZE)),
 					size(BUFFER_SIZE),
-					validBytes(0),
-					deleteFile(false)
+					validBytes(0)
 				{
+					if (file)
+						file->AddRef();
 				}
 				~Buffer()
 				{
-					if (deleteFile)
-						delete file;
+					if (file)
+						file->Release();
 					free(buffer);
 				}
-				BFile*			file;
+				SharedFile*		file;
 				void*			buffer;
 				size_t			size;
 				size_t			validBytes;
-				bool			deleteFile;
 			};
 
 private:

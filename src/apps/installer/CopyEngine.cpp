@@ -190,6 +190,12 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		return ret;
 	}
 
+	SharedFile* sharedDest = new (nothrow) SharedFile(destination);
+	if (sharedDest == NULL) {
+		delete destination;
+		return B_NO_MEMORY;
+	}
+
 	int32 loopIteration = 0;
 
 	while (true) {
@@ -201,10 +207,10 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		}
 
 		// allocate buffer
-		Buffer* buffer = new (nothrow) Buffer(destination);
+		Buffer* buffer = new (nothrow) Buffer(sharedDest);
 		if (!buffer || !buffer->buffer) {
-			delete destination;
 			delete buffer;
+			sharedDest->Release();
 			fprintf(stderr, "reading loop: out of memory\n");
 			return B_NO_MEMORY;
 		}
@@ -215,7 +221,6 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 			ret = (status_t)read;
 			fprintf(stderr, "Failed to read data: %s\n", strerror(ret));
 			delete buffer;
-			delete destination;
 			break;
 		}
 
@@ -224,7 +229,6 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		if (loopIteration % 2 == 0)
 			_UpdateProgress();
 
-		buffer->deleteFile = read == 0;
 		if (read > 0)
 			buffer->validBytes = (size_t)read;
 		else
@@ -233,9 +237,8 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		// enqueue the buffer
 		ret = fBufferQueue.Push(buffer);
 		if (ret < B_OK) {
-			buffer->deleteFile = false;
 			delete buffer;
-			delete destination;
+			sharedDest->Release();
 			return ret;
 		}
 
@@ -243,6 +246,8 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		if (read == 0)
 			break;
 	}
+
+	sharedDest->Release();
 
 	return ret;
 }
@@ -555,8 +560,8 @@ CopyEngine::_WriteThread()
 			continue;
 		}
 
-		if (!buffer->deleteFile) {
-			ssize_t written = buffer->file->Write(buffer->buffer,
+		if (buffer->validBytes > 0) {
+			ssize_t written = buffer->file->Get()->Write(buffer->buffer,
 				buffer->validBytes);
 			if (written != (ssize_t)buffer->validBytes) {
 				// TODO: this should somehow be propagated back
