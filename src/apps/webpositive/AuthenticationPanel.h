@@ -10,6 +10,7 @@
 #include <Window.h>
 
 class BCheckBox;
+class BMessageRunner;
 class BTextControl;
 
 class AuthenticationPanel : public BWindow {
@@ -38,6 +39,10 @@ private:
 	bool m_cancelled;
 
 	sem_id m_exitSemaphore;
+
+	BMessageRunner* m_jitterRunner;
+	BPoint m_jitterStart;
+	int32 m_jitterStep;
 };
 
 #endif // AuthenticationPanel_h
