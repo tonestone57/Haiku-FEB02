@@ -156,6 +156,8 @@ LinearSpec::AddVariable(Variable* variable)
 	if (!fVariables.AddItem(variable))
 		return false;
 
+	variable->fGlobalIndex = fVariables.CountItems() - 1;
+
 	if (variable->fLS == NULL)
 		variable->fLS = this;
 
@@ -185,9 +187,25 @@ LinearSpec::RemoveVariable(Variable* variable, bool deleteVariable)
 		return false;
 
 	// do we know the variable?
-	if (fVariables.RemoveItem(variable) == false)
+	int32 globalIndex = variable->GlobalIndex();
+	if (globalIndex < 0 || globalIndex >= fVariables.CountItems()
+		|| fVariables.ItemAt(globalIndex) != variable) {
 		return false;
-	fUsedVariables.RemoveItem(variable);
+	}
+
+	fVariables.RemoveItemAt(globalIndex);
+
+	_UpdateGlobalIndices(globalIndex);
+	variable->fGlobalIndex = -1;
+
+	int32 index = variable->Index();
+	if (index >= 0 && index < fUsedVariables.CountItems()
+		&& fUsedVariables.ItemAt(index) == variable) {
+		fUsedVariables.RemoveItemAt(index);
+		_UpdateUsedIndices(index);
+		variable->fIndex = -1;
+	}
+
 	variable->fIsValid = false;
 
 	// invalidate all constraints that use this variable
@@ -316,16 +334,25 @@ LinearSpec::RemoveConstraint(Constraint* constraint, bool deleteConstraint,
 void
 LinearSpec::_AddConstraintRef(Variable* var)
 {
-	if (var->AddReference() == 1)
+	if (var->AddReference() == 1) {
 		fUsedVariables.AddItem(var);
+		var->fIndex = fUsedVariables.CountItems() - 1;
+	}
 }
 
 
 void
 LinearSpec::_RemoveConstraintRef(Variable* var)
 {
-	if (var->RemoveReference() == 0)
-		fUsedVariables.RemoveItem(var);
+	if (var->RemoveReference() == 0) {
+		int32 index = var->Index();
+		if (index >= 0 && index < fUsedVariables.CountItems()
+			&& fUsedVariables.ItemAt(index) == var) {
+			fUsedVariables.RemoveItemAt(index);
+			_UpdateUsedIndices(index);
+			var->fIndex = -1;
+		}
+	}
 }
 
 
@@ -707,3 +734,18 @@ LinearSpec::ToString() const
 	return string;
 }
 
+
+void
+LinearSpec::_UpdateGlobalIndices(int32 fromIndex)
+{
+	for (int32 i = fromIndex; i < fVariables.CountItems(); i++)
+		fVariables.ItemAt(i)->fGlobalIndex = i;
+}
+
+
+void
+LinearSpec::_UpdateUsedIndices(int32 fromIndex)
+{
+	for (int32 i = fromIndex; i < fUsedVariables.CountItems(); i++)
+		fUsedVariables.ItemAt(i)->fIndex = i;
+}

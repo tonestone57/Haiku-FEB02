@@ -31,14 +31,14 @@
 int32
 Variable::Index() const
 {
-	return fLS->IndexOf(this);
+	return fIndex;
 }
 
 
 int32
 Variable::GlobalIndex() const
 {
-	return fLS->GlobalIndexOf(this);
+	return fGlobalIndex;
 }
 
 
@@ -297,7 +297,9 @@ Variable::Variable(LinearSpec* ls)
 	fMax(20000),
 	fLabel(NULL),
 	fIsValid(false),
-	fReferenceCount(0)
+	fReferenceCount(0),
+	fIndex(-1),
+	fGlobalIndex(-1)
 {
 
 }
