@@ -205,7 +205,8 @@ private:
 
 			void			_CopyRect(uint8* bits,
 								uint32 width, uint32 height, uint32 bytesPerRow,
-								int32 xOffset, int32 yOffset) const;
+								uint32 bytesPerPixel, int32 xOffset,
+								int32 yOffset) const;
 
 			ObjectDeleter<Painter>
 							fPainter;
