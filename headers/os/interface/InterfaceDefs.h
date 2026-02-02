@@ -467,6 +467,10 @@ status_t		get_mouse_acceleration(int32* speed); // deprecated
 status_t		get_mouse_acceleration(const char* mouse_name, int32* speed);
 status_t		set_mouse_acceleration(const char* mouse_name, int32 speed);
 
+bool			is_double_click(const BPoint& lastClick,
+					const BPoint& currentClick, bigtime_t lastTime,
+					bigtime_t currentTime);
+
 status_t		get_key_repeat_rate(int32* rate);
 status_t		set_key_repeat_rate(int32 rate);
 status_t		get_key_repeat_delay(bigtime_t* delay);

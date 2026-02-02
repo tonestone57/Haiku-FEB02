@@ -39,9 +39,6 @@ struct track_data {
 };
 
 
-const float kDoubleClickThreshold = 6.0f;
-
-
 static property_info sProperties[] = {
 	{ "Item", { B_COUNT_PROPERTIES, 0 }, { B_DIRECT_SPECIFIER, 0 },
 		"Returns the number of BListItems currently in the list.", 0,
@@ -638,23 +635,11 @@ BListView::MouseDown(BPoint where)
 
 	// If the user double (or more) clicked within the current selection,
 	// we don't change the selection but invoke the selection.
-	// TODO: move this code someplace where it can be shared everywhere
-	// instead of every class having to reimplement it, once some sane
-	// API for it is decided.
-	BPoint delta = where - fTrack->drag_start;
 	bigtime_t sysTime;
 	Window()->CurrentMessage()->FindInt64("when", &sysTime);
-	bigtime_t timeDelta = sysTime - fTrack->last_click_time;
-	bigtime_t doubleClickSpeed;
-	get_click_speed(&doubleClickSpeed);
-	bool doubleClick = false;
 
-	if (timeDelta < doubleClickSpeed
-		&& fabs(delta.x) < kDoubleClickThreshold
-		&& fabs(delta.y) < kDoubleClickThreshold
-		&& fTrack->item_index == index) {
-		doubleClick = true;
-	}
+	bool doubleClick = is_double_click(fTrack->drag_start, where,
+		fTrack->last_click_time, sysTime) && fTrack->item_index == index;
 
 	if (doubleClick && index >= fFirstSelected && index <= fLastSelected) {
 		fTrack->drag_start.Set(INT32_MAX, INT32_MAX);
