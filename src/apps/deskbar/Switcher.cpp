@@ -155,11 +155,16 @@ public:
 			void			ShowIndex(int32 windex);
 			BRect			FrameOf(int32 index) const;
 
+	virtual					~TWindowView();
+	virtual	void			MessageReceived(BMessage* message);
+
 private:
 			int32			fCurrentToken;
 			float			fItemHeight;
 			TSwitcherWindow* fSwitcher;
 			TSwitchManager*	fManager;
+			BMessageRunner*	fScrollRunner;
+			float			fScrollTargetY;
 };
 
 class TIconView : public BView {
@@ -2288,9 +2293,17 @@ TWindowView::TWindowView(BRect rect, TSwitchManager* manager,
 	fCurrentToken(-1),
 	fItemHeight(-1),
 	fSwitcher(window),
-	fManager(manager)
+	fManager(manager),
+	fScrollRunner(NULL),
+	fScrollTargetY(0.0f)
 {
 	SetFont(be_plain_font);
+}
+
+
+TWindowView::~TWindowView()
+{
+	delete fScrollRunner;
 }
 
 
@@ -2298,6 +2311,35 @@ void
 TWindowView::AttachedToWindow()
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+}
+
+
+void
+TWindowView::MessageReceived(BMessage* message)
+{
+	switch (message->what) {
+		case kMsgAnimate:
+		{
+			if (fScrollRunner == NULL)
+				break;
+
+			float currentY = Bounds().top;
+			float diff = fScrollTargetY - currentY;
+			int32 step = (int32)(fItemHeight / kWindowScrollSteps);
+
+			if (fabs(diff) <= step) {
+				ScrollTo(0, fScrollTargetY);
+				delete fScrollRunner;
+				fScrollRunner = NULL;
+			} else {
+				ScrollBy(0, (diff > 0) ? step : -step);
+			}
+			Window()->UpdateIfNeeded();
+			break;
+		}
+		default:
+			BView::MessageReceived(message);
+	}
 }
 
 
@@ -2342,7 +2384,7 @@ void
 TWindowView::ShowIndex(int32 newIndex)
 {
 	// convert index to scroll location
-	BPoint point(0, newIndex * fItemHeight);
+	fScrollTargetY = newIndex * fItemHeight;
 	BRect bounds = Bounds();
 
 	int32 groupIndex = fManager->CurrentIndex();
@@ -2358,21 +2400,15 @@ TWindowView::ShowIndex(int32 newIndex)
 	fCurrentToken = windowInfo->server_token;
 	free(windowInfo);
 
-	if (bounds.top == point.y)
+	if (bounds.top == fScrollTargetY) {
+		delete fScrollRunner;
+		fScrollRunner = NULL;
 		return;
+	}
 
-	int32 oldIndex = (int32) (bounds.top / fItemHeight);
-
-	int32 stepSize = (int32) (fItemHeight / kWindowScrollSteps);
-	int32 scrollValue = (newIndex > oldIndex) ? stepSize : -stepSize;
-	int32 total = 0;
-	int32 nslots = abs(newIndex - oldIndex);
-
-	while (total < (nslots * (int32)fItemHeight)) {
-		ScrollBy(0, scrollValue);
-		snooze(10000);
-		total += stepSize;
-		Window()->UpdateIfNeeded();
+	if (fScrollRunner == NULL) {
+		BMessage msg(kMsgAnimate);
+		fScrollRunner = new BMessageRunner(BMessenger(this), &msg, 10000);
 	}
 }
 
@@ -2489,6 +2525,8 @@ TWindowView::Draw(BRect update)
 void
 TWindowView::UpdateGroup(int32, int32 windowIndex)
 {
+	delete fScrollRunner;
+	fScrollRunner = NULL;
 	ScrollTo(0, windowIndex * fItemHeight);
 	Invalidate(Bounds());
 }
