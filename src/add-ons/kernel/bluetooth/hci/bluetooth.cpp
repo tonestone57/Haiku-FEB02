@@ -123,6 +123,10 @@ Assemble(bluetooth_device* bluetoothDevice, bt_packet_t type, void* data,
 						} else {
 							nbuf = gBufferModule->create(
 								bluetoothDevice->fExpectedPacketSize[type]);
+							if (nbuf == NULL) {
+								ERROR("%s: EVENT buffer allocation failed\n", __func__);
+								return B_NO_MEMORY;
+							}
 							bluetoothDevice->fBuffersRx[type] = nbuf;
 
 							nbuf->protocol = type;
@@ -144,6 +148,10 @@ Assemble(bluetooth_device* bluetoothDevice, bt_packet_t type, void* data,
 						// Create the buffer -> TODO: this allocation can fail
 						nbuf = gBufferModule->create(
 							bluetoothDevice->fExpectedPacketSize[type]);
+						if (nbuf == NULL) {
+							ERROR("%s: ACL buffer allocation failed\n", __func__);
+							return B_NO_MEMORY;
+						}
 						bluetoothDevice->fBuffersRx[type] = nbuf;
 
 						nbuf->protocol = type;
