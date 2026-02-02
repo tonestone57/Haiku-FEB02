@@ -81,12 +81,56 @@ mbrWipe(int handle)
 static bool
 mbrValid(int handle)
 {
-	// TODO: this is a really basic check and ignores invalid
-	// partition table entries
 	uint8_t mbrBytes[66] = {};
 	ssize_t read = pread(handle, mbrBytes, 66, 0x1BE);
 	checkError(read < 0, "failed to read MBR for validation");
-	return (mbrBytes[64] == 0x55 && mbrBytes[65] == 0xAA);
+
+	if (mbrBytes[64] != 0x55 || mbrBytes[65] != 0xAA)
+		return false;
+
+	// Check for valid partition table entries
+	for (int i = 0; i < 4; i++) {
+		uint8_t *entry = &mbrBytes[16 * i];
+		uint8_t status = entry[0];
+		uint32_t type = entry[4];
+		uint32_t start;
+		uint32_t size;
+		memcpy(&start, &entry[8], sizeof(start));
+		memcpy(&size, &entry[12], sizeof(size));
+
+		if (status != 0x00 && status != 0x80)
+			return false;
+
+		if (type == 0x00) {
+			// Empty slot should be zeroed
+			if (start != 0 || size != 0)
+				return false;
+		} else {
+			// Used slot
+			if (start == 0)
+				return false; // Cannot start at MBR sector
+			if (size == 0)
+				return false; // Empty size?
+
+			// Overlap check
+			for (int j = 0; j < i; j++) {
+				uint8_t *prevEntry = &mbrBytes[16 * j];
+				if (prevEntry[4] != 0) {
+					uint32_t prevStart;
+					uint32_t prevSize;
+					memcpy(&prevStart, &prevEntry[8], sizeof(prevStart));
+					memcpy(&prevSize, &prevEntry[12], sizeof(prevSize));
+
+					uint64_t end = (uint64_t)start + size;
+					uint64_t prevEnd = (uint64_t)prevStart + prevSize;
+					if (start < prevEnd && prevStart < end)
+						return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 
