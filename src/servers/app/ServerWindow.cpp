@@ -558,6 +558,8 @@ ServerWindow::_CreateView(BPrivate::LinkReceiver& link, View** _parent)
 		// Unlock the all window lock to avoid a potential deadlock with the
 		// EventDispatcher, which may be waiting for a Desktop write lock while
 		// holding its own lock.
+		// Note: The caller (AS_VIEW_CREATE/AS_VIEW_CREATE_ROOT) holds
+		// LockAllWindows() (WriteLock), so we must use UnlockAllWindows().
 		fDesktop->UnlockAllWindows();
 		fDesktop->EventDispatcher().AddListener(EventTarget(),
 			newView->Token(), eventMask, eventOptions);
@@ -1349,9 +1351,13 @@ ServerWindow::_DispatchViewMessage(int32 code,
 
 			link.Read<uint32>(&eventMask);
 			if (link.Read<uint32>(&options) == B_OK) {
-				// Unlock the single window lock to avoid a potential deadlock
-				// with the EventDispatcher, which may be waiting for a Desktop
-				// write lock while holding its own lock.
+				// Unlock the single window lock (ReadLock) to avoid a potential
+				// deadlock with the EventDispatcher, which may be waiting for a
+				// Desktop write lock while holding its own lock.
+				//
+				// Also, SetFocusLocked requires the Desktop write lock (it
+				// uses AutoWriteLocker), so we must release our ReadLock first
+				// to avoid a self-deadlock on lock promotion.
 				fDesktop->UnlockSingleWindow();
 				if (eventMask != 0 || options != 0) {
 					if (options & B_LOCK_WINDOW_FOCUS)
