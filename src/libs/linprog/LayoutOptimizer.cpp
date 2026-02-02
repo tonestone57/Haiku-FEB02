@@ -825,7 +825,8 @@ TRACE_ONLY(
 			}
 
 			// remove i from the active set
-			Constraint* constraint = activeConstraints.RemoveItemAt(minIndex);
+			Constraint* constraint = activeConstraints.ItemAt(minIndex);
+			activeConstraints.RemoveItemAt(minIndex);
 			activeConstraintsSet.erase(constraint);
 		} else {
 			// compute alpha_k
