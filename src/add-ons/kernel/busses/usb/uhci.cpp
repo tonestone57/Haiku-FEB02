@@ -1526,12 +1526,14 @@ UHCI::FinishTransfers()
 
 			transfer_data *transfer = fFirstTransfer;
 			while (transfer) {
-				transfer->transfer->Finished(B_CANCELED, 0);
+				if (transfer->transfer) {
+					transfer->transfer->Finished(B_CANCELED, 0);
+					delete transfer->transfer;
+				}
 
 				transfer->queue->RemoveTransfer(transfer->transfer_queue);
 				FreeDescriptorChain(transfer->first_descriptor);
 				FreeTransferQueue(transfer->transfer_queue);
-				delete transfer->transfer;
 
 				transfer_data *next = transfer->link;
 				delete transfer;
