@@ -555,15 +555,13 @@ ServerWindow::_CreateView(BPrivate::LinkReceiver& link, View** _parent)
 	newView->SetEventMask(eventMask, eventOptions);
 
 	if (eventMask != 0 || eventOptions != 0) {
-//		fDesktop->UnlockSingleWindow();
-//		fDesktop->LockAllWindows();
-fDesktop->UnlockAllWindows();
-		// TODO: possible deadlock
+		// Unlock the all window lock to avoid a potential deadlock with the
+		// EventDispatcher, which may be waiting for a Desktop write lock while
+		// holding its own lock.
+		fDesktop->UnlockAllWindows();
 		fDesktop->EventDispatcher().AddListener(EventTarget(),
 			newView->Token(), eventMask, eventOptions);
-fDesktop->LockAllWindows();
-//		fDesktop->UnlockAllWindows();
-//		fDesktop->LockSingleWindow();
+		fDesktop->LockAllWindows();
 	}
 
 	// Initialize the view with the current application plain font.
@@ -1265,14 +1263,14 @@ ServerWindow::_DispatchViewMessage(int32 code,
 					parent->RemoveChild(view);
 
 					if (view->EventMask() != 0) {
-						// TODO: possible deadlock (event dispatcher already
-						// locked itself, waits for Desktop write lock, but
-						// we have it, now we are trying to lock the event
-						// dispatcher -> deadlock)
-fDesktop->UnlockSingleWindow();
+						// Unlock the single window lock to avoid a potential
+						// deadlock with the EventDispatcher, which may be
+						// waiting for a Desktop write lock while holding its
+						// own lock.
+						fDesktop->UnlockSingleWindow();
 						fDesktop->EventDispatcher().RemoveListener(
 							EventTarget(), token);
-fDesktop->LockSingleWindow();
+						fDesktop->LockSingleWindow();
 					}
 
 					if (fCurrentView == view || fCurrentView->HasParent(view))
@@ -1328,8 +1326,10 @@ fDesktop->LockSingleWindow();
 			if (link.Read<uint32>(&options) == B_OK) {
 				fCurrentView->SetEventMask(eventMask, options);
 
-fDesktop->UnlockSingleWindow();
-				// TODO: possible deadlock!
+				// Unlock the single window lock to avoid a potential deadlock
+				// with the EventDispatcher, which may be waiting for a Desktop
+				// write lock while holding its own lock.
+				fDesktop->UnlockSingleWindow();
 				if (eventMask != 0 || options != 0) {
 					fDesktop->EventDispatcher().AddListener(EventTarget(),
 						fCurrentView->Token(), eventMask, options);
@@ -1337,7 +1337,7 @@ fDesktop->UnlockSingleWindow();
 					fDesktop->EventDispatcher().RemoveListener(EventTarget(),
 						fCurrentView->Token());
 				}
-fDesktop->LockSingleWindow();
+				fDesktop->LockSingleWindow();
 			}
 			break;
 		}
@@ -1349,8 +1349,10 @@ fDesktop->LockSingleWindow();
 
 			link.Read<uint32>(&eventMask);
 			if (link.Read<uint32>(&options) == B_OK) {
-fDesktop->UnlockSingleWindow();
-				// TODO: possible deadlock
+				// Unlock the single window lock to avoid a potential deadlock
+				// with the EventDispatcher, which may be waiting for a Desktop
+				// write lock while holding its own lock.
+				fDesktop->UnlockSingleWindow();
 				if (eventMask != 0 || options != 0) {
 					if (options & B_LOCK_WINDOW_FOCUS)
 						fDesktop->SetFocusLocked(fWindow.Get());
@@ -1360,7 +1362,7 @@ fDesktop->UnlockSingleWindow();
 					fDesktop->EventDispatcher().RemoveTemporaryListener(EventTarget(),
 						fCurrentView->Token());
 				}
-fDesktop->LockSingleWindow();
+				fDesktop->LockSingleWindow();
 			}
 
 			// TODO: support B_LOCK_WINDOW_FOCUS option in Desktop
@@ -2313,13 +2315,17 @@ fDesktop->LockSingleWindow();
 				BMessage dragMessage;
 				if (link.Read(buffer, bufferSize) == B_OK
 					&& dragMessage.Unflatten(buffer) == B_OK) {
-						BReference<ServerBitmap> bitmap(
-							fServerApp->GetBitmap(bitmapToken), true);
-						// TODO: possible deadlock
-fDesktop->UnlockSingleWindow();
-						fDesktop->EventDispatcher().SetDragMessage(dragMessage,
-							bitmap, offset);
-fDesktop->LockSingleWindow();
+					BReference<ServerBitmap> bitmap(
+						fServerApp->GetBitmap(bitmapToken), true);
+
+					// Unlock the single window lock to avoid a potential
+					// deadlock with the EventDispatcher, which may be
+					// waiting for a Desktop write lock while holding its
+					// own lock.
+					fDesktop->UnlockSingleWindow();
+					fDesktop->EventDispatcher().SetDragMessage(dragMessage,
+						bitmap, offset);
+					fDesktop->LockSingleWindow();
 				}
 				delete[] buffer;
 			}
@@ -2347,11 +2353,14 @@ fDesktop->LockSingleWindow();
 				BMessage dragMessage;
 				if (link.Read(buffer, bufferSize) == B_OK
 					&& dragMessage.Unflatten(buffer) == B_OK) {
-						// TODO: possible deadlock
-fDesktop->UnlockSingleWindow();
-						fDesktop->EventDispatcher().SetDragMessage(dragMessage,
-							NULL /* should be dragRect */, offset);
-fDesktop->LockSingleWindow();
+					// Unlock the single window lock to avoid a potential
+					// deadlock with the EventDispatcher, which may be
+					// waiting for a Desktop write lock while holding its
+					// own lock.
+					fDesktop->UnlockSingleWindow();
+					fDesktop->EventDispatcher().SetDragMessage(dragMessage,
+						NULL /* should be dragRect */, offset);
+					fDesktop->LockSingleWindow();
 				}
 				delete[] buffer;
 			}
