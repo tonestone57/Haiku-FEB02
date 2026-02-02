@@ -361,6 +361,8 @@ TransformerListView::RemoveItemList(BList& items)
 
 	int32 indexCount = 0;
 
+	// NOTE: RemoveTransformersCommand (via RemoveCommand) expects indices
+	// in ascending order for the Undo operation to work correctly.
 	for (int32 i = 0; i < CountItems(); i++) {
 		if (itemsToRemove.find(ItemAt(i)) != itemsToRemove.end()) {
 			indices[indexCount++] = i;
