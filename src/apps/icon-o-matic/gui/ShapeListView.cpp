@@ -10,6 +10,7 @@
 #include "ShapeListView.h"
 
 #include <new>
+#include <set>
 #include <stdio.h>
 
 #include <Application.h>
@@ -514,14 +515,35 @@ ShapeListView::RemoveItemList(BList& items)
 		return;
 
 	int32 count = items.CountItems();
-	int32 indices[count];
+	if (count == 0)
+		return;
+
+	std::set<BListItem*> itemSet;
 	for (int32 i = 0; i < count; i++)
-	 	indices[i] = IndexOf((BListItem*)items.ItemAtFast(i));
+		itemSet.insert((BListItem*)items.ItemAtFast(i));
 
-	RemoveShapesCommand* command = new(nothrow) RemoveShapesCommand(
-		fShapeContainer, indices, count);
+	int32* indices = new(std::nothrow) int32[count];
+	if (indices == NULL)
+		return;
 
-	fCommandStack->Perform(command);
+	int32 foundCount = 0;
+	int32 itemCount = CountItems();
+	for (int32 i = 0; i < itemCount; i++) {
+		if (itemSet.find(ItemAt(i)) != itemSet.end()) {
+			indices[foundCount++] = i;
+			if (foundCount == count)
+				break;
+		}
+	}
+
+	if (foundCount > 0) {
+		RemoveShapesCommand* command = new(nothrow) RemoveShapesCommand(
+			fShapeContainer, indices, foundCount);
+
+		fCommandStack->Perform(command);
+	}
+
+	delete[] indices;
 }
 
 
