@@ -1091,48 +1091,33 @@ TSwitchManager::WindowInfo(int32 groupIndex, int32 windowIndex)
 	if (teamGroup == NULL)
 		return NULL;
 
-	int32 tokenCount;
-	int32* tokens;
-	if (teamGroup->TeamList()->CountItems() == 1) {
-		tokens = get_token_list((team_id)(addr_t)teamGroup->TeamList()->ItemAt(0),
-			&tokenCount);
-	} else {
-		tokens = get_token_list(-1, &tokenCount);
-	}
-
-	if (tokens == NULL)
-		return NULL;
-
 	int32 matches = 0;
 
-	// Want to find the "windowIndex'th" window in window order that belongs
-	// the the specified group (groupIndex). Since multiple teams can belong to
-	// the same group (multiple-launch apps) we get the list of _every_
-	// window and go from there.
+	int32 teamCount = teamGroup->TeamList()->CountItems();
+	for (int32 i = 0; i < teamCount; i++) {
+		team_id team = (team_id)(addr_t)teamGroup->TeamList()->ItemAt(i);
+		int32 tokenCount;
+		int32* tokens = get_token_list(team, &tokenCount);
+		if (tokens == NULL)
+			continue;
 
-	client_window_info* result = NULL;
-	for (int32 i = 0; i < tokenCount; i++) {
-		client_window_info* windowInfo = get_window_info(tokens[i]);
-		if (windowInfo) {
-			// skip hidden/special windows
-			if (IsWindowOK(windowInfo) && (teamGroup->TeamList()->HasItem(
-					(void*)(addr_t)windowInfo->team))) {
-				// this window belongs to the team!
-				if (matches == windowIndex) {
-					// we found it!
-					result = windowInfo;
-					break;
+		for (int32 j = 0; j < tokenCount; j++) {
+			client_window_info* windowInfo = get_window_info(tokens[j]);
+			if (windowInfo != NULL) {
+				if (IsWindowOK(windowInfo)) {
+					if (matches == windowIndex) {
+						free(tokens);
+						return windowInfo;
+					}
+					matches++;
 				}
-				matches++;
+				free(windowInfo);
 			}
-			free(windowInfo);
 		}
-		// else - that window probably closed. Just go to the next one.
+		free(tokens);
 	}
 
-	free(tokens);
-
-	return result;
+	return NULL;
 }
 
 
