@@ -100,11 +100,13 @@ AuthenticationPanel::MessageReceived(BMessage* message)
 		if (m_jitterRunner != NULL) {
 			delete m_jitterRunner;
 			MoveTo(m_jitterStart);
+		} else {
+			m_jitterStart = Frame().LeftTop();
 		}
+
 		BMessage message(kMsgJitterStep);
 		m_jitterRunner = new BMessageRunner(BMessenger(this),
 			&message, 15000, 20);
-		m_jitterStart = Frame().LeftTop();
 		m_jitterStep = 0;
 		break;
 	}
