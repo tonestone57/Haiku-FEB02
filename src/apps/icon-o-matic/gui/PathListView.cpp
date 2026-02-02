@@ -309,6 +309,21 @@ PathListView::~PathListView()
 
 
 void
+PathListView::DetachedFromWindow()
+{
+	SimpleListView::DetachedFromWindow();
+	fItemMap.clear();
+}
+
+
+void
+PathListView::MakeEmpty()
+{
+	_MakeEmpty();
+}
+
+
+void
 PathListView::SelectionChanged()
 {
 	SimpleListView::SelectionChanged();
@@ -657,11 +672,9 @@ PathListView::IndexOfSelectable(Selectable* selectable) const
 	if (path == NULL)
 		return -1;
 
-	int32 count = CountItems();
-	for (int32 i = 0; i < count; i++) {
-		if (SelectableFor(ItemAt(i)) == path)
-			return i;
-	}
+	PathListItem* item = _ItemForPath(path);
+	if (item != NULL)
+		return IndexOf(item);
 
 	return -1;
 }
@@ -857,7 +870,9 @@ PathListView::_AddPath(VectorPath* path, int32 index)
 		delete item;
 		return false;
 	}
-	
+
+	fItemMap[path] = item;
+
 	return true;
 }
 
@@ -867,6 +882,7 @@ PathListView::_RemovePath(VectorPath* path)
 {
 	PathListItem* item = _ItemForPath(path);
 	if (item != NULL && RemoveItem(item)) {
+		fItemMap.erase(path);
 		delete item;
 		return true;
 	}
@@ -874,17 +890,20 @@ PathListView::_RemovePath(VectorPath* path)
 }
 
 
+void
+PathListView::_MakeEmpty()
+{
+	SimpleListView::_MakeEmpty();
+	fItemMap.clear();
+}
+
+
 PathListItem*
 PathListView::_ItemForPath(VectorPath* path) const
 {
-	int32 count = CountItems();
-	for (int32 i = 0; i < count; i++) {
-		 PathListItem* item = dynamic_cast<PathListItem*>(ItemAt(i));
-		if (item == NULL)
-			continue;
-		if (item->path == path)
-			return item;
-	}
+	std::map<VectorPath*, PathListItem*>::const_iterator it = fItemMap.find(path);
+	if (it != fItemMap.end())
+		return it->second;
 	return NULL;
 }
 

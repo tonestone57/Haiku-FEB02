@@ -10,6 +10,8 @@
 #define PATH_LIST_VIEW_H
 
 
+#include <map>
+
 #include "Container.h"
 #include "ListViews.h"
 #include "IconBuild.h"
@@ -47,6 +49,8 @@ class PathListView : public SimpleListView,
 
 	// SimpleListView interface
 	virtual	void					SelectionChanged();
+	virtual	void					DetachedFromWindow();
+	virtual	void					MakeEmpty();
 
 	virtual	void					MouseDown(BPoint where);
 	virtual	void					MessageReceived(BMessage* message);
@@ -81,6 +85,7 @@ class PathListView : public SimpleListView,
 			bool					_AddPath(VectorPath* path, int32 index);
 			bool					_RemovePath(VectorPath* path);
 
+			void					_MakeEmpty();
 			PathListItem*			_ItemForPath(VectorPath* path) const;
 
 	friend class ShapePathListener;
@@ -111,6 +116,8 @@ class PathListView : public SimpleListView,
 				// are referenced by this shape
 
 			ShapePathListener*		fShapePathListener;
+
+			std::map<VectorPath*, PathListItem*> fItemMap;
 };
 
 #endif // PATH_LIST_VIEW_H
