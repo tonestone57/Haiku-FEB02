@@ -46,7 +46,7 @@ SourceExporter::_Export(const uint8* source, size_t sourceSize,
 {
 	char buffer[2048];
 	// write header
-	sprintf(buffer, "\nconst unsigned char kIconName[] = {\n");
+	snprintf(buffer, sizeof(buffer), "\nconst unsigned char kIconName[] = {\n");
 	size_t size = strlen(buffer);
 
 	ssize_t written = stream->Write(buffer, size);
@@ -60,7 +60,7 @@ SourceExporter::_Export(const uint8* source, size_t sourceSize,
 
 	// print one line (12 values)
 	while (sourceSize > 12) {
-		sprintf(buffer, "	0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x"
+		snprintf(buffer, sizeof(buffer), "	0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x"
 						", 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x"
 						", 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x,\n",
 						b[0], b[1], b[2], b[3],
@@ -84,9 +84,9 @@ SourceExporter::_Export(const uint8* source, size_t sourceSize,
 	if (ret >= B_OK && sourceSize > 0) {
 		for (size_t i = 0; i < sourceSize; i++) {
 			if (i == 0)
-				sprintf(buffer, "	0x%.2x", b[i]);
+				snprintf(buffer, sizeof(buffer), "	0x%.2x", b[i]);
 			else
-				sprintf(buffer, ", 0x%.2x", b[i]);
+				snprintf(buffer, sizeof(buffer), ", 0x%.2x", b[i]);
 			size = strlen(buffer);
 			written = stream->Write(buffer, size);
 			if (written != (ssize_t)size) {
@@ -100,7 +100,7 @@ SourceExporter::_Export(const uint8* source, size_t sourceSize,
 	}
 	if (ret >= B_OK) {
 		// finish
-		sprintf(buffer, "\n};\n");
+		snprintf(buffer, sizeof(buffer), "\n};\n");
 		size = strlen(buffer);
 		written = stream->Write(buffer, size);
 		if (written != (ssize_t)size) {

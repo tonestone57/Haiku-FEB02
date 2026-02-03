@@ -388,8 +388,8 @@ StyledTextImporter::_AddStyle(Icon *icon, text_run *run)
 	Style* style = new(std::nothrow) Style(color);
 	if (style == NULL)
 		return B_NO_MEMORY;
-	char name[30];
-	sprintf(name, B_TRANSLATE_COMMENT("Color (#%02x%02x%02x)",
+	char name[64];
+	snprintf(name, sizeof(name), B_TRANSLATE_COMMENT("Color (#%02x%02x%02x)",
 		"Style name after dropping a color"),
 		color.red, color.green, color.blue);
 	style->SetName(name);
