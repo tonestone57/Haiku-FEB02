@@ -73,3 +73,27 @@ gdb_reply(char const* format, ...)
 
 **Fix:**
 Use `vsnprintf` to limit the output to the buffer size.
+
+---
+
+## 4. `sprintf` Buffer Overflow in `KPartition::Dump`
+
+**File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
+
+**Issue:**
+The `KPartition::Dump` function uses `sprintf` to format indentation into a fixed-size buffer `prefix` (256 bytes). The format string `"%*s%*s"` writes `level` spaces twice. If `level` is greater than 127 (the check allows up to 255), the number of spaces written (2 * level) exceeds the buffer size (256), causing a stack buffer overflow.
+
+**Code:**
+```cpp
+void
+KPartition::Dump(bool deep, int32 level)
+{
+	if (level < 0 || level > 255)
+		return;
+
+	char prefix[256];
+	sprintf(prefix, "%*s%*s", (int)level, "", (int)level, "");
+```
+
+**Fix:**
+Limit `level` to a smaller value (e.g., 100) or use `snprintf`.
