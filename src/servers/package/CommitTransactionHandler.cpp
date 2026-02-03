@@ -1893,7 +1893,10 @@ CommitTransactionHandler::_FillInActivationChangeItem(
 	item->parentDeviceID = fVolume->PackagesDeviceID();
 	item->parentDirectoryID = fVolume->PackagesDirectoryID();
 	item->name = nameBuffer;
-	strcpy(nameBuffer, package->FileName());
+	// The buffer is allocated based on the package filename length, so this
+	// copy is safe by design, but strlcpy is used for good measure.
+	// We know the exact size needed from the allocation in _ChangePackageActivationIOCtl.
+	strlcpy(nameBuffer, package->FileName(), package->FileName().Length() + 1);
 	nameBuffer += package->FileName().Length() + 1;
 }
 
