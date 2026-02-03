@@ -930,7 +930,7 @@ AddOnManager::_HandleDeviceMonitor(BMessage* message)
 				|| message->FindString("path", &path) != B_OK) {
 #if DEBUG
 				char string[1024];
-				sprintf(string, "message does not contain all fields - "
+				snprintf(string, sizeof(string), "message does not contain all fields - "
 					"watched_path: %d, path: %d\n",
 					message->HasString("watched_path"),
 					message->HasString("path"));

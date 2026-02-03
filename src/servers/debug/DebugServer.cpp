@@ -836,7 +836,7 @@ TeamDebugHandler::_HandleMessage(DebugMessage *message)
 				error = bytesRead;
 
 			if (error == B_OK) {
-				sprintf(buffer, "Debugger call: `%s'", messageBuffer);
+				snprintf(buffer, sizeof(buffer), "Debugger call: `%s'", messageBuffer);
 			} else {
 				snprintf(buffer, sizeof(buffer), "Debugger call: %p "
 					"(Failed to read message: %s)", messageAddress,
