@@ -13,6 +13,8 @@ This directory contains Markdown files describing various coding errors and bugs
 - [kernel.md](kernel.md): Bugs in the Haiku Kernel.
 - [audio.md](audio.md): Bugs in the Audio drivers.
 - [mail.md](mail.md): Bugs in the Mail Daemon and protocols.
+- [app_server.md](app_server.md): Bugs in the App Server.
+- [media.md](media.md): Bugs in the Media Kit.
 
 ## Summary of Bugs Found
 - **Icon-O-Matic**: Missing allocation checks, potential NULL pointer dereferences in command creation, and problematic use of Variable Length Arrays (VLAs).
@@ -25,3 +27,5 @@ This directory contains Markdown files describing various coding errors and bugs
 - **Kernel**: Race conditions during lock destruction, team ID wrap-around issues, missing deadlock detection in VFS, unreliable resource iteration, and excessive stack usage.
 - **Audio Drivers**: VLA usage in kernel code, potential response loss in HDA, and buffer overflows in diagnostic dumps.
 - **Mail**: Fixed-size buffer assumptions and persistent resource growth in POP3.
+- **App Server**: Buffer overflows in accelerant path construction and unsafe string operations in virtual hardware interfaces.
+- **Media Kit**: Buffer overflows in `BTimeSource` area naming and potential risks in `BMediaRoster` connection handling.

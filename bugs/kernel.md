@@ -20,3 +20,15 @@ In `src/system/kernel/vm/vm_page.cpp`, the `PageWriterRun` class uses a fixed-si
 
 ## 7. Unchecked `strdup` in `fs_mount`
 In `src/system/kernel/fs/vfs.cpp`, the `fs_mount` function (line 7606) calls `mount->device_name = strdup(device);` without checking for a NULL return value. While Haiku's `strdup` implementation handles a NULL input gracefully by returning NULL, if `malloc` fails internally, `strdup` returns NULL. Subsequent code should verify that the allocation succeeded if a device name is expected.
+
+## 8. Buffer Overflow in `KPartition::Dump`
+In `src/system/kernel/disk_device_manager/KPartition.cpp`, the `Dump` method contains a potential buffer overflow:
+```cpp
+void KPartition::Dump(bool deep, int32 level) {
+    if (level < 0 || level > 255) return;
+    char prefix[256];
+    sprintf(prefix, "%*s%*s", (int)level, "", (int)level, "");
+    ...
+}
+```
+The `sprintf` call writes `2 * level` spaces into `prefix`. If `level` is 128 or greater, the total string length (including the null terminator) will be at least 257 bytes, exceeding the 256-byte buffer size. The check `level > 255` is insufficient to prevent this overflow.
