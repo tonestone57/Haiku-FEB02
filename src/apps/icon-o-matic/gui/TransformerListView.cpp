@@ -11,7 +11,6 @@
 
 #include <new>
 #include <set>
-#include <stdio.h>
 
 #include <Application.h>
 #include <Catalog.h>
@@ -197,7 +196,7 @@ void
 TransformerListView::MakeEmpty()
 {
 	fItemMap.clear();
-	SimpleListView::MakeEmpty();
+	SimpleListView::_MakeEmpty();
 }
 
 

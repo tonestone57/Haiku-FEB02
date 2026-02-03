@@ -11,7 +11,6 @@
 #include "StyleListView.h"
 
 #include <new>
-#include <stdio.h>
 
 #include <Application.h>
 #include <Catalog.h>
@@ -677,7 +676,7 @@ void
 StyleListView::MakeEmpty()
 {
 	fStyleMap.clear();
-	BListView::MakeEmpty();
+	SimpleListView::_MakeEmpty();
 }
 
 
