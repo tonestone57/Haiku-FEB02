@@ -32,6 +32,7 @@ This document lists the various software licenses used by external code integrat
 
 ## ISC License
 *   **Libiconv** (ISC): `src/libs/iconv`
+*   **OpenBSD Malloc** (ISC): `src/system/libroot/posix/malloc/openbsd`
 
 ## Anti-Grain Geometry License
 *   **Anti-Grain Geometry (AGG)**: `src/libs/agg`
