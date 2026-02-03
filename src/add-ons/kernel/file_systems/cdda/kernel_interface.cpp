@@ -1916,7 +1916,7 @@ cdda_read_dir(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 			break;
 		}
 
-		strcpy(buffer->d_name, name);
+		strlcpy(buffer->d_name, name, bufferSize - offsetof(struct dirent, d_name));
 
 		bufferSize -= buffer->d_reclen;
 		buffer = (struct dirent*)((uint8*)buffer + buffer->d_reclen);

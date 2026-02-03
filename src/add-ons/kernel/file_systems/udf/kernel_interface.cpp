@@ -161,10 +161,10 @@ udf_read_fs_stat(fs_volume *_volume, struct fs_info *info)
 	info->free_blocks = 0;
 
 	// Volume name
-	sprintf(info->volume_name, "%s", volume->Name());
+	strlcpy(info->volume_name, volume->Name(), sizeof(info->volume_name));
 
 	// File system name
-	strcpy(info->fsh_name, "udf");
+	strlcpy(info->fsh_name, "udf", sizeof(info->fsh_name));
 
 	return B_OK;
 }

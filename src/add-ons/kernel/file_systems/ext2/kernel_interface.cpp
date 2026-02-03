@@ -799,7 +799,7 @@ ext2_create_symlink(fs_volume* _volume, fs_vnode* _directory, const char* name,
 	size_t length = strlen(path);
 	TRACE("ext2_create_symlink(): Path (%s) length: %d\n", path, (int)length);
 	if (length < EXT2_SHORT_SYMLINK_LENGTH) {
-		strcpy(link->Node().symlink, path);
+		memcpy(link->Node().symlink, path, length + 1);
 		link->Node().SetSize((uint32)length);
 	} else {
 		if (!link->HasFileCache()) {

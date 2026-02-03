@@ -1050,7 +1050,7 @@ fs_readdir(fs_volume *_volume, fs_vnode *_node, void *_cookie,
 				buf->d_ino = vnid;
 				buf->d_pino = node->vnid;
 				buf->d_reclen = offsetof(struct dirent, d_name) + strlen(filename) + 1;
-				strcpy(buf->d_name,filename);
+				strlcpy(buf->d_name, filename, bufsize - offsetof(struct dirent, d_name));
 //				if ((ns->rootid == node->vnid))//XXX:mmu_man:test
 //					dprintf("nfs: dirent %d {d:%ld pd:%ld i:%lld pi:%lld '%s'}\n", *num, buf->d_dev, buf->d_pdev, buf->d_ino, buf->d_pino, buf->d_name);
 
@@ -1426,10 +1426,9 @@ fs_rfsstat(fs_volume *_volume, struct fs_info *info)
 	info->free_blocks = XDRInPacketGetInt32(&reply);
 	info->total_nodes = 100;
 	info->free_nodes = 100;
-	strcpy(info->volume_name, "nfs://");
-	strcat(info->volume_name, ns->params.server);
-	strcat(info->volume_name, ns->params._export);
-	strcpy(info->fsh_name, "nfs");
+	snprintf(info->volume_name, sizeof(info->volume_name), "nfs://%s%s",
+		ns->params.server, ns->params._export);
+	strlcpy(info->fsh_name, "nfs", sizeof(info->fsh_name));
 
 	XDRInPacketDestroy(&reply);
 	XDROutPacketDestroy(&call);
