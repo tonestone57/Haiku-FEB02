@@ -2,13 +2,60 @@
 
 This document outlines missing POSIX features and areas for improvement in the Haiku codebase, ranked by difficulty and importance.
 
+## Modern Software Relevance
+
+This section categorizes missing features based on their critical need for modern open-source software stacks (e.g., browsers, databases, language runtimes).
+
+### Critical Importance
+Features required by widely used modern software. Absence often requires non-trivial patches or disables core functionality.
+
+1.  **Open File Description Locks (OFD Locks)**
+    *   **Why:** Essential for **SQLite** (Write-Ahead Logging mode), **systemd**-style daemons, and modern multi-threaded tools to prevent accidental lock release when closing file descriptors.
+    *   **Impact:** Database reliability and high-concurrency file access.
+
+2.  **Robust Mutexes (`PTHREAD_MUTEX_ROBUST`)**
+    *   **Why:** Required for reliable shared-memory IPC in databases like **LMDB** and **PostgreSQL**. Prevents deadlocks if a process crashes while holding a lock in shared memory.
+    *   **Impact:** Data integrity in crash scenarios for IPC-heavy applications.
+
+3.  **Memory Locking (`mlock`, `mlockall`)**
+    *   **Why:** Critical for **Cryptographic tools** (GnuPG, SSH agents) to prevent swapping secrets to disk. Also essential for **Real-time Audio** (JACK, Ardour) to prevent page faults during audio processing.
+    *   **Impact:** Security (leaking keys) and Multimedia performance (audio dropouts).
+
+4.  **Termios Completeness**
+    *   **Why:** Absolute requirement for interactive CLI tools, shells (**Bash**, **Zsh**), editors (**Vim**, **Emacs**), and terminal multiplexers (**tmux**).
+    *   **Impact:** User experience in the terminal; broken hotkeys or display artifacts.
+
+### Useful / Legacy
+Features used by specific classes of software but less critical for general modern application support.
+
+1.  **Asynchronous I/O (AIO)**
+    *   **Why:** Required for some enterprise databases (DB2, Oracle) and older high-performance servers (Lighttpd). Modern Linux software often prefers `epoll` or `io_uring`, but AIO remains the portable standard.
+    *   **Impact:** Compatibility with specific high-throughput I/O applications.
+
+2.  **User Contexts (`ucontext`)**
+    *   **Why:** Used by legacy coroutine libraries and some language runtimes (older Go versions, green thread implementations). Often replaced by architecture-specific assembly in modern compilers.
+    *   **Impact:** Porting of specific language runtimes or emulation cores.
+
+3.  **XSI Shared Memory / Message Queues**
+    *   **Why:** Used by older X11 extensions, legacy databases, and some industrial/embedded software.
+    *   **Impact:** Compatibility with legacy UNIX software.
+
+### Obsolescent / Niche
+Features rarely used in modern software development.
+
+1.  **STREAMS:** Effectively dead in modern open source.
+2.  **POSIX Trace:** Superseded by DTrace, eBPF, or ptrace.
+3.  **Typed Memory:** Restricted to specialized real-time/embedded domains.
+
+---
+
 ## Missing Features
 
 ### 1. Open File Description Locks (OFD)
 *   **Missing Macro:** `F_OFD_SETLK` (and `F_OFD_SETLKW`, `F_OFD_GETLK`).
 *   **Description:** Advisory byte-range locks associated with the open file description, rather than the process. Useful for multi-threaded applications to avoid accidental unlocking by other threads.
 *   **Difficulty:** **Medium**. Requires kernel VFS changes to track locks per file description rather than per process-file pair.
-*   **Importance:** **Medium**. increasingly used by modern database libraries (e.g., SQLite) and multi-threaded tools.
+*   **Importance:** **Medium (Critical for Modern DBs)**. Increasingly used by modern database libraries (e.g., SQLite) and multi-threaded tools.
 *   **Affected Areas:**
     *   **Headers:** `fcntl.h` (add macros).
     *   **Kernel:** VFS subsystem (lock tracking), `fcntl` syscall handler.
@@ -50,7 +97,7 @@ This document outlines missing POSIX features and areas for improvement in the H
 *   **Description:** Allows recovering a mutex if the owner dies while holding it.
 *   **Status:** Macros `_POSIX_THREAD_ROBUST_PRIO_INHERIT` and `_POSIX_THREAD_ROBUST_PRIO_PROTECT` are defined as `-1` (unsupported) in `unistd.h`.
 *   **Difficulty:** **Medium**. Requires kernel support to detect thread death and mark the mutex state.
-*   **Importance:** **Medium**. Important for reliable shared-memory applications and databases.
+*   **Importance:** **Medium (High for IPC)**. Important for reliable shared-memory applications and databases.
 *   **Affected Areas:**
     *   **Headers:** `pthread.h`.
     *   **Libroot:** `pthread_mutex_*` implementation.
@@ -92,7 +139,7 @@ This document outlines missing POSIX features and areas for improvement in the H
 *   **Status:** `os-test` shows 0% score for `ML` (Process Memory Locking).
 *   **Description:** Lock all of a process's address space into RAM.
 *   **Difficulty:** **Medium**.
-*   **Importance:** **Low/Medium**. Real-time applications and security keys.
+*   **Importance:** **Low/Medium (Critical for Crypto/Audio)**. Real-time applications and security keys.
 *   **Affected Areas:**
     *   **Headers:** `sys/mman.h`.
     *   **Kernel:** VM subsystem (wiring pages).
