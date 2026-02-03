@@ -190,6 +190,12 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		return ret;
 	}
 
+	SharedFile* sharedDest = new (nothrow) SharedFile(destination);
+	if (sharedDest == NULL) {
+		delete destination;
+		return B_NO_MEMORY;
+	}
+
 	int32 loopIteration = 0;
 
 	while (true) {
@@ -201,11 +207,11 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		}
 
 		// allocate buffer
-		Buffer* buffer = new (nothrow) Buffer(destination);
+		Buffer* buffer = new (nothrow) Buffer(sharedDest);
 		if (!buffer || !buffer->buffer) {
-			delete destination;
 			delete buffer;
-			fprintf(stderr, "reading loop: out of memory\n");
+			sharedDest->Release();
+			fprintf(stderr, "CopyEngine: reading loop: out of memory\n");
 			return B_NO_MEMORY;
 		}
 
@@ -213,9 +219,9 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		ssize_t read = source.Read(buffer->buffer, buffer->size);
 		if (read < 0) {
 			ret = (status_t)read;
-			fprintf(stderr, "Failed to read data: %s\n", strerror(ret));
+			fprintf(stderr, "CopyEngine: Failed to read data: %s\n",
+				strerror(ret));
 			delete buffer;
-			delete destination;
 			break;
 		}
 
@@ -224,7 +230,6 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		if (loopIteration % 2 == 0)
 			_UpdateProgress();
 
-		buffer->deleteFile = read == 0;
 		if (read > 0)
 			buffer->validBytes = (size_t)read;
 		else
@@ -233,9 +238,8 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		// enqueue the buffer
 		ret = fBufferQueue.Push(buffer);
 		if (ret < B_OK) {
-			buffer->deleteFile = false;
 			delete buffer;
-			delete destination;
+			sharedDest->Release();
 			return ret;
 		}
 
@@ -243,6 +247,8 @@ CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 		if (read == 0)
 			break;
 	}
+
+	sharedDest->Release();
 
 	return ret;
 }
@@ -368,8 +374,8 @@ CopyEngine::_Copy(BEntry &source, BEntry &destination,
 			}
 
 			if (ret != B_OK) {
-				fprintf(stderr, "Failed to make room for folder '%s': "
-					"%s\n", sourcePath.Path(), strerror(ret));
+				fprintf(stderr, "CopyEngine: Failed to make room for folder "
+					"'%s': %s\n", sourcePath.Path(), strerror(ret));
 				return ret;
 			}
 		}
@@ -378,8 +384,8 @@ CopyEngine::_Copy(BEntry &source, BEntry &destination,
 			// Make sure the target path exists, it may have been deleted if
 			// the existing destination was a file instead of a directory.
 		if (ret != B_OK && ret != B_FILE_EXISTS) {
-			fprintf(stderr, "Could not create '%s': %s\n", destPath.Path(),
-				strerror(ret));
+			fprintf(stderr, "CopyEngine: Could not create '%s': %s\n",
+				destPath.Path(), strerror(ret));
 			return ret;
 		}
 
@@ -405,8 +411,8 @@ CopyEngine::_Copy(BEntry &source, BEntry &destination,
 			else
 				ret = destination.Remove();
 			if (ret != B_OK) {
-				fprintf(stderr, "Failed to make room for entry '%s': "
-					"%s\n", sourcePath.Path(), strerror(ret));
+				fprintf(stderr, "CopyEngine: Failed to make room for entry "
+					"'%s': %s\n", sourcePath.Path(), strerror(ret));
 				return ret;
 			}
 		}
@@ -555,13 +561,13 @@ CopyEngine::_WriteThread()
 			continue;
 		}
 
-		if (!buffer->deleteFile) {
-			ssize_t written = buffer->file->Write(buffer->buffer,
+		if (buffer->validBytes > 0) {
+			ssize_t written = buffer->file->Get()->Write(buffer->buffer,
 				buffer->validBytes);
 			if (written != (ssize_t)buffer->validBytes) {
 				// TODO: this should somehow be propagated back
 				// to the main thread!
-				fprintf(stderr, "Failed to write data: %s\n",
+				fprintf(stderr, "CopyEngine: Failed to write data: %s\n",
 					strerror((status_t)written));
 			}
 			fBytesWritten += written;

@@ -178,19 +178,13 @@ UnzipEngine::UnzipPackage()
 	// Append the contents of the current optional package description to
 	// the existing COPYRIGHTS attribute from AboutSystem
 	size_t bufferSize = 2048;
-	char buffer[bufferSize + 1];
-	buffer[bufferSize] = '\0';
+	char buffer[bufferSize];
 	while (true) {
 		ssize_t read = descriptionFile.Read(buffer, bufferSize);
 		if (read > 0) {
 			int32 length = copyrightAttr.Length();
-			if (read < (ssize_t)bufferSize)
-				buffer[read] = '\0';
-			int32 bufferLength = strlen(buffer);
-				// Should be "read", but maybe we have a zero in the
-				// buffer in which case the next check would be fooled.
-			copyrightAttr << buffer;
-			if (copyrightAttr.Length() != length + bufferLength) {
+			copyrightAttr.Append(buffer, read);
+			if (copyrightAttr.Length() != length + read) {
 				fprintf(stderr, "Failed to append buffer to COPYRIGHTS "
 					"attribute.\n");
 				return B_NO_MEMORY;
@@ -199,9 +193,10 @@ UnzipEngine::UnzipPackage()
 			break;
 	}
 
-	if (copyrightAttr[copyrightAttr.Length() - 1] != '\n')
+	if (copyrightAttr.Length() > 0
+		&& copyrightAttr[copyrightAttr.Length() - 1] != '\n') {
 		copyrightAttr << '\n\n';
-	else
+	} else
 		copyrightAttr << '\n';
 
 	ret = aboutSystemNode.WriteAttrString(kCopyrightsAttrName, &copyrightAttr);
@@ -246,18 +241,24 @@ UnzipEngine::ReadLine(const BString& line)
 status_t
 UnzipEngine::_ReadLineListing(const BString& line)
 {
-	static const char* kListingFormat = "%llu  %s %s   %s\n";
+	// Expected format: Length  Date  Time  Name
+	// Example:      123  2023-10-27 12:00   path/to/file
 
 	const char* string = line.String();
 	while (string[0] == ' ')
 		string++;
 
 	uint64 bytes;
-	char date[16];
-	char time[16];
-	char path[1024];
-	if (sscanf(string, kListingFormat, &bytes, &date, &time, &path) == 4) {
+	char date[64];
+	char time[64];
+	int consumed = 0;
+	if (sscanf(string, "%" B_PRIu64 " %63s %63s%n", &bytes, date, time,
+			&consumed) == 3) {
 		fBytesToUncompress += bytes;
+
+		const char* path = string + consumed;
+		while (path[0] == ' ')
+			path++;
 
 		BString itemPath(path);
 		BString itemName(path);
@@ -310,10 +311,10 @@ UnzipEngine::_ReadLineExtract(const BString& line)
 		BString itemPath;
 
 		int pos = line.FindLast(" -> ");
-		if (pos > 0)
+		if (pos > 13)
 			line.CopyInto(itemPath, 13, pos - 13);
-		else 
-			line.CopyInto(itemPath, 13, line.CountChars() - 14);
+		else if (line.Length() > 14)
+			line.CopyInto(itemPath, 13, line.Length() - 14);
 
 		itemPath.Trim();
 		pos = itemPath.FindLast('/');
