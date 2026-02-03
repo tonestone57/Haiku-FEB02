@@ -337,9 +337,7 @@ private:
 		int32 object, uint32 opcode)
 	{
 		// prepare the message
-		char buffer[128];
-		KMessage message;
-		message.SetTo(buffer, sizeof(buffer), B_SYSTEM_OBJECT_UPDATE);
+		KMessage message(B_SYSTEM_OBJECT_UPDATE);
 		message.AddInt32("opcode", opcode);
 		if (opcode < B_THREAD_CREATED)
 			message.AddInt32("team", object);
