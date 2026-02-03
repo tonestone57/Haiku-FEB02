@@ -410,7 +410,7 @@ DWindowHWInterface::_OpenGraphicsDevice(int deviceNumber)
 			current_card_fd = -1;
 		}
 
-		sprintf(path, "/dev/graphics/%s", entry->d_name);
+		snprintf(path, sizeof(path), "/dev/graphics/%s", entry->d_name);
 		current_card_fd = open(path, B_READ_WRITE);
 		if (current_card_fd >= 0)
 			count++;
@@ -463,8 +463,8 @@ DWindowHWInterface::_OpenAccelerant(int device)
 		if (find_directory(dirs[i], -1, false, path, PATH_MAX) != B_OK)
 			continue;
 
-		strcat(path, "/accelerants/");
-		strcat(path, signature);
+		strlcat(path, "/accelerants/", sizeof(path));
+		strlcat(path, signature, sizeof(path));
 		if (stat(path, &accelerant_stat) != 0)
 			continue;
 
@@ -743,9 +743,9 @@ DWindowHWInterface::GetDeviceInfo(accelerant_device_info* info)
 	// a software-only driver, but we'll have some fun, anyway.
 	if (ReadLock()) {
 		info->version = 100;
-		sprintf(info->name, "Haiku, Inc. DWindowHWInterface");
-		sprintf(info->chipset, "Haiku, Inc. Chipset");
-		sprintf(info->serial_no, "3.14159265358979323846");
+		strlcpy(info->name, "Haiku, Inc. DWindowHWInterface", sizeof(info->name));
+		strlcpy(info->chipset, "Haiku, Inc. Chipset", sizeof(info->chipset));
+		strlcpy(info->serial_no, "3.14159265358979323846", sizeof(info->serial_no));
 		info->memory = 134217728;	// 128 MB, not that we really have that much. :)
 		info->dac_speed = 0xFFFFFFFF;	// *heh*
 

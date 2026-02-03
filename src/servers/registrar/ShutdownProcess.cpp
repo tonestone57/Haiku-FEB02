@@ -1546,7 +1546,7 @@ ShutdownProcess::_QuitApps(AppInfoList& list, bool systemApps)
 				RosterAppInfo* info = *list.It();
 				team = info->team;
 				port = info->port;
-				strcpy(appName, info->ref.name);
+				strlcpy(appName, info->ref.name, sizeof(appName));
 
 				if (info->IsRunning())
 					break;
@@ -1693,7 +1693,7 @@ ShutdownProcess::_KillBackgroundApps()
 			if (!list.IsEmpty()) {
 				RosterAppInfo* info = *list.It();
 				team = info->team;
-				strcpy(appName, info->ref.name);
+				strlcpy(appName, info->ref.name, sizeof(appName));
 			}
 		}
 
@@ -1853,7 +1853,7 @@ ShutdownProcess::_DisplayAbortingApp(team_id team)
 
 		if (info) {
 			foundApp = true;
-			strcpy(appName, info->ref.name);
+			strlcpy(appName, info->ref.name, sizeof(appName));
 		}
 	}
 

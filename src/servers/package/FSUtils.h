@@ -85,8 +85,11 @@ public:
 					*buffer = '/';
 					buffer++;
 				}
-				strcpy(buffer, fComponents[i]);
-				buffer += strlen(buffer);
+				// length was precalculated, so this is safe, but strlcpy
+				// is safer.
+				size_t componentLen = strlen(fComponents[i]);
+				strlcpy(buffer, fComponents[i], componentLen + 1);
+				buffer += componentLen;
 			}
 
 			return result.UnlockBuffer();

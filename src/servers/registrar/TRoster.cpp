@@ -628,7 +628,7 @@ TRoster::HandleSetSignature(BMessage* request)
 	// find the app and set the signature
 	if (error == B_OK) {
 		if (RosterAppInfo* info = fRegisteredApps.InfoFor(team))
-			strcpy(info->signature, signature);
+			strlcpy(info->signature, signature, sizeof(info->signature));
 		else
 			SET_ERROR(error, B_REG_APP_NOT_REGISTERED);
 	}
@@ -1607,7 +1607,7 @@ TRoster::_AddMessageAppInfo(BMessage* message, const app_info* info)
 	// set the ref name to NULL and copy it into the flat structure
 	flatInfo.ref_name[0] = '\0';
 	if (info->ref.name)
-		strcpy(flatInfo.ref_name, info->ref.name);
+		strlcpy(flatInfo.ref_name, info->ref.name, sizeof(flatInfo.ref_name));
 
 	// add the flat info
 	return message->AddData("app_info", B_REG_APP_INFO_TYPE, &flatInfo,

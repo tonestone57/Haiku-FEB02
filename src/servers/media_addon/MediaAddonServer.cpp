@@ -721,7 +721,8 @@ MediaAddonServer::_InstantiatePhysicalInputsAndOutputs(AddOnInfo& info)
 			dormant_node_info dormantNodeInfo;
 			dormantNodeInfo.addon = info.id;
 			dormantNodeInfo.flavor_id = flavorinfo->internal_id;
-			strcpy(dormantNodeInfo.name, flavorinfo->name);
+			strlcpy(dormantNodeInfo.name, flavorinfo->name,
+				B_MEDIA_NAME_LENGTH);
 
 			TRACE("MediaAddonServer::InstantiatePhysialInputsAndOutputs: "
 				"\"%s\" is a physical input/output\n", flavorinfo->name);

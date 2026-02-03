@@ -104,11 +104,13 @@ StackAndTile::HandleMessage(Window* sender, BPrivate::LinkReceiver& link,
 void
 StackAndTile::WindowAdded(Window* window)
 {
+	if (fSATWindowMap.find(window) != fSATWindowMap.end())
+		return;
+
 	SATWindow* satWindow = new (std::nothrow)SATWindow(this, window);
 	if (!satWindow)
 		return;
 
-	ASSERT(fSATWindowMap.find(window) == fSATWindowMap.end());
 	fSATWindowMap[window] = satWindow;
 }
 
@@ -529,12 +531,8 @@ StackAndTile::GetSATWindow(Window* window)
 	if (it != fSATWindowMap.end())
 		return it->second;
 
-	// TODO fix race condition with WindowAdded this method is called before
-	// WindowAdded and a SATWindow is created twice!
-	return NULL;
-
-	// If we don't know this window, memory allocation might has been failed
-	// previously. Try to add the window now.
+	// If we don't know this window, memory allocation might have failed
+	// previously or WindowAdded hasn't been called yet. Try to add the window now.
 	SATWindow* satWindow = new (std::nothrow)SATWindow(this, window);
 	if (satWindow)
 		fSATWindowMap[window] = satWindow;

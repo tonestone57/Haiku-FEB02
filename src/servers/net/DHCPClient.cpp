@@ -398,7 +398,11 @@ uint8*
 dhcp_message::PutOption(uint8* options, message_option option,
 	const uint8* data, uint32 size)
 {
-	// TODO: check enough space is available
+	// check enough space is available
+	if (options < this->options
+		|| options + 2 + size >= this->options + sizeof(this->options)) {
+		return options;
+	}
 
 	options[0] = option;
 	options[1] = size;
