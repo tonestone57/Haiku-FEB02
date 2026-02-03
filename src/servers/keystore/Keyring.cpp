@@ -6,6 +6,10 @@
 
 #include "Keyring.h"
 
+#include <openssl/md5.h>
+
+#include "Arc4.h"
+
 
 Keyring::Keyring()
 	:
@@ -467,6 +471,25 @@ Keyring::Compare(const BString* name, const Keyring* keyring)
 }
 
 
+static status_t
+DeriveKey(const BMessage& keyMessage, const uint8* salt, size_t saltSize,
+	uint8* key, size_t keySize)
+{
+	BMallocIO buffer;
+	status_t result = keyMessage.Flatten(&buffer);
+	if (result != B_OK)
+		return result;
+
+	MD5_CTX context;
+	MD5_Init(&context);
+	MD5_Update(&context, buffer.Buffer(), buffer.BufferLength());
+	MD5_Update(&context, salt, saltSize);
+	MD5_Final(key, &context);
+
+	return B_OK;
+}
+
+
 status_t
 Keyring::_EncryptToFlatBuffer()
 {
@@ -485,15 +508,51 @@ Keyring::_EncryptToFlatBuffer()
 	if (result != B_OK)
 		return result;
 
-	fFlatBuffer.SetSize(0);
-	fFlatBuffer.Seek(0, SEEK_SET);
-
-	result = container.Flatten(&fFlatBuffer);
+	BMallocIO plainBuffer;
+	result = container.Flatten(&plainBuffer);
 	if (result != B_OK)
 		return result;
 
+	fFlatBuffer.SetSize(0);
+	fFlatBuffer.Seek(0, SEEK_SET);
+
 	if (fHasUnlockKey) {
-		// TODO: Actually encrypt the flat buffer...
+		// We use a salt to prevent rainbow table attacks
+		uint8 salt[8];
+		for (size_t i = 0; i < sizeof(salt); i++)
+			salt[i] = (uint8)(rand() % 256);
+
+		uint8 key[MD5_DIGEST_LENGTH];
+		result = DeriveKey(fUnlockKey, salt, sizeof(salt), key, sizeof(key));
+		if (result != B_OK)
+			return result;
+
+		struct rc4_ctx ctx;
+		rc4_keysetup(&ctx, key, sizeof(key));
+
+		// Discard first 1024 bytes of stream
+		rc4_skip(&ctx, 1024);
+
+		if (fFlatBuffer.Write(salt, sizeof(salt)) != (ssize_t)sizeof(salt))
+			return B_ERROR;
+
+		uint8* buffer = (uint8*)plainBuffer.Buffer();
+		size_t bufferSize = plainBuffer.BufferLength();
+		uint8* output = (uint8*)malloc(bufferSize);
+		if (output == NULL)
+			return B_NO_MEMORY;
+
+		rc4_crypt(&ctx, buffer, output, bufferSize);
+		if (fFlatBuffer.Write(output, bufferSize) != (ssize_t)bufferSize) {
+			free(output);
+			return B_ERROR;
+		}
+		free(output);
+	} else {
+		// Just copy plaintext if no key
+		if (fFlatBuffer.Write(plainBuffer.Buffer(), plainBuffer.BufferLength())
+				!= (ssize_t)plainBuffer.BufferLength())
+			return B_ERROR;
 	}
 
 	fModified = false;
@@ -507,13 +566,46 @@ Keyring::_DecryptFromFlatBuffer()
 	if (fFlatBuffer.BufferLength() == 0)
 		return B_OK;
 
+	BMallocIO* inputBuffer = &fFlatBuffer;
+	BMallocIO decryptedBuffer;
+
 	if (fHasUnlockKey) {
-		// TODO: Actually decrypt the flat buffer...
+		fFlatBuffer.Seek(0, SEEK_SET);
+
+		uint8 salt[8];
+		if (fFlatBuffer.Read(salt, sizeof(salt)) != (ssize_t)sizeof(salt))
+			return B_ERROR;
+
+		uint8 key[MD5_DIGEST_LENGTH];
+		status_t result = DeriveKey(fUnlockKey, salt, sizeof(salt), key,
+			sizeof(key));
+		if (result != B_OK)
+			return result;
+
+		struct rc4_ctx ctx;
+		rc4_keysetup(&ctx, key, sizeof(key));
+
+		// Discard first 1024 bytes of stream
+		rc4_skip(&ctx, 1024);
+
+		size_t dataSize = fFlatBuffer.BufferLength() - sizeof(salt);
+		uint8* buffer = (uint8*)fFlatBuffer.Buffer() + sizeof(salt);
+		uint8* output = (uint8*)malloc(dataSize);
+		if (output == NULL)
+			return B_NO_MEMORY;
+
+		rc4_crypt(&ctx, buffer, output, dataSize);
+
+		decryptedBuffer.SetSize(dataSize);
+		memcpy(decryptedBuffer.Buffer(), output, dataSize);
+		free(output);
+
+		inputBuffer = &decryptedBuffer;
 	}
 
 	BMessage container;
-	fFlatBuffer.Seek(0, SEEK_SET);
-	status_t result = container.Unflatten(&fFlatBuffer);
+	inputBuffer->Seek(0, SEEK_SET);
+	status_t result = container.Unflatten(inputBuffer);
 	if (result != B_OK)
 		return result;
 

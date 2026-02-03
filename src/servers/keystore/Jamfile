@@ -8,9 +8,17 @@ Application keystore_server :
 	KeyRequestWindow.cpp
 	Keyring.cpp
 	KeyStoreServer.cpp
+	Arc4.cpp
 	: be localestub shared [ TargetLibstdc++ ]
 	: keystore_server.rdef
 ;
+
+if [ FIsBuildFeatureEnabled openssl ] {
+	UseBuildFeatureHeaders openssl ;
+	LinkWithHeaders keystore_server :
+		[ BuildFeatureAttribute openssl : libraries ]
+		: [ BuildFeatureAttribute openssl : headers ] ;
+}
 
 DoCatalogs keystore_server :
     x-vnd.Haiku-keystore_server
