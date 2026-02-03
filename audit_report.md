@@ -76,6 +76,12 @@ A known race condition exists where `WindowAdded` might be called concurrently, 
 **Description:**
 Several TODOs indicate inefficient memory management and potential leaks (e.g., "The HashTable grows without bounds").
 
+### 3.4. Unsafe String Handling in `Registrar`
+**File:** `src/servers/registrar/TRoster.cpp`, `src/servers/registrar/ShutdownProcess.cpp`
+**Description:**
+Use of `strcpy` for `app_info` strings. While source strings are often system-managed, `strlcpy` offers better defense-in-depth against potential overflow if struct definitions change or data is corrupted.
+**Status:** Fixed. Replaced `strcpy` with `strlcpy`.
+
 ## 4. Recommendations
 
 1.  **Immediate Fixes:**
