@@ -69,9 +69,7 @@ sprintf(path, "/dev/graphics/%s", entry->d_name);
 **Line:** 532
 **Description:**
 A known race condition exists where `WindowAdded` might be called concurrently, leading to duplicate SATWindow creation.
-```cpp
-// TODO fix race condition with WindowAdded this method is called before
-```
+**Status:** Fixed. Implemented lazy initialization in `GetSATWindow` and existence check in `WindowAdded`.
 
 ### 3.3. Memory Management in `ClientMemoryAllocator`
 **File:** `src/servers/app/ClientMemoryAllocator.cpp`
