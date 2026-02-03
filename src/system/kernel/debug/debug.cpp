@@ -580,7 +580,7 @@ read_line(char* buffer, int32 maxLength,
 						if (position > 0)
 							kprintf("\x1b[%" B_PRId32 "D", position); // move to beginning of line
 
-						strcpy(buffer, sLineBuffer[historyLine]);
+						strlcpy(buffer, sLineBuffer[historyLine], maxLength);
 						length = position = strlen(buffer);
 						kprintf("%s\x1b[K", buffer); // print the line and clear the rest
 						currentHistoryLine = historyLine;
@@ -616,7 +616,7 @@ read_line(char* buffer, int32 maxLength,
 
 						// found a suitable line -- replace the current buffer
 						// content with it
-						strcpy(buffer, sLineBuffer[historyLine]);
+						strlcpy(buffer, sLineBuffer[historyLine], maxLength);
 						length = strlen(buffer);
 						kprintf("%s\x1b[K", buffer + position);
 							// print the line and clear the rest
@@ -665,7 +665,7 @@ read_line(char* buffer, int32 maxLength,
 					 * we assume we are talking with GDB
 					 */
 					if (position == 0) {
-						strcpy(buffer, "gdb");
+						strlcpy(buffer, "gdb", maxLength);
 						position = 4;
 						done = true;
 						break;
@@ -2287,7 +2287,7 @@ _user_kernel_debugger(const char* userMessage)
 		return B_NOT_ALLOWED;
 
 	char message[512];
-	strcpy(message, "USER: ");
+	strlcpy(message, "USER: ", sizeof(message));
 	size_t length = strlen(message);
 
 	if (userMessage == NULL || !IS_USER_ADDRESS(userMessage) || user_strlcpy(
@@ -2349,30 +2349,51 @@ dump_block(const char* buffer, int size, const char* prefix)
 
 	for (i = 0; i < size;) {
 		char* pointer = lineBuffer;
+		char* end = lineBuffer + sizeof(lineBuffer);
 		int start = i;
 
 		for (; i < start + DUMPED_BLOCK_SIZE; i++) {
-			if (!(i % 4))
-				pointer += sprintf(pointer, " ");
+			if (!(i % 4)) {
+				if (pointer < end)
+					*pointer++ = ' ';
+			}
 
-			if (i >= size)
-				pointer += sprintf(pointer, "  ");
-			else
-				pointer += sprintf(pointer, "%02x", *(unsigned char*)(buffer + i));
+			if (i >= size) {
+				if (pointer + 2 <= end) {
+					*pointer++ = ' ';
+					*pointer++ = ' ';
+				}
+			} else {
+				pointer += snprintf(pointer, end - pointer, "%02x",
+					*(unsigned char*)(buffer + i));
+			}
 		}
-		pointer += sprintf(pointer, "  ");
+
+		if (pointer + 2 <= end) {
+			*pointer++ = ' ';
+			*pointer++ = ' ';
+		}
 
 		for (i = start; i < start + DUMPED_BLOCK_SIZE; i++) {
 			if (i < size) {
 				char c = buffer[i];
 
-				if (c < 30)
-					pointer += sprintf(pointer, ".");
-				else
-					pointer += sprintf(pointer, "%c", c);
+				if (c < 30) {
+					if (pointer < end)
+						*pointer++ = '.';
+				} else {
+					if (pointer < end)
+						*pointer++ = c;
+				}
 			} else
 				break;
 		}
+
+		if (pointer < end)
+			*pointer = '\0';
+		else
+			lineBuffer[sizeof(lineBuffer) - 1] = '\0';
+
 		dprintf("%s%04x%s\n", prefix, start, lineBuffer);
 	}
 }

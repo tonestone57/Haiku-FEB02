@@ -1904,7 +1904,7 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 		if (length > B_OS_NAME_LENGTH - 16)
 			snprintf(baseName, B_OS_NAME_LENGTH, "...%s", leaf + length + 16 - B_OS_NAME_LENGTH);
 		else
-			strcpy(baseName, leaf);
+			strlcpy(baseName, leaf, B_OS_NAME_LENGTH);
 	}
 
 	// map the program's segments into memory, initially with rw access

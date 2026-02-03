@@ -153,14 +153,13 @@ private:
 
 		// check if this interface is already known
 		ifreq request;
-		if (strlen(path) >= IF_NAMESIZE)
+		if (strlcpy(request.ifr_name, path, IF_NAMESIZE) >= IF_NAMESIZE)
 			return;
-		strcpy(request.ifr_name, path);
 
 		if (ioctl(fSocket, SIOCGIFINDEX, &request, sizeof(request)) < 0) {
 			// not known yet -- add it
 			ifaliasreq aliasRequest;
-			strcpy(aliasRequest.ifra_name, path);
+			strlcpy(aliasRequest.ifra_name, path, IF_NAMESIZE);
 			aliasRequest.ifra_addr.ss_family = AF_UNSPEC;
 			aliasRequest.ifra_addr.ss_len = 2;
 			aliasRequest.ifra_broadaddr.ss_family = AF_UNSPEC;

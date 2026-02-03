@@ -122,9 +122,12 @@ struct Allocator {
 	{
 		if (string == NULL)
 			return NULL;
-		char* newString = AllocateString(strlen(string));
+
+		size_t length = strlen(string);
+		char* newString = AllocateString(length);
 		if (newString != NULL)
-			strcpy(newString, string);
+			memcpy(newString, string, length + 1);
+
 		return newString;
 	}
 

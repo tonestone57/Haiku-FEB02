@@ -203,7 +203,7 @@ free_kernel_stack(area_id areaID, addr_t base, addr_t top)
 	cachedStack->base = base;
 	cachedStack->top = top;
 
-	strcpy(cachedStack->area->name, "cached kstack");
+	strlcpy(cachedStack->area->name, "cached kstack", B_OS_NAME_LENGTH);
 
 	InterruptsSpinLocker locker(sCachedKernelStacksLock);
 	sCachedKernelStacks.Add(cachedStack);
@@ -313,7 +313,7 @@ Thread::Thread(const char* name, thread_id threadID, struct cpu_ent* cpu)
 	if (name != NULL)
 		strlcpy(this->name, name, B_OS_NAME_LENGTH);
 	else
-		strcpy(this->name, "unnamed thread");
+		strlcpy(this->name, "unnamed thread", B_OS_NAME_LENGTH);
 
 	exit.status = 0;
 
@@ -2831,7 +2831,7 @@ thread_init(kernel_args *args)
 		area_info info;
 		char name[64];
 
-		sprintf(name, "idle thread %" B_PRIu32, i + 1);
+		snprintf(name, sizeof(name), "idle thread %" B_PRIu32, i + 1);
 		thread = new(&sIdleThreads[i]) Thread(name,
 			i == 0 ? team_get_kernel_team_id() : -1, &gCPU[i]);
 		if (thread == NULL || thread->Init(true) != B_OK) {
@@ -2845,7 +2845,7 @@ thread_init(kernel_args *args)
 		thread->priority = B_IDLE_PRIORITY;
 		thread->state = B_THREAD_RUNNING;
 
-		sprintf(name, "idle thread %" B_PRIu32 " kstack", i + 1);
+		snprintf(name, sizeof(name), "idle thread %" B_PRIu32 " kstack", i + 1);
 		thread->kernel_stack_area = find_area(name);
 
 		if (get_area_info(thread->kernel_stack_area, &info) != B_OK)

@@ -3519,7 +3519,7 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		length = 25;
 
 	memcpy(name, fileName, length);
-	strcpy(name + length, "_text");
+	strlcpy(name + length, "_text", sizeof(name) - length);
 	address = (void*)ROUNDDOWN(image->text_region.start, B_PAGE_SIZE);
 	image->text_region.id = create_area(name, &address, B_EXACT_ADDRESS,
 		PAGE_ALIGN(image->text_region.size), B_ALREADY_WIRED,
@@ -3527,7 +3527,7 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		// this will later be remapped read-only/executable by the
 		// ELF initialization code
 
-	strcpy(name + length, "_data");
+	strlcpy(name + length, "_data", sizeof(name) - length);
 	address = (void*)ROUNDDOWN(image->data_region.start, B_PAGE_SIZE);
 	image->data_region.id = create_area(name, &address, B_EXACT_ADDRESS,
 		PAGE_ALIGN(image->data_region.size), B_ALREADY_WIRED,
@@ -3933,7 +3933,7 @@ vm_init(kernel_args* args)
 	for (i = 0; i < args->num_cpus; i++) {
 		char name[64];
 
-		sprintf(name, "idle thread %" B_PRIu32 " kstack", i + 1);
+		snprintf(name, sizeof(name), "idle thread %" B_PRIu32 " kstack", i + 1);
 		address = (void*)args->cpu_kstack[i].start;
 		create_area(name, &address, B_EXACT_ADDRESS, args->cpu_kstack[i].size,
 			B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);

@@ -1336,7 +1336,7 @@ KPartition::Dump(bool deep, int32 level)
 		return;
 
 	char prefix[256];
-	sprintf(prefix, "%*s%*s", (int)level, "", (int)level, "");
+	snprintf(prefix, sizeof(prefix), "%*s%*s", (int)level, "", (int)level, "");
 	KPath path;
 	GetPath(&path);
 	if (level > 0)
