@@ -97,3 +97,31 @@ KPartition::Dump(bool deep, int32 level)
 
 **Fix:**
 Limit `level` to a smaller value (e.g., 100) or use `snprintf`.
+
+---
+
+## 5. Memory Leak in `cpu_create_topology_node`
+
+**File:** `src/system/kernel/cpu.cpp`
+
+**Issue:**
+In `cpu_create_topology_node`, if the allocation for `newNode->children` fails, the function returns `B_NO_MEMORY` without deleting the previously allocated `newNode`.
+
+**Code:**
+```cpp
+	cpu_topology_node* newNode = new(std::nothrow) cpu_topology_node;
+	if (newNode == NULL)
+		return B_NO_MEMORY;
+	node->children[id] = newNode;
+
+	newNode->level = level;
+	if (level != CPU_TOPOLOGY_SMT) {
+		newNode->children_count = maxID[level - 1];
+		newNode->children
+			= new(std::nothrow) cpu_topology_node*[maxID[level - 1]];
+		if (newNode->children == NULL)
+			return B_NO_MEMORY;
+```
+
+**Fix:**
+Delete `newNode` before returning `B_NO_MEMORY`.
