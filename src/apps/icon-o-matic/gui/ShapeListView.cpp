@@ -149,7 +149,8 @@ ShapeListView::~ShapeListView()
 void
 ShapeListView::MakeEmpty()
 {
-	_MakeEmpty();
+	SimpleListView::_MakeEmpty();
+	fItemMap.clear();
 }
 
 
@@ -832,14 +833,6 @@ ShapeListView::_ItemForShape(Shape* shape) const
 		return it->second;
 
 	return NULL;
-}
-
-
-void
-ShapeListView::_MakeEmpty()
-{
-	SimpleListView::_MakeEmpty();
-	fItemMap.clear();
 }
 
 

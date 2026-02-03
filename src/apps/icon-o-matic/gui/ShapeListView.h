@@ -85,7 +85,6 @@ class ShapeListView : public SimpleListView,
  private:
 			bool					_AddShape(Shape* shape, int32 index);
 			bool					_RemoveShape(Shape* shape);
-			void					_MakeEmpty();
 
 			ShapeListItem*			_ItemForShape(Shape* shape) const;
 			void					_UpdateMenu();
