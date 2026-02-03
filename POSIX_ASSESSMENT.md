@@ -156,6 +156,15 @@ Features rarely used in modern software development.
     *   **Kernel:** VM subsystem.
     *   **Libroot:** Wrappers.
 
+### 11. Advanced mmap Flags
+*   **Missing Flags:** `MAP_STACK`, `MAP_HUGETLB`, `MAP_POPULATE`, `MAP_NONBLOCK`.
+*   **Description:** Specialized mapping behaviors.
+*   **Difficulty:** **Medium/High**. Depends on kernel VM capabilities (huge pages, stack guard pages).
+*   **Importance:** **Low**. Mostly optimizations; software usually has fallbacks.
+*   **Affected Areas:**
+    *   **Headers:** `sys/mman.h`.
+    *   **Kernel:** VM subsystem (`vm_map_file` handling).
+
 ## Detailed Basic Compliance (`os-test/basic`)
 
 Based on results from the `os-test` basic suite ([link](https://sortix.org/os-test/basic/#basic)), Haiku achieves an overall score of **93%** (397/426 tests passing).
@@ -193,6 +202,8 @@ The following features are implemented in the codebase, though corner cases may 
 *   `pthread_cond_timedwait`: Implemented (respects clock attribute).
 *   `pthread_detach`: Implemented.
 *   `pthread_rwlock_*`: Implemented (Read/Write/Timed/Try variants present).
+*   `mmap`: **100% Score (os-test)**. Implemented with support for `MAP_SHARED`, `MAP_PRIVATE`, `MAP_FIXED`, `MAP_ANONYMOUS`.
+*   `strftime`: **95% Score (os-test/time)**. Implemented via musl (`src/system/libroot/posix/musl/time/strftime.c`), fully supporting locale (`strftime_l`).
 
 ## Improvements & Partial Implementations
 
