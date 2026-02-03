@@ -937,7 +937,8 @@ IPCP::RCAEvent(net_buffer *packet)
 	if (fRequestID != lcpHeader.id) {
 		// this packet is not a reply to our request
 
-		// TODO: log this event
+		dprintf("IPCP: Received Configure-Ack with wrong ID (expected %d, got %d)\n",
+			fRequestID, lcpHeader.id);
 		gBufferModule->free(packet);
 		return;
 	}
@@ -1045,7 +1046,8 @@ IPCP::RCNEvent(net_buffer *packet)
 	if (fRequestID != lcpHeader.id) {
 		// this packet is not a reply to our request
 
-		// TODO: log this event
+		dprintf("IPCP: Received Configure-Nak/Reject with wrong ID (expected %d, got %d)\n",
+			fRequestID, lcpHeader.id);
 		gBufferModule->free(packet);
 		return;
 	}
