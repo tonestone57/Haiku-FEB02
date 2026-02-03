@@ -558,7 +558,7 @@ VMUserAddressSpace::_InsertAreaSlot(addr_t start, addr_t size, addr_t end,
 
 	// do some sanity checking
 	if (start < fBase || size == 0 || end > fEndAddress
-		|| start + (size - 1) > end)
+		|| start + (size - 1) > end || start + (size - 1) < start)
 		return B_BAD_ADDRESS;
 
 	if (addressSpec == B_EXACT_ADDRESS && area->id != RESERVED_AREA_ID) {
