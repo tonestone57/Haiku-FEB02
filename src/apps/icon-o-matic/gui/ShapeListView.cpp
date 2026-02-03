@@ -147,6 +147,13 @@ ShapeListView::~ShapeListView()
 
 
 void
+ShapeListView::MakeEmpty()
+{
+	_MakeEmpty();
+}
+
+
+void
 ShapeListView::SelectionChanged()
 {
 	SimpleListView::SelectionChanged();
@@ -563,22 +570,19 @@ int32
 ShapeListView::IndexOfSelectable(Selectable* selectable) const
 {
 	Shape* shape = dynamic_cast<Shape*>(selectable);
-	if (shape == NULL) {
-		Transformer* transformer = dynamic_cast<Transformer*>(selectable);
-		if (transformer == NULL)
-			return -1;
-		int32 count = CountItems();
-		for (int32 i = 0; i < count; i++) {
-			ShapeListItem* item = dynamic_cast<ShapeListItem*>(ItemAt(i));
-			if (item != NULL && item->shape->Transformers()->HasItem(transformer))
-				return i;
-		}
+	if (shape != NULL) {
+		ShapeListItem* item = _ItemForShape(shape);
+		if (item != NULL)
+			return IndexOf(item);
 	} else {
-		int32 count = CountItems();
-		for (int32 i = 0; i < count; i++) {
-			ShapeListItem* item = dynamic_cast<ShapeListItem*>(ItemAt(i));
-			if (item != NULL && item->shape == shape)
-				return i;
+		Transformer* transformer = dynamic_cast<Transformer*>(selectable);
+		if (transformer != NULL) {
+			std::map<Shape*, ShapeListItem*>::const_iterator it
+				= fItemMap.begin();
+			for (; it != fItemMap.end(); ++it) {
+				if (it->first->Transformers()->HasItem(transformer))
+					return IndexOf(it->second);
+			}
 		}
 	}
 
@@ -793,6 +797,8 @@ ShapeListView::_AddShape(Shape* shape, int32 index)
 		return false;
 	}
 	
+	fItemMap.insert(std::make_pair(shape, item));
+
 	return true;
 }
 
@@ -802,6 +808,7 @@ ShapeListView::_RemoveShape(Shape* shape)
 {
 	ShapeListItem* item = _ItemForShape(shape);
 	if (item != NULL && RemoveItem(item)) {
+		fItemMap.erase(shape);
 		delete item;
 		return true;
 	}
@@ -812,13 +819,19 @@ ShapeListView::_RemoveShape(Shape* shape)
 ShapeListItem*
 ShapeListView::_ItemForShape(Shape* shape) const
 {
-	int32 count = CountItems();
-	for (int32 i = 0; i < count; i++) {
-		ShapeListItem* item = dynamic_cast<ShapeListItem*>(ItemAt(i));
-		if (item != NULL && item->shape == shape)
-			return item;
-	}
+	std::map<Shape*, ShapeListItem*>::const_iterator it = fItemMap.find(shape);
+	if (it != fItemMap.end())
+		return it->second;
+
 	return NULL;
+}
+
+
+void
+ShapeListView::_MakeEmpty()
+{
+	SimpleListView::_MakeEmpty();
+	fItemMap.clear();
 }
 
 
