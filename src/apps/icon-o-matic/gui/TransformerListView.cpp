@@ -453,12 +453,9 @@ TransformerListView::IndexOfSelectable(Selectable* selectable) const
 	if (!transformer)
 		return -1;
 
-	for (int32 i = 0;
-		 TransformerItem* item = dynamic_cast<TransformerItem*>(ItemAt(i));
-		 i++) {
-		if (item->transformer == transformer)
-			return i;
-	}
+	TransformerItem* item = _ItemForTransformer(transformer);
+	if (item)
+		return IndexOf(item);
 
 	return -1;
 }
