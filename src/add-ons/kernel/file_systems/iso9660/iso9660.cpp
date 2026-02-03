@@ -631,7 +631,7 @@ ISOMount(const char *path, uint32 flags, iso9660_volume **_newVolume,
 		if (ioctl(volume->fdOfSession, B_GET_PARTITION_INFO, &partitionInfo,
 				sizeof(partition_info)) < 0) {
 			TRACE(("B_GET_PARTITION_INFO: ioctl returned error\n"));
-			strcpy(partitionInfo.device, path);
+			strlcpy(partitionInfo.device, path, sizeof(partitionInfo.device));
 		}
 		TRACE(("ISOMount: open device/file \"%s\"\n", partitionInfo.device));
 

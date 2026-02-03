@@ -129,7 +129,7 @@ PeerAddress::UniversalAddress() const
 		return NULL;
 
 	char port[16];
-	sprintf(port, ".%d.%d", Port() >> 8, Port() & 0xff);
+	snprintf(port, sizeof(port), ".%d.%d", Port() >> 8, Port() & 0xff);
 	strcat(uAddr, port);
 
 	return uAddr;

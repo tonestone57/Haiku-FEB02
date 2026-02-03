@@ -145,7 +145,7 @@ init_vcache(mount* vol)
 		return ENOMEM;
 	}
 
-	sprintf(name, "fat cache %" B_PRIdDEV, vol->mnt_fsvolume->id);
+	snprintf(name, sizeof(name), "fat cache %" B_PRIdDEV, vol->mnt_fsvolume->id);
 	rw_lock_init(&vol->vcache.lock, "fat cache");
 
 	PRINT("init_vcache: initialized vnid cache with %" B_PRIu32

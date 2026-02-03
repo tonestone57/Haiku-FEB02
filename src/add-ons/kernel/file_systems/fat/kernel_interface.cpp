@@ -3032,9 +3032,13 @@ dosfs_read_attrdir(fs_volume* volume, fs_vnode* vnode, void* cookie, struct dire
 	ReadLocker locker(bsdNode->v_vnlock->haikuRW);
 
 	if ((*fatCookie == 0) && (bsdNode->v_mime != NULL)) {
+		size_t length = offsetof(struct dirent, d_name) + 10;
+		if (bufferSize < length)
+			return B_BUFFER_OVERFLOW;
+
 		*_num = 1;
 		strcpy(buffer->d_name, "BEOS:TYPE");
-		buffer->d_reclen = offsetof(struct dirent, d_name) + 10;
+		buffer->d_reclen = length;
 	}
 
 	*fatCookie = 1;
