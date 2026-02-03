@@ -87,7 +87,7 @@ MediaNodeControlApp::MediaNodeControlApp(
 	status_t err = r->GetNodeFor(nodeID, &m_node);
 	if(err < B_OK) {
 		char buffer[512];
-		sprintf(buffer,
+		snprintf(buffer, sizeof(buffer),
 			B_TRANSLATE("MediaNodeControlApp: couldn't find node (%"
 				B_PRId32 "):\n%s\n"),
 			nodeID, strerror(err));
@@ -102,7 +102,7 @@ MediaNodeControlApp::MediaNodeControlApp(
 	err = r->GetLiveNodeInfo(m_node, &nInfo);
 	if(err < B_OK) {
 		char buffer[512];
-		sprintf(buffer,
+		snprintf(buffer, sizeof(buffer),
 			B_TRANSLATE("MediaNodeControlApp: couldn't get node info (%"
 				B_PRId32 "):\n%s\n"), nodeID, strerror(err));
 		BAlert* alert = new BAlert("error", buffer, B_TRANSLATE("OK"));
@@ -120,7 +120,7 @@ MediaNodeControlApp::MediaNodeControlApp(
 	err = r->GetParameterWebFor(m_node, &pWeb);
 	if(err < B_OK) {
 		char buffer[512];
-		sprintf(buffer,
+		snprintf(buffer, sizeof(buffer),
 			B_TRANSLATE("MediaNodeControlApp: no parameters for node (%"
 				B_PRId32 "):\n%s\n"), nodeID, strerror(err));
 		BAlert* alert = new BAlert("error", buffer, B_TRANSLATE("OK"));

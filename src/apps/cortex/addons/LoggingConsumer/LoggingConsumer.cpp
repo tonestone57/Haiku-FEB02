@@ -537,7 +537,7 @@ LoggingConsumer::NodeRegistered()
 	mInput.destination.port = ControlPort();
 	mInput.destination.id = 0;
 	mInput.node = Node();
-	strcpy(mInput.name, B_TRANSLATE("Logged input"));
+	strlcpy(mInput.name, B_TRANSLATE("Logged input"), B_MEDIA_NAME_LENGTH);
 }
 
 void

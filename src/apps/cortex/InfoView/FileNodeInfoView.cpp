@@ -141,7 +141,7 @@ FileNodeInfoView::FileNodeInfoView(
 					int hours, minutes, seconds, frames;
 					us_to_timecode(duration, &hours, &minutes, &seconds, &frames);
 					char buffer[64];
-					sprintf(buffer, "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
+					snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
 					s << B_TRANSLATE("\n- Duration:") << " " << buffer;
 					
 					// add quality

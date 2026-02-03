@@ -83,7 +83,7 @@ status_t NodeSetIOContext::addNode(
 		m_nodes.push_back(node_entry(key, node));
 	else {
 		char buffer[16];
-		sprintf(buffer, "N_%03d", m_nodeKeyIndex++);
+		snprintf(buffer, sizeof(buffer), "N_%03d", m_nodeKeyIndex++);
 		m_nodes.push_back(node_entry(buffer, node));
 	}
 

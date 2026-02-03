@@ -138,7 +138,7 @@ status_t Connection::getInput(
 		return B_ERROR;
 
 	outInput->node = m_destinationNode;
-	strcpy(outInput->name, m_inputName.String());
+	strlcpy(outInput->name, m_inputName.String(), B_MEDIA_NAME_LENGTH);
 	outInput->format = format();
 	outInput->source = m_source;
 	outInput->destination = m_destination;
@@ -153,7 +153,7 @@ status_t Connection::getOutput(
 		return B_ERROR;
 
 	outOutput->node = m_sourceNode;
-	strcpy(outOutput->name, m_outputName.String());
+	strlcpy(outOutput->name, m_outputName.String(), B_MEDIA_NAME_LENGTH);
 	outOutput->format = format();
 	outOutput->source = m_source;
 	outOutput->destination = m_destination;
