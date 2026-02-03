@@ -33,7 +33,7 @@ public:
 		  fExists(exists),
 		  fCreate(create)
 	{
-		strcpy(fName, name);
+		strlcpy(fName, name, sizeof(fName));
 	}
 
 	char	fName[B_ATTR_NAME_LENGTH];

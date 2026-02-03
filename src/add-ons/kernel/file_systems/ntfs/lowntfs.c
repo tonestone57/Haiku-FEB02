@@ -1050,7 +1050,7 @@ ntfs_fuse_rm(struct lowntfs_context *ctx, ino_t parent, const char *name,
 			*close_state |= CLOSE_GHOST;
 			u64 ghost = ++ctx->latest_ghost;
 
-			sprintf(ghostname,ghostformat,ghost);
+			snprintf(ghostname, sizeof(ghostname), ghostformat, ghost);
 				/* Generate unicode filename. */
 			ugname = (ntfschar*)NULL;
 			ugname_len = ntfs_mbstoucs(ghostname, &ugname);
@@ -1191,7 +1191,7 @@ out:
 		/* remove the associate ghost file (even if release failed) */
 	if (1) {
 		if (state & CLOSE_GHOST) {
-			sprintf(ghostname,ghostformat,ghost);
+			snprintf(ghostname, sizeof(ghostname), ghostformat, ghost);
 			ntfs_fuse_rm(ctx, parent, ghostname, RM_ANY | RM_NO_CHECK_OPEN);
 		}
 #ifndef __HAIKU__
