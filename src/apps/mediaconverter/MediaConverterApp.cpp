@@ -11,6 +11,8 @@
 
 #include <Alert.h>
 #include <Catalog.h>
+#include <File.h>
+#include <FindDirectory.h>
 #include <fs_attr.h>
 #include <Locale.h>
 #include <MediaFile.h>
@@ -42,8 +44,8 @@ MediaConverterApp::MediaConverterApp()
 	fConverting(false),
 	fCancel(false)
 {
-	// TODO: implement settings for window pos
 	fWin = new MediaConverterWindow(BRect(50, 50, 520, 555));
+	_LoadSettings();
 }
 
 
@@ -95,6 +97,14 @@ MediaConverterApp::MessageReceived(BMessage *msg)
 }
 
 
+bool
+MediaConverterApp::QuitRequested()
+{
+	_SaveSettings();
+	return BApplication::QuitRequested();
+}
+
+
 void
 MediaConverterApp::ReadyToRun()
 {
@@ -124,11 +134,15 @@ MediaConverterApp::RefsReceived(BMessage* msg)
 			delete file;
 			continue;
 		}
+
+		bool added = false;
 		if (fWin->Lock()) {
-			if (!fWin->AddSourceFile(file, ref))
-				delete file;
+			if (fWin->AddSourceFile(file, ref))
+				added = true;
 			fWin->Unlock();
 		}
+		if (!added)
+			delete file;
 	}
 
 	if (errors) {
@@ -399,7 +413,11 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 			raf = &(outAudFormat.u.raw_audio);
 			inTrack->DecodedFormat(&outAudFormat);
 
-			audioBuffer = new uint8[raf->buffer_size];
+			audioBuffer = new(std::nothrow) uint8[raf->buffer_size];
+			if (audioBuffer == NULL) {
+				ret = B_NO_MEMORY;
+				break;
+			}
 //			audioFrameSize = (raf->format & media_raw_audio_format::B_AUDIO_SIZE_MASK)
 //			audioFrameSize = (raf->format & 0xf) * raf->channel_count;
 			outAudTrack = outFile->CreateTrack(&outAudFormat, audioCodec);
@@ -460,6 +478,10 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 
 			videoBuffer = new (std::nothrow) uint8[height
 				* rvf->display.bytes_per_row];
+			if (videoBuffer == NULL) {
+				ret = B_NO_MEMORY;
+				break;
+			}
 			outVidTrack = outFile->CreateTrack(&outVidFormat, videoCodec);
 
 			if (outVidTrack != NULL) {
@@ -527,6 +549,10 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 	}
 
 	if (ret < B_OK) {
+		if (inAudTrack)
+			inFile->ReleaseTrack(inAudTrack);
+		if (inVidTrack)
+			inFile->ReleaseTrack(inVidTrack);
 		delete[] audioBuffer;
 		delete[] videoBuffer;
 		delete outFile;
@@ -680,4 +706,53 @@ main(int, char **)
 	app.Run();
 
 	return 0;
+}
+
+void
+MediaConverterApp::_LoadSettings()
+{
+	BPath path;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) != B_OK)
+		return;
+
+	path.Append("MediaConverter_settings");
+	BFile file(path.Path(), B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	BMessage settings;
+	if (settings.Unflatten(&file) != B_OK)
+		return;
+
+	BRect frame;
+	if (settings.FindRect("window_frame", &frame) == B_OK) {
+		if (fWin != NULL) {
+			fWin->MoveTo(frame.LeftTop());
+			fWin->ResizeTo(frame.Width(), frame.Height());
+		}
+	}
+}
+
+
+void
+MediaConverterApp::_SaveSettings()
+{
+	if (fWin == NULL)
+		return;
+
+	BPath path;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) != B_OK)
+		return;
+
+	path.Append("MediaConverter_settings");
+	BFile file(path.Path(), B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	if (fWin->LockWithTimeout(200000) == B_OK) {
+		BMessage settings;
+		settings.AddRect("window_frame", fWin->Frame());
+		fWin->Unlock();
+		settings.Flatten(&file);
+	}
 }

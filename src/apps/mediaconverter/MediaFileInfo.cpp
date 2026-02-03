@@ -46,12 +46,16 @@ MediaFileInfo::LoadInfo(BMediaFile* file)
 			return B_ERROR;
 
 		ret = track->InitCheck();
-		if (ret != B_OK)
+		if (ret != B_OK) {
+			file->ReleaseTrack(track);
 			return ret;
+		}
 
 		ret = track->EncodedFormat(&format);
-		if (ret != B_OK)
+		if (ret != B_OK) {
+			file->ReleaseTrack(track);
 			return ret;
+		}
 
 		static BStringFormat frameFormat(B_TRANSLATE(
 			"{0, plural, one{# frame} other{# frames}}"));
@@ -61,14 +65,18 @@ MediaFileInfo::LoadInfo(BMediaFile* file)
 			format.type = B_MEDIA_RAW_VIDEO;
 
 			ret = track->DecodedFormat(&format);
-			if (ret != B_OK)
+			if (ret != B_OK) {
+				file->ReleaseTrack(track);
 				return ret;
+			}
 
 			media_raw_video_format *rvf = &(format.u.raw_video);
 
 			ret = track->GetCodecInfo(&codecInfo);
-			if (ret != B_OK)
+			if (ret != B_OK) {
+				file->ReleaseTrack(track);
 				return ret;
+			}
 
 			video.format << codecInfo.pretty_name;
 			videoDuration = track->Duration();
@@ -91,8 +99,10 @@ MediaFileInfo::LoadInfo(BMediaFile* file)
 			format.Clear();
 			format.type = B_MEDIA_RAW_AUDIO;
 			ret = track->DecodedFormat(&format);
-			if (ret != B_OK)
+			if (ret != B_OK) {
+				file->ReleaseTrack(track);
 				return ret;
+			}
 			media_raw_audio_format *raf = &(format.u.raw_audio);
 			char bytesPerSample = (char)(raf->format & 0xf);
 
@@ -101,7 +111,6 @@ MediaFileInfo::LoadInfo(BMediaFile* file)
 				static BStringFormat bitFormat(
 					B_TRANSLATE("{0, plural, one{# bit} other{# bits}}"));
 				bitFormat.Format(details, bytesPerSample * 8);
-				details.SetToFormat(B_TRANSLATE("%d bit "), bytesPerSample * 8);
 			} else {
 				static BStringFormat bitFormat(
 					B_TRANSLATE("{0, plural, one{# byte} other{# bytes}}"));
@@ -111,8 +120,10 @@ MediaFileInfo::LoadInfo(BMediaFile* file)
 			audio.details << " ";
 
 			ret = track->GetCodecInfo(&codecInfo);
-			if (ret != B_OK)
+			if (ret != B_OK) {
+				file->ReleaseTrack(track);
 				return ret;
+			}
 
 			audio.format << codecInfo.pretty_name;
 			audioDuration = track->Duration();

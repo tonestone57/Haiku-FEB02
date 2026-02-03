@@ -34,6 +34,21 @@ MediaFileListItem::~MediaFileListItem()
 }
 
 
+void
+MediaFileListItem::DrawItem(BView* owner, BRect frame, bool complete)
+{
+	MediaFileListView* listView = dynamic_cast<MediaFileListView*>(owner);
+	if (listView != NULL && !listView->IsEnabled()) {
+		rgb_color color = owner->HighColor();
+		owner->SetHighColor(tint_color(color, B_DISABLED_LABEL_TINT));
+		BStringItem::DrawItem(owner, frame, complete);
+		owner->SetHighColor(color);
+	} else {
+		BStringItem::DrawItem(owner, frame, complete);
+	}
+}
+
+
 // #pragma mark - MediaFileListView
 
 
@@ -62,7 +77,7 @@ MediaFileListView::SetEnabled(bool enabled)
 		return;
 
 	fEnabled = enabled;
-	// TODO: visual indication of enabled status?
+	Invalidate();
 }
 
 
