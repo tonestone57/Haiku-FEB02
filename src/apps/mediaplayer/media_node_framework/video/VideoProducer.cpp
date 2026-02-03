@@ -116,7 +116,7 @@ VideoProducer::NodeRegistered()
 	fOutput.source.port = ControlPort();
 	fOutput.source.id = 0;
 	fOutput.destination = media_destination::null;
-	strcpy(fOutput.name, Name());
+	strlcpy(fOutput.name, Name(), B_MEDIA_NAME_LENGTH);
 
 	// fill with wild cards at this point in time
 	fOutput.format.type = B_MEDIA_RAW_VIDEO;
@@ -375,7 +375,7 @@ VideoProducer::PrepareToConnect(const media_source& source,
 	}
 
 	*outSource = fOutput.source;
-	strcpy(outName, fOutput.name);
+	strlcpy(outName, fOutput.name, B_MEDIA_NAME_LENGTH);
 
 	return B_OK;
 }
@@ -409,7 +409,7 @@ VideoProducer::Connect(status_t error, const media_source& source,
 	}
 
 	fOutput.destination = destination;
-	strcpy(_name, fOutput.name);
+	strlcpy(_name, fOutput.name, B_MEDIA_NAME_LENGTH);
 	fConnectedFormat = format.u.raw_video;
 	fBufferDuration = 20000;
 

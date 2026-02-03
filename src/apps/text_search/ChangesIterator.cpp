@@ -62,7 +62,7 @@ ChangesIterator::GetNextName(char* buffer)
 
 	if (iterator.HasNext()) {
 		const PathMap::Entry& entry = iterator.Next();
-		sprintf(buffer, "%s", entry.key.GetString());
+		strlcpy(buffer, entry.key.GetString(), B_PATH_NAME_LENGTH);
 
 		fIteratorIndex++;
 		return true;

@@ -32,7 +32,7 @@ FileIterator::_ExamineFile(BEntry& entry, char* buffer, bool textFilesOnly)
 	if (entry.GetPath(&path) != B_OK)
 		return false;
 
-	strcpy(buffer, path.Path());
+	strlcpy(buffer, path.Path(), B_PATH_NAME_LENGTH);
 
 	BNode node(&entry);
 	if (!node.IsFile())

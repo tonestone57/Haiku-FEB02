@@ -591,7 +591,7 @@ AudioProducer::NodeRegistered()
 	fOutput.source.port = ControlPort();
 	fOutput.source.id = 0;
 	fOutput.node = Node();
-	::strcpy(fOutput.name, Name());
+	strlcpy(fOutput.name, Name(), B_MEDIA_NAME_LENGTH);
 
 	// Start the BMediaEventLooper thread
 	SetPriority(B_REAL_TIME_PRIORITY);

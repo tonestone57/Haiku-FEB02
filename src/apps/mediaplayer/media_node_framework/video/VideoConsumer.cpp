@@ -317,7 +317,7 @@ VideoConsumer::Connected(const media_source& producer,
 	fIn.source = producer;
 	fIn.format = format;
 	fIn.node = Node();
-	sprintf(fIn.name, "Video Consumer");
+	strlcpy(fIn.name, "Video Consumer", B_MEDIA_NAME_LENGTH);
 	*outInput = fIn;
 
 	uint32 userData = 0;
@@ -455,7 +455,7 @@ VideoConsumer::GetNextInput(int32* cookie, media_input* outInput)
 	if (*cookie < 1) {
 		fIn.node = Node();
 		fIn.destination.id = *cookie;
-		sprintf(fIn.name, "Video Consumer");
+		strlcpy(fIn.name, "Video Consumer", B_MEDIA_NAME_LENGTH);
 		*outInput = fIn;
 		(*cookie)++;
 		return B_OK;
