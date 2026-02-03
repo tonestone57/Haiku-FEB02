@@ -1211,6 +1211,9 @@ status_t munge_short_name_english(uchar nshort[11], uint64 value)
 	// the tilde and cannot begin with 0
 	snprintf(buffer, sizeof(buffer), "~%" B_PRIu64, value);
 	len = strlen(buffer);
+	if (len > 7)
+		return B_NAME_TOO_LONG;
+
 	i = 7 - len;
 
 	ASSERT((i > 0) && (i < 8));
@@ -1235,6 +1238,8 @@ status_t munge_short_name_sjis(uchar nshort[11], uint64 value)
 	// the tilde and cannot begin with 0
 	snprintf(buffer, sizeof(buffer), "~%" B_PRIu64, value);
 	len = strlen(buffer);
+	if (len > 7)
+		return B_NAME_TOO_LONG;
 
 	last = 0;
 	for (i=0;i<=8-len;i++) {

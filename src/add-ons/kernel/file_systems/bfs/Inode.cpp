@@ -843,7 +843,7 @@ Inode::_AddSmallData(Transaction& transaction, NodeGetter& nodeGetter,
 	item->type = HOST_ENDIAN_TO_BFS_INT32(type);
 	item->name_size = HOST_ENDIAN_TO_BFS_INT16(nameLength);
 	item->data_size = HOST_ENDIAN_TO_BFS_INT16(length);
-	strcpy(item->Name(), name);
+	strlcpy(item->Name(), name, nameLength + 1);
 	if (user_memcpy(item->Data() + pos, data, length) < B_OK)
 		return B_BAD_ADDRESS;
 

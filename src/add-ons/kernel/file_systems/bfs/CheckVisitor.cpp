@@ -281,12 +281,12 @@ CheckVisitor::VisitInode(Inode* inode, const char* treeName)
 	if (treeName == NULL) {
 		if (inode->GetName(Control().name) < B_OK) {
 			if (inode->IsContainer())
-				strcpy(Control().name, "(dir has no name)");
+				strlcpy(Control().name, "(dir has no name)", B_FILE_NAME_LENGTH);
 			else
-				strcpy(Control().name, "(node has no name)");
+				strlcpy(Control().name, "(node has no name)", B_FILE_NAME_LENGTH);
 		}
 	} else
-		strcpy(Control().name, treeName);
+		strlcpy(Control().name, treeName, B_FILE_NAME_LENGTH);
 
 	status_t status = B_OK;
 
@@ -342,7 +342,7 @@ CheckVisitor::OpenInodeFailed(status_t reason, ino_t id, Inode* parent,
 	if (treeName != NULL)
 		strlcpy(Control().name, treeName, B_FILE_NAME_LENGTH);
 	else
-		strcpy(Control().name, "(node has no name)");
+		strlcpy(Control().name, "(node has no name)", B_FILE_NAME_LENGTH);
 
 	Control().inode = id;
 	Control().errors = BFS_COULD_NOT_OPEN;
