@@ -1956,7 +1956,7 @@ append_cloned_data(net_buffer* _buffer, net_buffer* _source, uint32 offset,
 	ParanoiaChecker _(buffer);
 	ParanoiaChecker _2(source);
 
-	if (source->size < offset + bytes || source->size < offset)
+	if (offset > source->size || bytes > source->size - offset)
 		return B_BAD_VALUE;
 
 	// find data_node to start with from the source buffer

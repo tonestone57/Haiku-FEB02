@@ -1361,8 +1361,11 @@ socket_send(net_socket* socket, msghdr* header, const void* data, size_t length,
 	while (bytesLeft > 0 || atomic) {
 		// TODO: useful, maybe even computed header space!
 		net_buffer* buffer = gNetBufferModule.create(256);
-		if (buffer == NULL)
+		if (buffer == NULL) {
+			if (bytesSent > 0)
+				return bytesSent;
 			return ENOBUFS;
+		}
 
 		while (buffer->size < socket->send.buffer_size
 			&& buffer->size < bytesLeft) {
