@@ -152,8 +152,6 @@ PPPInterface::Control(uint32 op, void *data, size_t length) const
 	control_net_module_args args;
 
 	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
-	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
-	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
 	args.name = PPP_INTERFACE_MODULE_NAME;
 	args.op = PPPC_CONTROL_INTERFACE;
 	args.data = &info;

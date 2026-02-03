@@ -1508,7 +1508,7 @@ KPPPInterface::LoadModule(const char *name, driver_parameter *parameter,
 
 	char *moduleName = new char[B_PATH_NAME_LENGTH];
 
-	snprintf(moduleName, sizeof(moduleName), "%s/%s", PPP_MODULES_PATH, name);
+	snprintf(moduleName, B_PATH_NAME_LENGTH, "%s/%s", PPP_MODULES_PATH, name);
 
 	ppp_module_info *module;
 	if (get_module(moduleName, (module_info**) &module) != B_OK) {
