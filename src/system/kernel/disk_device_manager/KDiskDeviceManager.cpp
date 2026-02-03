@@ -1566,9 +1566,7 @@ void
 KDiskDeviceManager::_NotifyDeviceEvent(KDiskDevice* device, int32 event,
 	uint32 mask)
 {
-	char messageBuffer[512];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_DEVICE_UPDATE);
+	KMessage message(B_DEVICE_UPDATE);
 	message.AddInt32("event", event);
 	message.AddInt32("id", device->ID());
 	message.AddString("device", device->Path());

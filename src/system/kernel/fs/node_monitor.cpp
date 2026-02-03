@@ -646,9 +646,7 @@ NodeMonitorService::NotifyEntryCreatedOrRemoved(int32 opcode, dev_t device,
 		return B_OK;
 
 	// there are interested listeners: construct the message and send it
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_NODE_MONITOR);
+	KMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", opcode);
 	message.AddInt32("device", device);
 	message.AddInt64("directory", directory);
@@ -697,9 +695,7 @@ NodeMonitorService::NotifyEntryMoved(dev_t device, ino_t fromDirectory,
 		return B_OK;
 
 	// there are interested listeners: construct the message and send it
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_NODE_MONITOR);
+	KMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_ENTRY_MOVED);
 	message.AddInt32("device", device);
 	message.AddInt64("from directory", fromDirectory);
@@ -751,9 +747,7 @@ NodeMonitorService::NotifyStatChanged(dev_t device, ino_t directory, ino_t node,
 		return B_OK;
 
 	// there are interested listeners: construct the message and send it
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_NODE_MONITOR);
+	KMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_STAT_CHANGED);
 	message.AddInt32("device", device);
 	message.AddInt64("node", node);
@@ -810,9 +804,7 @@ NodeMonitorService::NotifyAttributeChanged(dev_t device, ino_t directory,
 		return B_OK;
 
 	// there are interested listeners: construct the message and send it
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_NODE_MONITOR);
+	KMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_ATTR_CHANGED);
 	message.AddInt32("device", device);
 	if (directory >= 0)
@@ -843,9 +835,7 @@ NodeMonitorService::NotifyUnmount(dev_t device)
 		return B_OK;
 
 	// there are interested listeners: construct the message and send it
-	char messageBuffer[96];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_NODE_MONITOR);
+	KMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_DEVICE_UNMOUNTED);
 	message.AddInt32("device", device);
 
@@ -873,9 +863,7 @@ NodeMonitorService::NotifyMount(dev_t device, dev_t parentDevice,
 		return B_OK;
 
 	// there are interested listeners: construct the message and send it
-	char messageBuffer[128];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_NODE_MONITOR);
+	KMessage message(B_NODE_MONITOR);
 	message.AddInt32("opcode", B_DEVICE_MOUNTED);
 	message.AddInt32("new device", device);
 	message.AddInt32("device", parentDevice);
@@ -1051,9 +1039,7 @@ notify_query_entry_created_or_removed(int32 opcode, port_id port, int32 token,
 		return B_BAD_VALUE;
 
 	// construct the message
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_QUERY_UPDATE);
+	KMessage message(B_QUERY_UPDATE);
 	message.AddInt32("opcode", opcode);
 	message.AddInt32("device", device);
 	message.AddInt64("directory", directory);
@@ -1077,9 +1063,7 @@ notify_query_attr_changed(port_id port, int32 token,
 		return B_BAD_VALUE;
 
 	// construct the message
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_QUERY_UPDATE);
+	KMessage message(B_QUERY_UPDATE);
 	message.AddInt32("opcode", B_ATTR_CHANGED);
 	message.AddInt32("device", device);
 	message.AddInt64("directory", directory);
@@ -1105,9 +1089,7 @@ notify_query_entry_moved(int32 opcode, port_id port, int32 token,
 		return B_BAD_VALUE;
 
 	// construct the message
-	char messageBuffer[1024];
-	KMessage message;
-	message.SetTo(messageBuffer, sizeof(messageBuffer), B_QUERY_UPDATE);
+	KMessage message(B_QUERY_UPDATE);
 	message.AddInt32("opcode", opcode);
 	message.AddInt32("device", device);
 	message.AddInt64("from directory", fromDirectory);
