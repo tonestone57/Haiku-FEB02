@@ -122,12 +122,21 @@ ip6_sprintf(const in6_addr *srcaddr, char *dst, size_t size)
 			break;
 		}
 #endif
-		tp += SPRINTF((tp, sizeof(tmp) - (tp - tmp), "%x", words[i]));
+		size_t remaining = sizeof(tmp) - (tp - tmp);
+		size_t written = SPRINTF((tp, remaining, "%x", words[i]));
+		if (written >= remaining)
+			return NULL;
+		tp += written;
 	}
 	/* Was it a trailing run of 0x00's? */
 	if (best.base != -1 && (best.base + best.len) ==
-		(NS_IN6ADDRSZ / NS_INT16SZ))
+		(NS_IN6ADDRSZ / NS_INT16SZ)) {
+		if (sizeof(tmp) - (tp - tmp) < 2)
+			return NULL;
 		*tp++ = ':';
+	}
+	if (sizeof(tmp) - (tp - tmp) < 1)
+		return NULL;
 	*tp++ = '\0';
 
 	/*
