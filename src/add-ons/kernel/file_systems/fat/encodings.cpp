@@ -1202,14 +1202,14 @@ status_t utf8_to_unicode(const char *utf8, uchar *uni, uint32 unilen)
 static
 status_t munge_short_name_english(uchar nshort[11], uint64 value)
 {
-	char buffer[8];
+	char buffer[24];
 	int len, i;
 
 	DPRINTF(0, ("munge_short_name_english\n"));
 
 	// short names must have only numbers following
 	// the tilde and cannot begin with 0
-	sprintf(buffer, "~%" B_PRIu64, value);
+	snprintf(buffer, sizeof(buffer), "~%" B_PRIu64, value);
 	len = strlen(buffer);
 	i = 7 - len;
 
@@ -1226,14 +1226,14 @@ status_t munge_short_name_english(uchar nshort[11], uint64 value)
 static
 status_t munge_short_name_sjis(uchar nshort[11], uint64 value)
 {
-	char buffer[8];
+	char buffer[24];
 	int len, i, last;
 
 	DPRINTF(0, ("munge_short_name_sjis\n"));
 
 	// short names must have only numbers following
 	// the tilde and cannot begin with 0
-	sprintf(buffer, "~%" B_PRIu64, value);
+	snprintf(buffer, sizeof(buffer), "~%" B_PRIu64, value);
 	len = strlen(buffer);
 
 	last = 0;

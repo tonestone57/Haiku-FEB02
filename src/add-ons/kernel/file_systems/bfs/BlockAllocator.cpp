@@ -579,14 +579,18 @@ BlockAllocator::InitializeAndClearBitmap(Transaction& transaction)
 	if (status != B_OK)
 		return status;
 
-	uint32 numBits = 8 * fBlocksPerGroup * fVolume->BlockSize();
+	uint64 numBits = 8 * (uint64)fBlocksPerGroup * fVolume->BlockSize();
 	uint32 blockShift = fVolume->BlockShift();
 
-	uint32* buffer = (uint32*)malloc(numBits >> 3);
+	size_t bufferSize = numBits >> 3;
+	if (bufferSize != (numBits >> 3))
+		RETURN_ERROR(B_NO_MEMORY);
+
+	uint32* buffer = (uint32*)malloc(bufferSize);
 	if (buffer == NULL)
 		RETURN_ERROR(B_NO_MEMORY);
 
-	memset(buffer, 0, numBits >> 3);
+	memset(buffer, 0, bufferSize);
 
 	off_t offset = 1;
 		// the bitmap starts directly after the superblock
@@ -595,7 +599,7 @@ BlockAllocator::InitializeAndClearBitmap(Transaction& transaction)
 
 	for (int32 i = 0; i < fNumGroups; i++) {
 		if (write_pos(fVolume->Device(), offset << blockShift, buffer,
-				fBlocksPerGroup << blockShift) < B_OK) {
+				(size_t)fBlocksPerGroup << blockShift) < B_OK) {
 			free(buffer);
 			return B_ERROR;
 		}
@@ -671,7 +675,8 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 	uint32 blockShift = volume->BlockShift();
 	off_t freeBlocks = 0;
 
-	uint32* buffer = (uint32*)malloc(blocks << blockShift);
+	size_t bufferSize = (size_t)blocks << blockShift;
+	uint32* buffer = (uint32*)malloc(bufferSize);
 	if (buffer == NULL)
 		RETURN_ERROR(B_NO_MEMORY);
 
@@ -682,7 +687,7 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 
 	for (int32 i = 0; i < numGroups; i++) {
 		if (read_pos(volume->Device(), offset << blockShift, buffer,
-				blocks << blockShift) < B_OK)
+				bufferSize) < B_OK)
 			break;
 
 		// the last allocation group may contain less blocks than the others
