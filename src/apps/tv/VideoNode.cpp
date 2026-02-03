@@ -113,7 +113,7 @@ VideoNode::NodeRegistered()
 	fInput.destination.id = 0;
 	fInput.format.type = B_MEDIA_RAW_VIDEO;
 	fInput.format.u.raw_video = media_raw_video_format::wildcard;
-	strcpy(fInput.name, "video in");
+	strlcpy(fInput.name, "video in", B_MEDIA_NAME_LENGTH);
 
 	SetPriority(B_DISPLAY_PRIORITY);
 	Run();

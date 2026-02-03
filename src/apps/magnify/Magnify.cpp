@@ -1106,7 +1106,7 @@ TInfoView::Draw(BRect updateRect)
 	SetHighColor(ViewColor());
 	FillRect(invalRect);
 	SetHighColor(ui_color(B_PANEL_TEXT_COLOR));
-	strcpy(fInfoStr, dimensionsInfo);
+	strlcpy(fInfoStr, dimensionsInfo, sizeof(fInfoStr));
 	if (fInfoTextVisible)
 		DrawString(fInfoStr);
 
@@ -1122,7 +1122,7 @@ TInfoView::Draw(BRect updateRect)
 	SetHighColor(ViewColor());
 	FillRect(invalRect);
 	SetHighColor(ui_color(B_PANEL_TEXT_COLOR));
-	strcpy(fRGBStr,str);
+	strlcpy(fRGBStr, str, sizeof(fRGBStr));
 	if (fInfoTextVisible)
 		DrawString(fRGBStr);
 

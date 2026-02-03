@@ -213,7 +213,7 @@ SerialWindow::SerialWindow()
 		message->AddInt32("baudrate", kBaudrateConstants[i]);
 
 		char buffer[7];
-		sprintf(buffer, "%d", kBaudrates[i]);
+		snprintf(buffer, sizeof(buffer), "%d", kBaudrates[i]);
 		BMenuItem* item = new BMenuItem(buffer, message);
 
 		fBaudrateMenu->AddItem(item);

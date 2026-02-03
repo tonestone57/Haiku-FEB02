@@ -483,7 +483,7 @@ RecorderWindow::InitWindow()
 			if (error == B_OK) {
 				for (int j = 0; j < ni_count; j++) {
 					if (ni[j] == fAudioInputNode.node) {
-						strcpy(selected_name, dni[i].name);
+						strlcpy(selected_name, dni[i].name, sizeof(selected_name));
 						break;
 					}
 				}
@@ -1141,9 +1141,9 @@ RecorderWindow::ErrorAlert(const char * action, status_t err)
 {
 	char msg[300];
 	if (err != B_OK)
-		sprintf(msg, "%s: %s. [%" B_PRIx32 "]", action, strerror(err), (int32) err);
+		snprintf(msg, sizeof(msg), "%s: %s. [%" B_PRIx32 "]", action, strerror(err), (int32) err);
 	else
-		sprintf(msg, "%s.", action);
+		snprintf(msg, sizeof(msg), "%s.", action);
 	BAlert* alert = new BAlert("", msg, B_TRANSLATE("Stop"));
 	alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 	alert->Go();

@@ -363,13 +363,13 @@ DataView::ConvertLine(char *line, off_t offset, const uint8 *buffer, size_t size
 
 	for (uint32 i = 0; i < kBlockSize; i++) {
 		if (i >= size) {
-			strcpy(line, "   ");
+			strlcpy(line, "   ", 4);
 			line += kHexByteWidth;
 		} else
 			line += sprintf(line, "%02x ", *(unsigned char *)(buffer + i));
 	}
 
-	strcpy(line, "   ");
+	strlcpy(line, "   ", 4);
 	line += 3;
 
 	for (uint32 i = 0; i < kBlockSize; i++) {

@@ -409,7 +409,7 @@ TrackSlider::_TimeToString(bigtime_t timestamp, char *string)
 	uint32 seconds = timestamp / 1000000LL;
 	timestamp -= seconds * 1000000LL;
 	uint32 centiseconds = timestamp / 10000LL;
-	sprintf(string, "%02" B_PRId32 ":%02" B_PRId32 ":%02" B_PRId32 ":%02"
+	snprintf(string, 12, "%02" B_PRId32 ":%02" B_PRId32 ":%02" B_PRId32 ":%02"
 		B_PRId32, hours, minutes, seconds, centiseconds);
 }
 
