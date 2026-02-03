@@ -150,15 +150,57 @@ void
 ShapeListView::MakeEmpty()
 {
 	SimpleListView::_MakeEmpty();
-	fItemMap.clear();
 }
 
 
-void
-ShapeListView::DetachedFromWindow()
+bool
+ShapeListView::AddItem(BListItem* item, int32 atIndex)
 {
-	SimpleListView::DetachedFromWindow();
-	fItemMap.clear();
+	if (!SimpleListView::AddItem(item, atIndex))
+		return false;
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.insert(std::make_pair(shapeItem->shape, shapeItem));
+
+	return true;
+}
+
+
+bool
+ShapeListView::AddItem(BListItem* item)
+{
+	if (!SimpleListView::AddItem(item))
+		return false;
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.insert(std::make_pair(shapeItem->shape, shapeItem));
+
+	return true;
+}
+
+
+bool
+ShapeListView::RemoveItem(BListItem* item)
+{
+	if (!SimpleListView::RemoveItem(item))
+		return false;
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.erase(shapeItem->shape);
+
+	return true;
+}
+
+
+BListItem*
+ShapeListView::RemoveItem(int32 index)
+{
+	BListItem* item = SimpleListView::RemoveItem(index);
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.erase(shapeItem->shape);
+
+	return item;
 }
 
 
@@ -806,8 +848,6 @@ ShapeListView::_AddShape(Shape* shape, int32 index)
 		return false;
 	}
 	
-	fItemMap.insert(std::make_pair(shape, item));
-
 	return true;
 }
 
@@ -817,7 +857,6 @@ ShapeListView::_RemoveShape(Shape* shape)
 {
 	ShapeListItem* item = _ItemForShape(shape);
 	if (item != NULL && RemoveItem(item)) {
-		fItemMap.erase(shape);
 		delete item;
 		return true;
 	}

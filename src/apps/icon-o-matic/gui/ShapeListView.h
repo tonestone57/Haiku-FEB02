@@ -51,8 +51,12 @@ class ShapeListView : public SimpleListView,
 
 	// SimpleListView interface
 	virtual	void					MakeEmpty();
-	virtual	void					DetachedFromWindow();
 	virtual	void					SelectionChanged();
+
+	virtual	bool					AddItem(BListItem* item);
+	virtual	bool					AddItem(BListItem* item, int32 atIndex);
+	virtual	bool					RemoveItem(BListItem* item);
+	virtual	BListItem*				RemoveItem(int32 index);
 
 	virtual	void					MessageReceived(BMessage* message);
 
