@@ -599,11 +599,9 @@ StyleListView::IndexOfSelectable(Selectable* selectable) const
 	if (style == NULL)
 		return -1;
 
-	int count = CountItems();
-	for (int32 i = 0; i < count; i++) {
-		if (SelectableFor(ItemAt(i)) == style)
-			return i;
-	}
+	std::map<Style*, StyleListItem*>::const_iterator it = fStyleMap.find(style);
+	if (it != fStyleMap.end())
+		return IndexOf(it->second);
 
 	return -1;
 }
@@ -616,6 +614,70 @@ StyleListView::SelectableFor(BListItem* item) const
 	if (styleItem != NULL)
 		return styleItem->style;
 	return NULL;
+}
+
+
+bool
+StyleListView::AddItem(BListItem* item)
+{
+	return AddItem(item, CountItems());
+}
+
+
+bool
+StyleListView::AddItem(BListItem* item, int32 atIndex)
+{
+	if (BListView::AddItem(item, atIndex)) {
+		if (StyleListItem* styleItem = dynamic_cast<StyleListItem*>(item))
+			fStyleMap[styleItem->style] = styleItem;
+		return true;
+	}
+	return false;
+}
+
+
+bool
+StyleListView::RemoveItem(BListItem* item)
+{
+	if (BListView::RemoveItem(item)) {
+		if (StyleListItem* styleItem = dynamic_cast<StyleListItem*>(item))
+			fStyleMap.erase(styleItem->style);
+		return true;
+	}
+	return false;
+}
+
+
+BListItem*
+StyleListView::RemoveItem(int32 index)
+{
+	BListItem* item = BListView::RemoveItem(index);
+	if (StyleListItem* styleItem = dynamic_cast<StyleListItem*>(item))
+		fStyleMap.erase(styleItem->style);
+	return item;
+}
+
+
+bool
+StyleListView::RemoveItems(int32 index, int32 count)
+{
+	if (index < 0 || count <= 0 || index + count > CountItems())
+		return false;
+
+	for (int32 i = 0; i < count; i++) {
+		if (StyleListItem* styleItem = dynamic_cast<StyleListItem*>(ItemAt(index + i)))
+			fStyleMap.erase(styleItem->style);
+	}
+
+	return BListView::RemoveItems(index, count);
+}
+
+
+void
+StyleListView::MakeEmpty()
+{
+	fStyleMap.clear();
+	BListView::MakeEmpty();
 }
 
 
@@ -794,14 +856,9 @@ StyleListView::_RemoveStyle(Style* style)
 StyleListItem*
 StyleListView::_ItemForStyle(Style* style) const
 {
-	int count = CountItems();
-	for (int32 i = 0; i < count; i++) {
-		StyleListItem* item = dynamic_cast<StyleListItem*>(ItemAt(i));
-		if (item == NULL)
-			continue;
-		if (item->style == style)
-			return item;
-	}
+	std::map<Style*, StyleListItem*>::const_iterator it = fStyleMap.find(style);
+	if (it != fStyleMap.end())
+		return it->second;
 	return NULL;
 }
 
