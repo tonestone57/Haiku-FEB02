@@ -497,7 +497,7 @@ PowerStatusView::Update(bool force, bool notify)
 						state);
 				}
 			} else
-				strcpy(text, B_TRANSLATE("no battery"));
+				strlcpy(text, B_TRANSLATE("no battery"), sizeof(text));
 			SetToolTip(text);
 		}
 		if (width < 8) {

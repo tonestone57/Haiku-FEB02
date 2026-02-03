@@ -162,11 +162,11 @@ main(int argc, char *argv[])
 				close(pipes[i]);
 
 			char localRedirect[50];
-			sprintf(localRedirect, "localhost:%" B_PRIu16 ":localhost:%"
-				B_PRIu16, port, port);
+			snprintf(localRedirect, sizeof(localRedirect), "localhost:%" B_PRIu16
+				":localhost:%" B_PRIu16, port, port);
 
 			char portNumber[10];
-			sprintf(portNumber, "%" B_PRIu16, sshPort);
+			snprintf(portNumber, sizeof(portNumber), "%" B_PRIu16, sshPort);
 
 			int result = execl("ssh", "-C", "-L", localRedirect,
 				"-p", portNumber, "-o", "ExitOnForwardFailure=yes", host,

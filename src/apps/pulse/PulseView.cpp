@@ -87,7 +87,7 @@ void PulseView::Init() {
 		cpu_menu_items = new BMenuItem *[sys_info.cpu_count];
 		char temp[20];
 		for (unsigned int x = 0; x < sys_info.cpu_count; x++) {
-			sprintf(temp, "CPU %d", x + 1);
+			snprintf(temp, sizeof(temp), "CPU %d", x + 1);
 			BMessage *message = new BMessage(PV_CPU_MENU_ITEM);
 			message->AddInt32("which", x);
 			cpu_menu_items[x] = new BMenuItem(temp, message, 0, 0);
