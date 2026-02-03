@@ -49,6 +49,90 @@ Features rarely used in modern software development.
 
 ---
 
+## Audit of os-test Failures (Basic Suite)
+
+This section provides a technical audit of the 29 failures identified in the `os-test` basic suite, classifying the work required to fix them.
+
+### 1. Unistd (5 Failures)
+*   **`_Fork`**: `compile_error`.
+    *   **Issue:** Missing symbol. `_Fork` is an async-signal-safe alternative to `fork`.
+    *   **Fix:** **Medium**. Implement in `libroot` (likely wrapping `_kern_fork`).
+*   **`dup3`**: `compile_error`.
+    *   **Issue:** Missing symbol. `dup3` allows setting `O_CLOEXEC` atomically.
+    *   **Fix:** **Easy**. Add declaration to `unistd.h` and implement in `libroot` (if kernel `dup` supports flags) or emulate.
+*   **`fexecve`**: `compile_error`.
+    *   **Issue:** Missing symbol. Execute program relative to a file descriptor.
+    *   **Fix:** **Hard**. Requires kernel support to execute from a file descriptor reference.
+*   **`link` / `linkat`**: `bad` (EPERM).
+    *   **Issue:** Likely a limitation of the BFS file system (which may not support hard links on directories or cross-directory hard links) or the test environment.
+    *   **Fix:** **Hard**. Depends on filesystem capabilities.
+
+### 2. Termios (4 Failures)
+*   **`tcdrain`**: `bad` (General system error).
+    *   **Issue:** Implementation uses `ioctl(fd, TCSBRK, 1)`. The underlying driver or pty implementation likely returns an error.
+    *   **Fix:** **Medium**. Investigate `tty` driver ioctl handling.
+*   **`tcflow`, `tcflush`, `tcsetattr`**: `bad` (EINVAL/Error).
+    *   **Issue:** Invalid argument handling or unsupported specific flags in the `termios` structure.
+    *   **Fix:** **Medium**. Audit `src/add-ons/kernel/drivers/tty` for flag support.
+
+### 3. Sys_stat (2 Failures)
+*   **`futimens` / `utimensat`**: `bad` ("did not set atim").
+    *   **Issue:** Logic error. The timestamp update is not persisting or not being applied correctly.
+    *   **Fix:** **Hard**. Likely a bug in the VFS layer (`src/system/kernel/fs/vfs.cpp`) or the specific filesystem driver (BFS).
+
+### 4. Pthread (8 Failures)
+*   **`pthread_cancel`**: `bad` (Exit 142).
+    *   **Issue:** Thread cancellation mechanism (signals?) causing a crash or timeout instead of clean cancellation.
+    *   **Fix:** **Hard**. Debug threading signal delivery and cleanup handler execution.
+*   **`pthread_cleanup_pop` / `push`**: `bad` (Exit 142).
+    *   **Issue:** Related to `pthread_cancel` failure.
+    *   **Fix:** **Hard**. Fix `pthread_cancel` first.
+*   **`pthread_mutex_clocklock`**: `bad` (EDEADLK).
+    *   **Issue:** Test likely attempts to lock a non-recursive mutex twice to test timeout, but Haiku detects deadlock immediately.
+    *   **Fix:** **Medium**. verify POSIX requirement (wait for timeout vs return EDEADLK).
+*   **`pthread_mutex_consistent`**: `compile_error`.
+    *   **Issue:** Missing symbol.
+    *   **Fix:** **Easy**. Add stub or implementation to `libroot` (requires Robust Mutex support).
+*   **`pthread_mutexattr_*` (prio/protocol)**: `bad` (EPERM).
+    *   **Issue:** Setting priority inheritance/protection protocols is not supported by the kernel scheduler.
+    *   **Fix:** **Very Hard**. Requires kernel scheduler support for priority inheritance.
+
+### 5. Stdlib (5 Failures)
+*   **`abort`**: `bad`.
+    *   **Issue:** Signal handling/core dump generation discrepancy.
+    *   **Fix:** **Medium**. Investigate `abort()` implementation in `libroot`.
+*   **`at_quick_exit` / `quick_exit`**: `compile_error`.
+    *   **Issue:** Missing symbols (C++11/C11 features).
+    *   **Fix:** **Easy**. Add to `stdlib.h` and `libroot`.
+*   **`putenv`**: `bad`.
+    *   **Issue:** Memory handling or string pointer lifespan issue.
+    *   **Fix:** **Medium**. Fix `putenv` implementation in `libroot`.
+*   **`strtold`**: `bad` (precision loss).
+    *   **Issue:** `long double` parsing likely falling back to `double`.
+    *   **Fix:** **Medium**. Update `strtold.c` in `glibc` port.
+
+### 6. Signal (2 Failures)
+*   **`sigtimedwait` / `sigwaitinfo`**: `bad`.
+    *   **Issue:** `si_pid` mismatch. The signal info structure is not being populated correctly by the kernel.
+    *   **Fix:** **Hard**. Fix signal delivery info in `src/system/kernel/signal.cpp`.
+
+### 7. Stdio (1 Failure)
+*   **`vdprintf`**: `compile_error`.
+    *   **Issue:** Missing symbol.
+    *   **Fix:** **Easy**. Implement `vdprintf` (wrapper around `write` and `vsnprintf`) in `libroot`.
+
+### 8. Sys_socket (1 Failure)
+*   **`sockatmark`**: `bad` (Not supported).
+    *   **Issue:** `SIOCATMARK` ioctl likely missing in network stack.
+    *   **Fix:** **Medium/Hard**. Implement ioctl in `net_stack`.
+
+### 9. Time (1 Failure)
+*   **`timer_getoverrun`**: `bad`.
+    *   **Issue:** Timer overrun count not resetting or calculating correctly.
+    *   **Fix:** **Medium**. Debug `src/system/kernel/posix/realtime_timer.cpp`.
+
+---
+
 ## Missing Features
 
 ### 1. Open File Description Locks (OFD)
@@ -169,56 +253,22 @@ Features rarely used in modern software development.
 
 Based on results from the `os-test` basic suite ([link](https://sortix.org/os-test/basic/#basic)), Haiku achieves an overall score of **93%** (397/426 tests passing).
 
-### Specific Failures (29 Total)
-
-#### 1. unistd (5 failures)
-*   **`_Fork`**: `compile_error`. Async-signal-safe fork is missing or undeclared.
-*   **`dup3`**: `compile_error`. Atomic duplicate-and-set-flags operation is missing.
-*   **`fexecve`**: `compile_error`. Execute program relative to a file descriptor is missing.
-*   **`link`**: `bad` ("EPERM"). Creating hard links often fails on file systems that don't support them or due to permissions.
-*   **`linkat`**: `bad` ("EPERM"). Relative hard link creation failed.
-
-#### 2. termios (4 failures)
-*   **`tcdrain`**: `bad` ("General system error"). Waiting for output to drain failed.
-*   **`tcflow`**: `bad` ("EINVAL"). Suspending/resuming transmission/reception failed.
-*   **`tcflush`**: `bad` ("General system error"). Flushing buffers failed.
-*   **`tcsetattr`**: `bad` ("EINVAL"). Setting terminal attributes failed (likely specific flags).
-
-#### 3. sys_stat (2 failures)
-*   **`futimens`**: `bad` ("did not set atim"). Setting file timestamps via FD failed.
-*   **`utimensat`**: `bad` ("futimens did not set atim"). Setting relative file timestamps failed.
-
-#### 4. pthread (8 failures)
-*   **`pthread_cancel`**: `bad` ("exit: 142"). Thread cancellation issue (likely SIGALRM/timeout related).
-*   **`pthread_cleanup_pop`**: `bad` ("exit: 142"). Cleanup handler execution failure.
-*   **`pthread_cleanup_push`**: `bad` ("exit: 142"). Cleanup handler registration failure.
-*   **`pthread_mutex_clocklock`**: `bad` ("EDEADLK"). Timed lock with clock failed.
-*   **`pthread_mutex_consistent`**: `compile_error`. Robust mutex consistency check is missing.
-*   **`pthread_mutexattr_getprioceiling`**: `bad` ("EPERM"). Priority ceiling retrieval failed.
-*   **`pthread_mutexattr_setprioceiling`**: `bad` ("EPERM"). Priority ceiling setting failed.
-*   **`pthread_mutexattr_setprotocol`**: `bad` ("EPERM"). Setting mutex protocol (e.g., Prio Inherit) failed.
-
-#### 5. stdlib (5 failures)
-*   **`abort`**: `bad` ("Abort exit: 142"). Signal handling during abort was unexpected.
-*   **`at_quick_exit`**: `compile_error`. Function missing.
-*   **`putenv`**: `bad` ("getenv did not return putenv's string"). Environment variable handling issue.
-*   **`quick_exit`**: `compile_error`. Function missing.
-*   **`strtold`**: `bad` ("returned 0.000000"). Long double string conversion failed.
-
-#### 6. signal (2 failures)
-*   **`sigtimedwait`**: `bad` ("sigqueue si_pid != getpid()"). Signal info mismatch.
-*   **`sigwaitinfo`**: `bad` ("sigqueue si_pid != getpid()"). Signal info mismatch.
-
-#### 7. stdio (1 failure)
-*   **`vdprintf`**: `compile_error`. Dprintf with varargs is missing.
-
-#### 8. sys_socket (1 failure)
-*   **`sockatmark`**: `bad` ("Operation not supported"). Out-of-band data marker check failed.
-
-#### 9. time (1 failure)
-*   **`timer_getoverrun`**: `bad` ("timer_getoverrun() did not reset"). Timer expiration count logic is incorrect.
-
----
+### Specific Failure Areas:
+*   **Termios (`termios`): 69% (9/13 passed)**
+    *   **Impact:** CLI applications may behave incorrectly regarding terminal control.
+    *   **Affected Areas:** `libroot` (`termios` implementation), `kernel` (tty driver ioctls).
+*   **System Status (`sys_stat`): 85% (12/14 passed)**
+    *   **Impact:** File metadata retrieval discrepancies.
+    *   **Affected Areas:** `libroot` (`stat` wrappers), `kernel` (VFS stat implementation).
+*   **Process Scheduling (`PS` option): 0% (0/4 passed)**
+    *   **Impact:** `sched_*` functions are likely missing or stubbed.
+    *   **Affected Areas:** `headers` (`sched.h`), `libroot`, `kernel` (scheduler API).
+*   **Thread Execution Scheduling (`TPS` option): 44% (4/9 passed)**
+    *   **Impact:** Thread priority and policy management via pthreads is incomplete.
+    *   **Affected Areas:** `libroot` (`pthread` library), `kernel` (thread priority mapping).
+*   **Robust Mutex Priorities (`RPP|TPP` option): 0% (0/4 passed)**
+    *   **Impact:** Priority inheritance/protection for mutexes is missing.
+    *   **Affected Areas:** `libroot` (mutex init), `kernel` (scheduler priority boost).
 
 ## General Compliance Verification (os-test)
 
