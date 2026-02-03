@@ -315,7 +315,7 @@ ipv6_print_address_buffer(const sockaddr *_address, char *buffer,
 	if (address == NULL) {
 		if (bufferSize < sizeof("<none>"))
 			return B_NO_MEMORY;
-		strcpy(buffer, "<none>");
+		strlcpy(buffer, "<none>", bufferSize);
 	} else {
 		if (printPort && bufferSize > 0) {
 			*buffer = '[';

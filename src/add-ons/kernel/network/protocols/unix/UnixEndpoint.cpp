@@ -94,7 +94,8 @@ UnixEndpoint::_Bind(const struct sockaddr_un* address)
 
 		sockaddr_un* outAddress = (sockaddr_un*)&socket->address;
 		outAddress->sun_path[0] = '\0';
-		sprintf(outAddress->sun_path + 1, "%05" B_PRIx32, internalID);
+		snprintf(outAddress->sun_path + 1, sizeof(outAddress->sun_path) - 1,
+			"%05" B_PRIx32, internalID);
 		outAddress->sun_len = INTERNAL_UNIX_ADDRESS_LEN;
 			// null-byte + 5 hex digits
 
