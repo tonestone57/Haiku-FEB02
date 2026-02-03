@@ -354,7 +354,7 @@ CopyQuotes(const char *text, size_t length, char *outText, size_t &outLength)
 	const int32 quoteLength = strlen(QUOTE);
 	outLength = 0;
 	while (level-- > 0) {
-		strcpy(outText + outLength, QUOTE);
+		memcpy(outText + outLength, QUOTE, quoteLength + 1);
 		outLength += quoteLength;
 	}
 }
@@ -1849,8 +1849,9 @@ TTextView::Open(hyper_text *enclosure)
 					if (dir.InitCheck() == B_NO_ERROR) {
 						char name[B_FILE_NAME_LENGTH];
 						char baseName[B_FILE_NAME_LENGTH];
-						strcpy(baseName, enclosure->name ? enclosure->name : "enclosure");
-						strcpy(name, baseName);
+						strlcpy(baseName, enclosure->name ? enclosure->name : "enclosure",
+							sizeof(baseName));
+						strlcpy(name, baseName, sizeof(name));
 						for (int32 index = 0; dir.Contains(name); index++) {
 							snprintf(name, B_FILE_NAME_LENGTH, "%s_%" B_PRId32,
 								baseName, index);
@@ -1936,11 +1937,11 @@ TTextView::Save(BMessage *msg, bool makeNewFile)
 					char type[B_MIME_TYPE_LENGTH];
 
 					if (!strcasecmp(enclosure->content_type, "message/rfc822"))
-						strcpy(type, "text/x-email");
+						strlcpy(type, "text/x-email", sizeof(type));
 					else if (!strcasecmp(enclosure->content_type, "message/delivery-status"))
-						strcpy(type, "text/plain");
+						strlcpy(type, "text/plain", sizeof(type));
 					else
-						strcpy(type, enclosure->content_type);
+						strlcpy(type, enclosure->content_type, sizeof(type));
 
 					BNodeInfo info(&file);
 					info.SetType(type);
@@ -2144,7 +2145,7 @@ TTextView::AddAsContent(BEmailMessage *mail, bool wrap, uint32 charset, mail_enc
 				if (text[pos] == '\n')
 					buffer[0] = '\0';
 				else
-					strcpy(buffer, "\n");
+					strlcpy(buffer, "\n", sizeof(buffer));
 
 				size_t quoteLength;
 				CopyQuotes(text + startOffset, lineLength, buffer + strlen(buffer), quoteLength);
@@ -2279,7 +2280,7 @@ TTextView::Reader::ParseMail(BMailContainer *container,
 
 			BString name;
 			char fileName[B_FILE_NAME_LENGTH];
-			strcpy(fileName, "untitled");
+			strlcpy(fileName, "untitled", sizeof(fileName));
 			if (BMailAttachment *attachment = dynamic_cast <BMailAttachment *> (component))
 				attachment->FileName(fileName);
 
@@ -2292,7 +2293,8 @@ TTextView::Reader::ParseMail(BMailContainer *container,
 
 			char typeDescription[B_MIME_TYPE_LENGTH];
 			if (type.GetShortDescription(typeDescription) != B_OK)
-				strcpy(typeDescription, type.Type() ? type.Type() : B_EMPTY_STRING);
+				strlcpy(typeDescription, type.Type() ? type.Type() : B_EMPTY_STRING,
+					sizeof(typeDescription));
 
 			name = "\n<";
 			name.Append(B_TRANSLATE_COMMENT("Attachment: %name% (Type: %type%)",
@@ -2337,7 +2339,7 @@ TTextView::Reader::Process(const char *data, int32 data_len, bool isHeader)
 			return false;
 
 		if (fQuote && (!loop || (loop && data[loop - 1] == '\n'))) {
-			strcpy(&line[count], QUOTE);
+			strlcpy(&line[count], QUOTE, sizeof(line) - count);
 			count += strlen(QUOTE);
 		}
 		if (!fRaw && fIncoming && (loop < data_len - 7)) {
