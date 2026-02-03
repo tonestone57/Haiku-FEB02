@@ -124,11 +124,15 @@ MediaConverterApp::RefsReceived(BMessage* msg)
 			delete file;
 			continue;
 		}
+
+		bool added = false;
 		if (fWin->Lock()) {
-			if (!fWin->AddSourceFile(file, ref))
-				delete file;
+			if (fWin->AddSourceFile(file, ref))
+				added = true;
 			fWin->Unlock();
 		}
+		if (!added)
+			delete file;
 	}
 
 	if (errors) {
@@ -399,7 +403,11 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 			raf = &(outAudFormat.u.raw_audio);
 			inTrack->DecodedFormat(&outAudFormat);
 
-			audioBuffer = new uint8[raf->buffer_size];
+			audioBuffer = new(std::nothrow) uint8[raf->buffer_size];
+			if (audioBuffer == NULL) {
+				ret = B_NO_MEMORY;
+				break;
+			}
 //			audioFrameSize = (raf->format & media_raw_audio_format::B_AUDIO_SIZE_MASK)
 //			audioFrameSize = (raf->format & 0xf) * raf->channel_count;
 			outAudTrack = outFile->CreateTrack(&outAudFormat, audioCodec);
@@ -460,6 +468,10 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 
 			videoBuffer = new (std::nothrow) uint8[height
 				* rvf->display.bytes_per_row];
+			if (videoBuffer == NULL) {
+				ret = B_NO_MEMORY;
+				break;
+			}
 			outVidTrack = outFile->CreateTrack(&outVidFormat, videoCodec);
 
 			if (outVidTrack != NULL) {
@@ -527,6 +539,10 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 	}
 
 	if (ret < B_OK) {
+		if (inAudTrack)
+			inFile->ReleaseTrack(inAudTrack);
+		if (inVidTrack)
+			inFile->ReleaseTrack(inVidTrack);
 		delete[] audioBuffer;
 		delete[] videoBuffer;
 		delete outFile;

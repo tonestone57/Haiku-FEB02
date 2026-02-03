@@ -444,38 +444,12 @@ MediaConverterWindow::MessageReceived(BMessage* message)
 
 		case PREVIEW_MESSAGE:
 		{
-			// Build the command line to launch the preview application.
-			// TODO: Launch the default app instead of hardcoded MediaPlayer!
 			int32 srcIndex = fListView->CurrentSelection();
 			BMediaFile* inFile = NULL;
 			status_t status = GetSourceFileAt(srcIndex, &inFile, &inRef);
 
-			const char* argv[3];
-			BString startPosString;
-			BPath path;
-
-			if (status == B_OK) {
-				argv[0] = "-pos";
-					// NOTE: -pos argument is currently not supported by Haiku
-					// MediaPlayer.
-				startPosString << fStartDurationTC->Text();
-				startPosString << "000";
-				argv[1] = startPosString.String();
-
-				status = inEntry.SetTo(&inRef);
-			}
-
-			if (status == B_OK) {
-				status = inEntry.GetPath(&path);
-				if (status == B_OK)
-					argv[2] = path.Path();
-			}
-
-			if (status == B_OK) {
-				status = be_roster->Launch(
-					"application/x-vnd.Haiku-MediaPlayer",
-					3, (char**)argv, NULL);
-			}
+			if (status == B_OK)
+				status = be_roster->Launch(&inRef);
 
 			if (status != B_OK && status != B_ALREADY_RUNNING) {
 				BString errorString(B_TRANSLATE("Error launching: %strError%"));
