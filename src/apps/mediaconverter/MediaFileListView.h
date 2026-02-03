@@ -19,6 +19,8 @@ public:
 				MediaFileListItem(BMediaFile* file, const entry_ref& ref);
 	virtual		~MediaFileListItem();
 
+	virtual void DrawItem(BView* owner, BRect frame, bool complete = false);
+
 	entry_ref	fRef;
 	BMediaFile*	fMediaFile;
 };

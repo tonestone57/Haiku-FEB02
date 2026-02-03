@@ -11,6 +11,8 @@
 
 #include <Alert.h>
 #include <Catalog.h>
+#include <File.h>
+#include <FindDirectory.h>
 #include <fs_attr.h>
 #include <Locale.h>
 #include <MediaFile.h>
@@ -42,8 +44,8 @@ MediaConverterApp::MediaConverterApp()
 	fConverting(false),
 	fCancel(false)
 {
-	// TODO: implement settings for window pos
 	fWin = new MediaConverterWindow(BRect(50, 50, 520, 555));
+	_LoadSettings();
 }
 
 
@@ -92,6 +94,14 @@ MediaConverterApp::MessageReceived(BMessage *msg)
 			BApplication::MessageReceived(msg);
 			break;
 	}
+}
+
+
+bool
+MediaConverterApp::QuitRequested()
+{
+	_SaveSettings();
+	return BApplication::QuitRequested();
 }
 
 
@@ -696,4 +706,53 @@ main(int, char **)
 	app.Run();
 
 	return 0;
+}
+
+void
+MediaConverterApp::_LoadSettings()
+{
+	BPath path;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) != B_OK)
+		return;
+
+	path.Append("MediaConverter_settings");
+	BFile file(path.Path(), B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	BMessage settings;
+	if (settings.Unflatten(&file) != B_OK)
+		return;
+
+	BRect frame;
+	if (settings.FindRect("window_frame", &frame) == B_OK) {
+		if (fWin != NULL) {
+			fWin->MoveTo(frame.LeftTop());
+			fWin->ResizeTo(frame.Width(), frame.Height());
+		}
+	}
+}
+
+
+void
+MediaConverterApp::_SaveSettings()
+{
+	if (fWin == NULL)
+		return;
+
+	BPath path;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path) != B_OK)
+		return;
+
+	path.Append("MediaConverter_settings");
+	BFile file(path.Path(), B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	if (fWin->LockWithTimeout(200000) == B_OK) {
+		BMessage settings;
+		settings.AddRect("window_frame", fWin->Frame());
+		fWin->Unlock();
+		settings.Flatten(&file);
+	}
 }

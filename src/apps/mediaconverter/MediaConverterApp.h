@@ -24,9 +24,10 @@ class MediaConverterApp : public BApplication {
 	protected:
 
 	virtual void				MessageReceived(BMessage* message);
+	virtual bool				QuitRequested();
 	virtual void				ReadyToRun();
 	virtual void				RefsReceived(BMessage* message);
-	
+
 	public:
 			bool				IsConverting() const;
 			void				StartConverting();
@@ -46,7 +47,10 @@ class MediaConverterApp : public BApplication {
 									media_codec_info* videoCodec,
 									int32 audioQuality, int32 videoQuality,
 									bigtime_t StartTime, bigtime_t EndTime);
-	
+
+			void				_LoadSettings();
+			void				_SaveSettings();
+
 			MediaConverterWindow* fWin;
 			thread_id			fConvertThreadID;
 			bool				fConverting;
