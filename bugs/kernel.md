@@ -2,32 +2,7 @@
 
 This document lists coding errors and bugs identified in `src/system/kernel`.
 
-## 1. Off-by-one Overflow Check in `inet_ntop.c`
-
-**File:** `src/system/kernel/util/inet_ntop.c`
-
-**Issue:**
-The overflow check in `inet_ntop6` uses `> size` instead of `>= size`. If the formatted string length equals the buffer size, the check passes, but `strcpy` writes `size + 1` bytes (including the null terminator), causing a one-byte buffer overflow.
-
-**Code:**
-```c
-	/*
-	 * Check for overflow, copy, and we're done.
-	 */
-	if ((size_t)(tp - tmp) > size) {
-		errno = ENOSPC;
-		return (NULL);
-	}
-	strcpy(dst, tmp);
-	return (dst);
-```
-
-**Fix:**
-Change the condition to `>= size` to account for the null terminator.
-
----
-
-## 2. Incorrect Buffer Size in `user_strlcpy` (devfs)
+## 1. Incorrect Buffer Size in `user_strlcpy` (devfs)
 
 **File:** `src/system/kernel/device_manager/devfs.cpp`
 
@@ -53,7 +28,7 @@ Use `length` (if non-zero) as the size argument for `user_strlcpy`.
 
 ---
 
-## 3. Unsafe `strcpy` in Debugger Line Editing
+## 2. Unsafe `strcpy` in Debugger Line Editing
 
 **File:** `src/system/kernel/debug/debug.cpp`
 
@@ -75,12 +50,12 @@ Use `strlcpy(buffer, sLineBuffer[historyLine], maxLength)` to prevent overflow.
 
 ---
 
-## 4. Unsafe `vsprintf` in GDB Stub
+## 3. Unsafe `vsprintf` in GDB Stub
 
 **File:** `src/system/kernel/debug/gdb.cpp`
 
 **Issue:**
-The `gdb_reply` function uses `vsprintf` to format a message into a fixed-size buffer `sReply` (512 bytes). If the formatted message exceeds this size, a kernel stack/data overflow occurs.
+The `gdb_reply` function uses `vsprintf` to format a message into a fixed-size buffer `sReply` (512 bytes). If the formatted message exceeds this size, a kernel stack/data overflow occurs. While current usage seems restricted to short messages, future changes could trigger this vulnerability.
 
 **Code:**
 ```cpp
