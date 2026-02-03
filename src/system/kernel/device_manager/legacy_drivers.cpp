@@ -1479,7 +1479,7 @@ legacy_driver_probe(const char* subPath)
 {
 	TRACE(("legacy_driver_probe(type = %s)\n", subPath));
 
-	char devicePath[64];
+	char devicePath[B_PATH_NAME_LENGTH];
 	snprintf(devicePath, sizeof(devicePath), "drivers/dev%s%s",
 		subPath[0] ? "/" : "", subPath);
 
