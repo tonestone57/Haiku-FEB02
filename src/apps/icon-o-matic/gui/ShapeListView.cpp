@@ -154,6 +154,14 @@ ShapeListView::MakeEmpty()
 
 
 void
+ShapeListView::DetachedFromWindow()
+{
+	SimpleListView::DetachedFromWindow();
+	fItemMap.clear();
+}
+
+
+void
 ShapeListView::SelectionChanged()
 {
 	SimpleListView::SelectionChanged();

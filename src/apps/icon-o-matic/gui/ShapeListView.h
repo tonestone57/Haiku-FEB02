@@ -51,6 +51,7 @@ class ShapeListView : public SimpleListView,
 
 	// SimpleListView interface
 	virtual	void					MakeEmpty();
+	virtual	void					DetachedFromWindow();
 	virtual	void					SelectionChanged();
 
 	virtual	void					MessageReceived(BMessage* message);
