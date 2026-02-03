@@ -343,21 +343,21 @@ InterfaceAddress::Dump(size_t index, bool hideInterface)
 		domain->address_module->print_address_buffer(local, buffer,
 			sizeof(buffer), false);
 	} else
-		strcpy(buffer, "-");
+		strlcpy(buffer, "-", sizeof(buffer));
 	kprintf("    local:       %s\n", buffer);
 
 	if (mask != NULL && domain != NULL) {
 		domain->address_module->print_address_buffer(mask, buffer,
 			sizeof(buffer), false);
 	} else
-		strcpy(buffer, "-");
+		strlcpy(buffer, "-", sizeof(buffer));
 	kprintf("    mask:        %s\n", buffer);
 
 	if (destination != NULL && domain != NULL) {
 		domain->address_module->print_address_buffer(destination, buffer,
 			sizeof(buffer), false);
 	} else
-		strcpy(buffer, "-");
+		strlcpy(buffer, "-", sizeof(buffer));
 	kprintf("    destination: %s\n", buffer);
 
 	kprintf("    ref count:   %" B_PRId32 "\n", CountReferences());
