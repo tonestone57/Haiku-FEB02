@@ -591,7 +591,11 @@ VMKernelAddressSpace::_AllocateRange(
 
 	// prepare size, alignment and the base address for the range search
 	addr_t address = (addr_t)addressRestrictions->address;
+	size_t originalSize = size;
 	size = ROUNDUP(size, B_PAGE_SIZE);
+	if (size < originalSize)
+		return B_NO_MEMORY;
+
 	size_t alignment = addressRestrictions->alignment != 0
 		? addressRestrictions->alignment : B_PAGE_SIZE;
 
@@ -599,6 +603,8 @@ VMKernelAddressSpace::_AllocateRange(
 		case B_EXACT_ADDRESS:
 		{
 			if (address % B_PAGE_SIZE != 0)
+				return B_BAD_VALUE;
+			if (address + (size - 1) < address)
 				return B_BAD_VALUE;
 			break;
 		}

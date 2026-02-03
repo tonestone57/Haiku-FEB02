@@ -1327,6 +1327,9 @@ BlockWriter::_WriteBlocks(cached_block** blocks, uint32 count)
 	const size_t blockSize = fCache->block_size;
 
 	BStackOrHeapArray<iovec, 8> vecs(count);
+	if (!vecs.IsValid())
+		return B_NO_MEMORY;
+
 	for (uint32 i = 0; i < count; i++) {
 		cached_block* block = blocks[i];
 		ASSERT(block->busy_writing);
@@ -1460,10 +1463,10 @@ BlockPrefetcher::BlockPrefetcher(block_cache* cache, off_t blockNumber, size_t n
 	fCache(cache),
 	fBlockNumber(blockNumber),
 	fNumRequested(numBlocks),
-	fNumAllocated(0)
+	fNumAllocated(0),
+	fBlocks(NULL),
+	fDestVecs(NULL)
 {
-	fBlocks = new cached_block*[numBlocks];
-	fDestVecs = new generic_io_vec[numBlocks];
 }
 
 
@@ -1483,7 +1486,12 @@ status_t
 BlockPrefetcher::Allocate()
 {
 	TRACE(("BlockPrefetcher::Allocate: looking up %" B_PRIuSIZE " blocks, starting with %"
-		B_PRIdOFF "\n", fNumBlocks, fBlockNumber));
+		B_PRIdOFF "\n", fNumRequested, fBlockNumber));
+
+	fBlocks = new(std::nothrow) cached_block*[fNumRequested];
+	fDestVecs = new(std::nothrow) generic_io_vec[fNumRequested];
+	if (fBlocks == NULL || fDestVecs == NULL)
+		return B_NO_MEMORY;
 
 	ASSERT_LOCKED_MUTEX(&fCache->lock);
 
@@ -4066,7 +4074,10 @@ block_cache_prefetch(void* _cache, off_t blockNumber, size_t* _numBlocks)
 	size_t numBlocks = *_numBlocks;
 	*_numBlocks = 0;
 
-	BlockPrefetcher* blockPrefetcher = new BlockPrefetcher(cache, blockNumber, numBlocks);
+	BlockPrefetcher* blockPrefetcher = new(std::nothrow) BlockPrefetcher(cache, blockNumber,
+		numBlocks);
+	if (blockPrefetcher == NULL)
+		return B_NO_MEMORY;
 
 	status_t status = blockPrefetcher->Allocate();
 	if (status != B_OK || blockPrefetcher->NumAllocated() == 0) {
