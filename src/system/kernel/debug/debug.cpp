@@ -2349,30 +2349,51 @@ dump_block(const char* buffer, int size, const char* prefix)
 
 	for (i = 0; i < size;) {
 		char* pointer = lineBuffer;
+		char* end = lineBuffer + sizeof(lineBuffer);
 		int start = i;
 
 		for (; i < start + DUMPED_BLOCK_SIZE; i++) {
-			if (!(i % 4))
-				pointer += sprintf(pointer, " ");
+			if (!(i % 4)) {
+				if (pointer < end)
+					*pointer++ = ' ';
+			}
 
-			if (i >= size)
-				pointer += sprintf(pointer, "  ");
-			else
-				pointer += sprintf(pointer, "%02x", *(unsigned char*)(buffer + i));
+			if (i >= size) {
+				if (pointer + 2 <= end) {
+					*pointer++ = ' ';
+					*pointer++ = ' ';
+				}
+			} else {
+				pointer += snprintf(pointer, end - pointer, "%02x",
+					*(unsigned char*)(buffer + i));
+			}
 		}
-		pointer += sprintf(pointer, "  ");
+
+		if (pointer + 2 <= end) {
+			*pointer++ = ' ';
+			*pointer++ = ' ';
+		}
 
 		for (i = start; i < start + DUMPED_BLOCK_SIZE; i++) {
 			if (i < size) {
 				char c = buffer[i];
 
-				if (c < 30)
-					pointer += sprintf(pointer, ".");
-				else
-					pointer += sprintf(pointer, "%c", c);
+				if (c < 30) {
+					if (pointer < end)
+						*pointer++ = '.';
+				} else {
+					if (pointer < end)
+						*pointer++ = c;
+				}
 			} else
 				break;
 		}
+
+		if (pointer < end)
+			*pointer = '\0';
+		else
+			lineBuffer[sizeof(lineBuffer) - 1] = '\0';
+
 		dprintf("%s%04x%s\n", prefix, start, lineBuffer);
 	}
 }
