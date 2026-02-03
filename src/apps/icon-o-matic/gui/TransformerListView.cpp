@@ -178,6 +178,21 @@ TransformerListView::RemoveItem(int32 index)
 }
 
 
+bool
+TransformerListView::RemoveItems(int32 index, int32 count)
+{
+	if (index < 0 || count <= 0 || index + count > CountItems())
+		return false;
+
+	for (int32 i = 0; i < count; i++) {
+		if (TransformerItem* item = dynamic_cast<TransformerItem*>(ItemAt(index + i)))
+			fItemMap.erase(item->transformer);
+	}
+
+	return SimpleListView::RemoveItems(index, count);
+}
+
+
 void
 TransformerListView::MakeEmpty()
 {
