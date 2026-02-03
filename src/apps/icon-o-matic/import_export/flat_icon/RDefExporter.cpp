@@ -44,7 +44,7 @@ RDefExporter::_Export(const uint8* source, size_t sourceSize, BPositionIO* strea
 {
 	char buffer[2048];
 	// write header
-	sprintf(buffer, "\nresource(<your resource id here>) #'VICN' array {\n");
+	snprintf(buffer, sizeof(buffer), "\nresource(<your resource id here>) #'VICN' array {\n");
 	size_t size = strlen(buffer);
 
 	ssize_t written = stream->Write(buffer, size);
@@ -58,7 +58,7 @@ RDefExporter::_Export(const uint8* source, size_t sourceSize, BPositionIO* strea
 
 	// print one line (32 values)
 	while (sourceSize >= 32) {
-		sprintf(buffer, "	$\"%.2X%.2X%.2X%.2X"
+		snprintf(buffer, sizeof(buffer), "	$\"%.2X%.2X%.2X%.2X"
 						"%.2X%.2X%.2X%.2X"
 						"%.2X%.2X%.2X%.2X"
 						"%.2X%.2X%.2X%.2X"
@@ -90,7 +90,7 @@ RDefExporter::_Export(const uint8* source, size_t sourceSize, BPositionIO* strea
 	}
 	// beginning of last line
 	if (ret >= B_OK && sourceSize > 0) {
-		sprintf(buffer, "	$\"");
+		snprintf(buffer, sizeof(buffer), "	$\"");
 		size = strlen(buffer);
 		written = stream->Write(buffer, size);
 		if (written != (ssize_t)size) {
@@ -104,7 +104,7 @@ RDefExporter::_Export(const uint8* source, size_t sourceSize, BPositionIO* strea
 	bool endQuotes = sourceSize > 0;
 	if (ret >= B_OK && sourceSize > 0) {
 		for (size_t i = 0; i < sourceSize; i++) {
-			sprintf(buffer, "%.2X", b[i]);
+			snprintf(buffer, sizeof(buffer), "%.2X", b[i]);
 			size = strlen(buffer);
 			written = stream->Write(buffer, size);
 			if (written != (ssize_t)size) {
@@ -118,7 +118,7 @@ RDefExporter::_Export(const uint8* source, size_t sourceSize, BPositionIO* strea
 	}
 	if (ret >= B_OK) {
 		// finish
-		sprintf(buffer, endQuotes ? "\"\n};\n" : "};\n");
+		snprintf(buffer, sizeof(buffer), endQuotes ? "\"\n};\n" : "};\n");
 		size = strlen(buffer);
 		written = stream->Write(buffer, size);
 		if (written != (ssize_t)size) {

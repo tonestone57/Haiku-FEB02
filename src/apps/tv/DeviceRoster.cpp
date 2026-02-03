@@ -48,7 +48,7 @@ DeviceRoster::DeviceRoster()
 		fDeviceCount = info_count;
 		for (int i = 0; i < fDeviceCount; i++) {
 			fDeviceInfo[i].node = info[i].node;
-			strcpy(fDeviceInfo[i].name, info[i].name);
+			strlcpy(fDeviceInfo[i].name, info[i].name, B_MEDIA_NAME_LENGTH);
 		}
 	}
 }

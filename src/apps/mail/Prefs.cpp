@@ -322,7 +322,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 				|| old_size != new_size) {
 				fNewFont->SetFamilyAndStyle(old_family, old_style);
 				if (revert) {
-					sprintf(label, "%s %s", old_family, old_style);
+					snprintf(label, sizeof(label), "%s %s", old_family, old_style);
 					item = fFontMenu->FindItem(label);
 					if (item != NULL)
 						item->SetMarked(true);
@@ -330,7 +330,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 
 				fNewFont->SetSize(old_size);
 				if (revert) {
-					sprintf(label, "%" B_PRId32, old_size);
+					snprintf(label, sizeof(label), "%" B_PRId32, old_size);
 					item = fSizeMenu->FindItem(label);
 					if (item != NULL)
 						item->SetMarked(true);
@@ -372,17 +372,17 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 				if ((item = fReplyToMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 
-				strcpy(label, fWrap ? B_TRANSLATE("On") : B_TRANSLATE("Off"));
+				strlcpy(label, fWrap ? B_TRANSLATE("On") : B_TRANSLATE("Off"), sizeof(label));
 				if ((item = fWrapMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 
-				strcpy(label, fAttachAttributes
+				strlcpy(label, fAttachAttributes
 					? B_TRANSLATE("Include file attributes in attachments")
-					: B_TRANSLATE("No file attributes, just plain data"));
+					: B_TRANSLATE("No file attributes, just plain data"), sizeof(label));
 				if ((item = fAttachAttributesMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 
-				strcpy(label, fColoredQuotes ? B_TRANSLATE("On") : B_TRANSLATE("Off"));
+				strlcpy(label, fColoredQuotes ? B_TRANSLATE("On") : B_TRANSLATE("Off"), sizeof(label));
 				if ((item = fColoredQuotesMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 
@@ -407,11 +407,11 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 					}
 				}
 
-				strcpy(label, fWarnUnencodable ? B_TRANSLATE("On") : B_TRANSLATE("Off"));
+				strlcpy(label, fWarnUnencodable ? B_TRANSLATE("On") : B_TRANSLATE("Off"), sizeof(label));
 				if ((item = fWarnUnencodableMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 
-				strcpy(label, fSpellCheckStartOn ? B_TRANSLATE("On") : B_TRANSLATE("Off"));
+				strlcpy(label, fSpellCheckStartOn ? B_TRANSLATE("On") : B_TRANSLATE("Off"), sizeof(label));
 				if ((item = fSpellCheckStartOnMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 			} else
@@ -751,7 +751,7 @@ TPrefsWindow::_BuildSizeMenu(BFont* font)
 	for (loop = 0; loop < sizeof(sizes) / sizeof(int32); loop++) {
 		msg = new BMessage(P_SIZE);
 		msg->AddInt32("size", sizes[loop]);
-		sprintf(label, "%" B_PRId32, sizes[loop]);
+		snprintf(label, sizeof(label), "%" B_PRId32, sizes[loop]);
 		menu->AddItem(item = new BMenuItem(label, msg));
 		if (sizes[loop] == (int32)size)
 			item->SetMarked(true);

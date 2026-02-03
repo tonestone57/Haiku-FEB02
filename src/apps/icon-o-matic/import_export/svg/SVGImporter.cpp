@@ -63,7 +63,7 @@ SVGImporter::Import(Icon* icon, const entry_ref* ref)
 	NSVGimage* svg = nsvgParseFromFile(path.Path(), "px", 96);
 	if (svg == NULL) {
 		char error[1024];
-		sprintf(error, B_TRANSLATE("Failed to open the file '%s' as "
+		snprintf(error, sizeof(error), B_TRANSLATE("Failed to open the file '%s' as "
 			"an SVG document.\n\n"), ref->name);
 		BAlert* alert = new BAlert(B_TRANSLATE("Load error"),
 			error, B_TRANSLATE("OK"), NULL, NULL,

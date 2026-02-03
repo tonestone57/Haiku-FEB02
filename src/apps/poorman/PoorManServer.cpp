@@ -59,7 +59,7 @@ PoorManServer::PoorManServer(const char* webDir,
 		0//no_empty_referers
 	);
 	
-	strcpy(fIndexName, idxName);
+	strlcpy(fIndexName, idxName, strlen(idxName) + 1);
 	
 	size_t cwdLen = strlen(fHttpdServer->cwd);
 	if (fHttpdServer->cwd[cwdLen-1] == '/') {
@@ -192,7 +192,7 @@ status_t PoorManServer::SetIndexName(const char* idxName)
 	if (tmp == NULL)
 		return B_ERROR;
 	
-	strcpy(tmp, idxName);
+	strlcpy(tmp, idxName, length + 1);
 	if (pthread_rwlock_wrlock(&fIndexNameLock) == 0) {
 		delete[] fIndexName;
 		fIndexName = tmp;

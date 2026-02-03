@@ -800,7 +800,7 @@ void TransportView::_populateTimeSourceMenu(
 			B_RAW_TYPE,
 			&r->node(),
 			sizeof(media_node));
-		sprintf(nameBuffer, "%s: %" B_PRId32,
+		snprintf(nameBuffer, sizeof(nameBuffer), "%s: %" B_PRId32,
 			r->name(),
 			r->id());
 		i = new BMenuItem(
@@ -1121,7 +1121,7 @@ void TransportView::_timeSourceCreated(
 		B_RAW_TYPE,
 		&ref->node(),
 		sizeof(media_node));
-	sprintf(nameBuffer, "%s: %" B_PRId32,
+	snprintf(nameBuffer, sizeof(nameBuffer), "%s: %" B_PRId32,
 		ref->name(),
 		ref->id());
 	BMenuItem* i = new BMenuItem(

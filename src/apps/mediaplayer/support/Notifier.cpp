@@ -29,7 +29,7 @@ Notifier::~Notifier()
 	if (fListeners.CountItems() > 0) {
 		char message[256];
 		Listener* o = (Listener*)fListeners.ItemAt(0);
-		sprintf(message, "Notifier::~Notifier() - %" B_PRId32
+		snprintf(message, sizeof(message), "Notifier::~Notifier() - %" B_PRId32
 						 " listeners still watching, first: %s\n",
 						 fListeners.CountItems(), typeid(*o).name());
 		debugger(message);

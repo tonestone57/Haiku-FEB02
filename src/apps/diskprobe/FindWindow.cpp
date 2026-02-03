@@ -359,7 +359,7 @@ FindTextView::_GetHexFromData(const uint8* in, size_t inSize, char** _hex,
 
 	char* out = hex;
 	for (uint32 i = 0; i < inSize; i++) {
-		out += sprintf(out, "%02x", *(unsigned char*)(in + i));
+		out += snprintf(out, 3, "%02x", *(unsigned char*)(in + i));
 	}
 	out[0] = '\0';
 

@@ -194,7 +194,7 @@ Grepper::_WriterThread()
 
 		if (!_EscapeSpecialChars(fileName, sizeof(fileName))) {
 			char tempString[B_PATH_NAME_LENGTH + 32];
-			sprintf(tempString, B_TRANSLATE("%s: Not enough room to escape "
+			snprintf(tempString, sizeof(tempString), B_TRANSLATE("%s: Not enough room to escape "
 				"the filename."), fileName);
 			message.MakeEmpty();
 			message.what = MSG_REPORT_ERROR;

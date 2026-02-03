@@ -1424,7 +1424,8 @@ TMailWindow::MessageReceived(BMessage* msg)
 
 			char* arg = (char*)malloc(strlen("META:email=")
 				+ strlen(address) + 1);
-			sprintf(arg, "META:email=%s", address);
+			if (arg != NULL)
+				sprintf(arg, "META:email=%s", address);
 
 			// Search a Person file with this email address
 			while (volumeRoster.GetNextVolume(&volume) == B_NO_ERROR) {
@@ -1501,7 +1502,7 @@ TMailWindow::MessageReceived(BMessage* msg)
 			query.SetVolume(&volume);
 
 			char predicate[128];
-			sprintf(predicate, "%s = *", INDEX_SIGNATURE);
+			snprintf(predicate, sizeof(predicate), "%s = *", INDEX_SIGNATURE);
 			query.SetPredicate(predicate);
 			query.Fetch();
 
@@ -2493,7 +2494,7 @@ TMailWindow::Send(bool now)
 			}
 
 			char versionString[255];
-			sprintf(versionString,
+			snprintf(versionString, sizeof(versionString),
 				"Mail/Haiku %" B_PRIu32 ".%" B_PRIu32 ".%" B_PRIu32,
 				info.major, info.middle, info.minor);
 			fMail->SetHeaderField("X-Mailer", versionString);
@@ -2684,7 +2685,7 @@ TMailWindow::SaveAsDraft()
 					if (status == B_OK)
 						break;
 					char appendix[B_FILE_NAME_LENGTH];
-					sprintf(appendix, " %" B_PRId32, i++);
+					snprintf(appendix, sizeof(appendix), " %" B_PRId32, i++);
 					int32 pos = min_c(sizeof(fileName) - strlen(appendix),
 						originalLength);
 					sprintf(fileName + pos, "%s", appendix);
@@ -2892,7 +2893,7 @@ TMailWindow::SetTitleForMessage()
 				if (node.InitCheck() == B_OK && node.ReadAttr("MAIL:ratio_spam",
 						B_FLOAT_TYPE, 0, &spamRatio, sizeof(spamRatio))
 							== sizeof(spamRatio)) {
-					sprintf(numberString, "%.4f", spamRatio);
+					snprintf(numberString, sizeof(numberString), "%.4f", spamRatio);
 					classification << " " << numberString;
 				}
 			}

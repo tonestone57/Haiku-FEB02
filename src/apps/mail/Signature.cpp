@@ -368,7 +368,7 @@ TSignatureWindow::Save()
 
 		fFile = new BFile();
 		while(true) {
-			sprintf(name, "signature_%" B_PRId32, index++);
+			snprintf(name, sizeof(name), "signature_%" B_PRId32, index++);
 			if ((result = dir.CreateFile(name, fFile, true)) == B_NO_ERROR)
 				break;
 			if (result != EEXIST)
@@ -451,7 +451,7 @@ TNameControl::TNameControl(const char* label, BMessage* invocationMessage)
 	:
 	BTextControl("", label, "", invocationMessage)
 {
-	strcpy(fLabel, label);
+	strlcpy(fLabel, label, sizeof(fLabel));
 }
 
 

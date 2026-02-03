@@ -314,7 +314,7 @@ ConfigView::UpdateDeskbarIconWidth()
 			snprintf(temp, 12, "%d", min_width);
 			width = min_width;
 		} else {
-			strcpy(temp, "50");
+			strlcpy(temp, "50", sizeof(temp));
 			width = 50;
 		}
 		fIconWidthControl->SetText(temp);

@@ -449,7 +449,7 @@ httpd_initialize_listen_socket( httpd_sockaddr* saP )
 #endif
     struct accept_filter_arg af;
     (void) bzero( &af, sizeof(af) );
-    (void) strcpy( af.af_name, ACCEPT_FILTER_NAME );
+    (void) strlcpy( af.af_name, ACCEPT_FILTER_NAME, sizeof(af.af_name) );
     (void) setsockopt(
 	listen_fd, SOL_SOCKET, SO_ACCEPTFILTER, (char*) &af, sizeof(af) );
     }
@@ -1096,7 +1096,7 @@ auth_check2( httpd_conn* hc, char* dirname  )
 	    /* Ok! */
 	    httpd_realloc_str(
 		&hc->remoteuser, &hc->maxremoteuser, strlen( authinfo ) );
-	    (void) strcpy( hc->remoteuser, authinfo );
+	    (void) strlcpy( hc->remoteuser, authinfo, hc->maxremoteuser + 1 );
 	    return 1;
 	    }
 	else
@@ -1145,17 +1145,17 @@ auth_check2( httpd_conn* hc, char* dirname  )
 		/* Ok! */
 		httpd_realloc_str(
 		    &hc->remoteuser, &hc->maxremoteuser, strlen( line ) );
-		(void) strcpy( hc->remoteuser, line );
+		(void) strlcpy( hc->remoteuser, line, hc->maxremoteuser + 1 );
 		/* And cache this user's info for next time. */
 		httpd_realloc_str(
 		    &prevauthpath, &maxprevauthpath, strlen( authpath ) );
-		(void) strcpy( prevauthpath, authpath );
+		(void) strlcpy( prevauthpath, authpath, maxprevauthpath + 1 );
 		prevmtime = sb.st_mtime;
 		httpd_realloc_str(
 		    &prevuser, &maxprevuser, strlen( authinfo ) );
-		(void) strcpy( prevuser, authinfo );
+		(void) strlcpy( prevuser, authinfo, maxprevuser + 1 );
 		httpd_realloc_str( &prevcryp, &maxprevcryp, strlen( cryp ) );
-		(void) strcpy( prevcryp, cryp );
+		(void) strlcpy( prevcryp, cryp, maxprevcryp + 1 );
 		return 1;
 		}
 	    else
@@ -1276,7 +1276,7 @@ strencode( char* to, int tosize, char* from )
 	    }
 	else
 	    {
-	    (void) sprintf( to, "%%%02x", (int) *from & 0xff );
+	    (void) snprintf( to, tosize - tolen, "%%%02x", (int) *from & 0xff );
 	    to += 3;
 	    tolen += 3;
 	    }
@@ -1298,13 +1298,13 @@ tilde_map_1( httpd_conn* hc )
 
     len = strlen( hc->expnfilename ) - 1;
     httpd_realloc_str( &temp, &maxtemp, len );
-    (void) strcpy( temp, &hc->expnfilename[1] );
+    (void) strlcpy( temp, &hc->expnfilename[1], maxtemp + 1 );
     httpd_realloc_str(
 	&hc->expnfilename, &hc->maxexpnfilename, strlen( prefix ) + 1 + len );
-    (void) strcpy( hc->expnfilename, prefix );
+    (void) strlcpy( hc->expnfilename, prefix, hc->maxexpnfilename + 1 );
     if ( prefix[0] != '\0' )
-	(void) strcat( hc->expnfilename, "/" );
-    (void) strcat( hc->expnfilename, temp );
+	(void) strlcat( hc->expnfilename, "/", hc->maxexpnfilename + 1 );
+    (void) strlcat( hc->expnfilename, temp, hc->maxexpnfilename + 1 );
     return 1;
     }
 #endif /* TILDE_MAP_1 */
@@ -1324,7 +1324,7 @@ tilde_map_2( httpd_conn* hc )
 
     /* Get the username. */
     httpd_realloc_str( &temp, &maxtemp, strlen( hc->expnfilename ) - 1 );
-    (void) strcpy( temp, &hc->expnfilename[1] );
+    (void) strlcpy( temp, &hc->expnfilename[1], maxtemp + 1 );
     cp = strchr( temp, '/' );
     if ( cp != (char*) 0 )
 	*cp++ = '\0';
@@ -1340,17 +1340,17 @@ tilde_map_2( httpd_conn* hc )
     httpd_realloc_str(
 	&hc->altdir, &hc->maxaltdir,
 	strlen( pw->pw_dir ) + 1 + strlen( postfix ) );
-    (void) strcpy( hc->altdir, pw->pw_dir );
+    (void) strlcpy( hc->altdir, pw->pw_dir, hc->maxaltdir + 1 );
     if ( postfix[0] != '\0' )
 	{
-	(void) strcat( hc->altdir, "/" );
-	(void) strcat( hc->altdir, postfix );
+	(void) strlcat( hc->altdir, "/", hc->maxaltdir + 1 );
+	(void) strlcat( hc->altdir, postfix, hc->maxaltdir + 1 );
 	}
     alt = expand_symlinks( hc->altdir, &rest, 0, 1 );
     if ( rest[0] != '\0' )
 	return 0;
     httpd_realloc_str( &hc->altdir, &hc->maxaltdir, strlen( alt ) );
-    (void) strcpy( hc->altdir, alt );
+    (void) strlcpy( hc->altdir, alt, hc->maxaltdir + 1 );
 
     /* And the filename becomes altdir plus the post-~ part of the original. */
     httpd_realloc_str(
@@ -1435,19 +1435,19 @@ vhost_map( httpd_conn* hc )
     (void) strcpy( cp2, hc->hostname );
 #else /* VHOST_DIRLEVELS */
     httpd_realloc_str( &hc->hostdir, &hc->maxhostdir, strlen( hc->hostname ) );
-    (void) strcpy( hc->hostdir, hc->hostname );
+    (void) strlcpy( hc->hostdir, hc->hostname, hc->maxhostdir + 1 );
 #endif /* VHOST_DIRLEVELS */
 
     /* Prepend hostdir to the filename. */
     len = strlen( hc->expnfilename );
     httpd_realloc_str( &tempfilename, &maxtempfilename, len );
-    (void) strcpy( tempfilename, hc->expnfilename );
+    (void) strlcpy( tempfilename, hc->expnfilename, maxtempfilename + 1 );
     httpd_realloc_str(
 	&hc->expnfilename, &hc->maxexpnfilename,
 	strlen( hc->hostdir ) + 1 + len );
-    (void) strcpy( hc->expnfilename, hc->hostdir );
-    (void) strcat( hc->expnfilename, "/" );
-    (void) strcat( hc->expnfilename, tempfilename );
+    (void) strlcpy( hc->expnfilename, hc->hostdir, hc->maxexpnfilename + 1 );
+    (void) strlcat( hc->expnfilename, "/", hc->maxexpnfilename + 1 );
+    (void) strlcat( hc->expnfilename, tempfilename, hc->maxexpnfilename + 1 );
     return 1;
     }
 
@@ -1498,7 +1498,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 	    {
 	    checkedlen = strlen( path );
 	    httpd_realloc_str( &checked, &maxchecked, checkedlen );
-	    (void) strcpy( checked, path );
+	    (void) strlcpy( checked, path, maxchecked + 1 );
 	    /* Trim trailing slashes. */
 	    while ( checked[checkedlen - 1] == '/' )
 		{
@@ -1518,7 +1518,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
     checkedlen = 0;
     restlen = strlen( path );
     httpd_realloc_str( &rest, &maxrest, restlen );
-    (void) strcpy( rest, path );
+    (void) strlcpy( rest, path, maxrest + 1 );
     if ( rest[restlen - 1] == '/' )
 	rest[--restlen] = '\0';         /* trim trailing slash */
     if ( ! tildemapped )
@@ -1602,7 +1602,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 		    &checked, &maxchecked, checkedlen + 1 + restlen );
 		if ( checkedlen > 0 && checked[checkedlen-1] != '/' )
 		    checked[checkedlen++] = '/';
-		(void) strcpy( &checked[checkedlen], r );
+		(void) strlcpy( &checked[checkedlen], r, maxchecked + 1 - checkedlen );
 		checkedlen += restlen;
 		}
 	    r += restlen;
@@ -1622,7 +1622,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 		/* That last component was bogus.  Restore and return. */
 		*restP = r - ( prevrestlen - restlen );
 		if ( prevcheckedlen == 0 )
-		    (void) strcpy( checked, "." );
+		    (void) strlcpy( checked, ".", maxchecked + 1 );
 		else
 		    checked[prevcheckedlen] = '\0';
 		return checked;
@@ -1647,7 +1647,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 	    httpd_realloc_str( &rest, &maxrest, restlen + linklen + 1 );
 	    for ( i = restlen; i >= 0; --i )
 		rest[i + linklen + 1] = rest[i];
-	    (void) strcpy( rest, lnk );
+	    (void) strlcpy( rest, lnk, maxrest + 1 );
 	    rest[linklen] = '/';
 	    restlen += linklen + 1;
 	    r = rest;
@@ -1658,7 +1658,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 	    ** becomes the rest.
 	    */
 	    httpd_realloc_str( &rest, &maxrest, linklen );
-	    (void) strcpy( rest, lnk );
+	    (void) strlcpy( rest, lnk, maxrest + 1 );
 	    restlen = linklen;
 	    r = rest;
 	    }
@@ -1680,7 +1680,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
     /* Ok. */
     *restP = r;
     if ( checked[0] == '\0' )
-	(void) strcpy( checked, "." );
+	(void) strlcpy( checked, ".", maxchecked + 1 );
     return checked;
     }
 
@@ -2065,10 +2065,10 @@ httpd_parse_request( httpd_conn* hc )
 
     httpd_realloc_str(
 	&hc->origfilename, &hc->maxorigfilename, strlen( hc->decodedurl ) );
-    (void) strcpy( hc->origfilename, &hc->decodedurl[1] );
+    (void) strlcpy( hc->origfilename, &hc->decodedurl[1], hc->maxorigfilename + 1 );
     /* Special case for top-level URL. */
     if ( hc->origfilename[0] == '\0' )
-	(void) strcpy( hc->origfilename, "." );
+	(void) strlcpy( hc->origfilename, ".", hc->maxorigfilename + 1 );
 
     /* Extract query string from encoded URL. */
     cp = strchr( hc->encodedurl, '?' );
@@ -2076,7 +2076,7 @@ httpd_parse_request( httpd_conn* hc )
 	{
 	++cp;
 	httpd_realloc_str( &hc->query, &hc->maxquery, strlen( cp ) );
-	(void) strcpy( hc->query, cp );
+	(void) strlcpy( hc->query, cp, hc->maxquery + 1 );
 	/* Remove query from (decoded) origfilename. */
 	cp = strchr( hc->origfilename, '?' );
 	if ( cp != (char*) 0 )
@@ -2147,12 +2147,12 @@ httpd_parse_request( httpd_conn* hc )
 		    httpd_realloc_str(
 			&hc->accept, &hc->maxaccept,
 			strlen( hc->accept ) + 2 + strlen( cp ) );
-		    (void) strcat( hc->accept, ", " );
+		    (void) strlcat( hc->accept, ", ", hc->maxaccept + 1 );
 		    }
 		else
 		    httpd_realloc_str(
 			&hc->accept, &hc->maxaccept, strlen( cp ) );
-		(void) strcat( hc->accept, cp );
+		(void) strlcat( hc->accept, cp, hc->maxaccept + 1 );
 		}
 	    else if ( strncasecmp( buf, "Accept-Encoding:", 16 ) == 0 )
 		{
@@ -2170,12 +2170,12 @@ httpd_parse_request( httpd_conn* hc )
 		    httpd_realloc_str(
 			&hc->accepte, &hc->maxaccepte,
 			strlen( hc->accepte ) + 2 + strlen( cp ) );
-		    (void) strcat( hc->accepte, ", " );
+		    (void) strlcat( hc->accepte, ", ", hc->maxaccepte + 1 );
 		    }
 		else
 		    httpd_realloc_str(
 			&hc->accepte, &hc->maxaccepte, strlen( cp ) );
-		(void) strcpy( hc->accepte, cp );
+		(void) strlcpy( hc->accepte, cp, hc->maxaccepte + 1 );
 		}
 	    else if ( strncasecmp( buf, "Accept-Language:", 16 ) == 0 )
 		{
@@ -2318,7 +2318,7 @@ httpd_parse_request( httpd_conn* hc )
     /* Copy original filename to expanded filename. */
     httpd_realloc_str(
 	&hc->expnfilename, &hc->maxexpnfilename, strlen( hc->origfilename ) );
-    (void) strcpy( hc->expnfilename, hc->origfilename );
+    (void) strlcpy( hc->expnfilename, hc->origfilename, hc->maxexpnfilename + 1 );
 
     /* Tilde mapping. */
     if ( hc->expnfilename[0] == '~' )
@@ -2357,9 +2357,9 @@ httpd_parse_request( httpd_conn* hc )
 	return -1;
 	}
     httpd_realloc_str( &hc->expnfilename, &hc->maxexpnfilename, strlen( cp ) );
-    (void) strcpy( hc->expnfilename, cp );
+    (void) strlcpy( hc->expnfilename, cp, hc->maxexpnfilename + 1 );
     httpd_realloc_str( &hc->pathinfo, &hc->maxpathinfo, strlen( pi ) );
-    (void) strcpy( hc->pathinfo, pi );
+    (void) strlcpy( hc->pathinfo, pi, hc->maxpathinfo + 1 );
 
     /* Remove pathinfo stuff from the original filename too. */
     if ( hc->pathinfo[0] != '\0' )
@@ -2664,10 +2664,10 @@ figure_mime( httpd_conn* hc )
 	    encodings_len + enc_tab[me_indexes[i]].val_len + 1 );
 	if ( hc->encodings[0] != '\0' )
 	    {
-	    (void) strcpy( &hc->encodings[encodings_len], "," );
+	    (void) strlcpy( &hc->encodings[encodings_len], ",", hc->maxencodings + 1 - encodings_len );
 	    ++encodings_len;
 	    }
-	(void) strcpy( &hc->encodings[encodings_len], enc_tab[me_indexes[i]].val );
+	(void) strlcpy( &hc->encodings[encodings_len], enc_tab[me_indexes[i]].val, hc->maxencodings + 1 - encodings_len );
 	encodings_len += enc_tab[me_indexes[i]].val_len;
 	}
 
@@ -2750,7 +2750,7 @@ ls( httpd_conn* hc )
     if ( dirp == (DIR*) 0 )
 	{
 	char logString[27+B_PATH_NAME_LENGTH+1];
-	sprintf(logString, "Error 404 File not found: %s\n", hc->decodedurl+1);
+	snprintf(logString, sizeof(logString), "Error 404 File not found: %s\n", hc->decodedurl+1);
 	poorman_log(logString, true, &hc->client_addr, RED);
 //	syslog( LOG_ERR, "opendir %.80s - %m", hc->expnfilename );
 	httpd_send_err( hc, 404, err404title, "", err404form, hc->encodedurl );
@@ -2770,8 +2770,9 @@ ls( httpd_conn* hc )
 		{
 			char logString[B_FILE_NAME_LENGTH+B_PATH_NAME_LENGTH+51];
 			if(pthread_rwlock_rdlock(get_web_dir_lock()) == 0){
-				sprintf(
+				snprintf(
 					logString,
+					sizeof(logString),
 					"Directory %s/%s/ has no ",
 					hc->hs->cwd,
 					hc->expnfilename
@@ -2779,16 +2780,16 @@ ls( httpd_conn* hc )
 				pthread_rwlock_unlock(get_web_dir_lock());
 			}
 			else
-				strcpy(logString, "A web directory has no ");
+				strlcpy(logString, "A web directory has no ", sizeof(logString));
 			
 			if(pthread_rwlock_rdlock(get_index_name_lock()) == 0){
-				strcat(logString, hc->hs->index_name);
+				strlcat(logString, hc->hs->index_name, sizeof(logString));
 				pthread_rwlock_unlock(get_index_name_lock());
 			}
 			else
-				strcat(logString, "index file");
+				strlcat(logString, "index file", sizeof(logString));
 			
-			strcat(logString, ".  Sending directory listing.\n");
+			strlcat(logString, ".  Sending directory listing.\n", sizeof(logString));
 			poorman_log(logString, true, &hc->client_addr, BLACK);
 		}
 		send_mime(
@@ -2885,8 +2886,8 @@ mode  links    bytes  last-changed  name\n\
 		if ( hc->expnfilename[0] == '\0' ||
 		     strcmp( hc->expnfilename, "." ) == 0 )
 		    {
-		    (void) strcpy( name, nameptrs[i] );
-		    (void) strcpy( rname, nameptrs[i] );
+		    (void) strlcpy( name, nameptrs[i], maxname + 1 );
+		    (void) strlcpy( rname, nameptrs[i], maxrname + 1 );
 		    }
 		else
 		    {
@@ -3693,7 +3694,7 @@ really_start_request( httpd_conn* hc, struct timeval* nowP )
 	if ( hc->pathinfo[0] != '\0' )
 	    {
 	    char logString[27+B_PATH_NAME_LENGTH+1];
-		sprintf(logString, "Error 404 File not found: %s\n", hc->decodedurl+1);
+	snprintf(logString, sizeof(logString), "Error 404 File not found: %s\n", hc->decodedurl+1);
 		poorman_log(logString, true, &hc->client_addr, RED);
 	    httpd_send_err( hc, 404, err404title, "", err404form, hc->encodedurl );
 	    return -1;
@@ -3716,13 +3717,13 @@ really_start_request( httpd_conn* hc, struct timeval* nowP )
 	    httpd_realloc_str(
 		&indexname, &maxindexname,
 		expnlen + 1 + strlen( /*index_names[i]*/hc->hs->index_name ) );
-	    (void) strcpy( indexname, hc->expnfilename );
+	    (void) strlcpy( indexname, hc->expnfilename, maxindexname + 1 );
 	    indxlen = strlen( indexname );
 	    if ( indxlen == 0 || indexname[indxlen - 1] != '/' )
-		(void) strcat( indexname, "/" );
+		(void) strlcat( indexname, "/", maxindexname + 1 );
 	    if ( strcmp( indexname, "./" ) == 0 )
 		indexname[0] = '\0';
-	    (void) strcat( indexname, /*index_names[i]*/hc->hs->index_name );
+	    (void) strlcat( indexname, /*index_names[i]*/hc->hs->index_name, maxindexname + 1 );
 	    pthread_rwlock_unlock(get_index_name_lock());
 	    }
 	    else{
@@ -3804,10 +3805,10 @@ if(hc->hs->do_list_dir){
 #ifdef AUTH_FILE
     /* Check authorization for this directory. */
     httpd_realloc_str( &dirname, &maxdirname, expnlen );
-    (void) strcpy( dirname, hc->expnfilename );
+    (void) strlcpy( dirname, hc->expnfilename, maxdirname + 1 );
     cp = strrchr( dirname, '/' );
     if ( cp == (char*) 0 )
-	(void) strcpy( dirname, "." );
+	(void) strlcpy( dirname, ".", maxdirname + 1 );
     else
 	*cp = '\0';
     if ( auth_check( hc, dirname ) == -1 )
@@ -3977,7 +3978,7 @@ make_log_entry( httpd_conn* hc, struct timeval* nowP )
 	(void) my_snprintf(
 	    bytes, sizeof(bytes), "%lld", (long long) hc->bytes_sent );
     else
-	(void) strcpy( bytes, "-" );
+	(void) strlcpy( bytes, "-", sizeof(bytes) );
 
     /* Logfile or syslog? */
     if ( hc->hs->logfp != (FILE*) 0 )

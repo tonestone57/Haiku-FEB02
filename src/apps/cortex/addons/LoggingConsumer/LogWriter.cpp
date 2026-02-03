@@ -232,7 +232,7 @@ LogWriter::HandleMessage(log_what what, const log_message& msg)
 	if (mFilters.find(what) != mFilters.end()) return;
 
 	// always write the message's type and timestamp
-	sprintf(buf, "%-24s : realtime = %" B_PRIdBIGTIME ", perftime = %" B_PRIdBIGTIME "\n",
+	snprintf(buf, sizeof(buf), "%-24s : realtime = %" B_PRIdBIGTIME ", perftime = %" B_PRIdBIGTIME "\n",
 		log_what_to_string(what), msg.tstamp, msg.now);
 	mWriteBuf = buf;
 
@@ -246,27 +246,27 @@ LogWriter::HandleMessage(log_what what, const log_message& msg)
 	case LOG_BUFFER_RECEIVED:
 		if (msg.buffer_data.offset < 0)
 		{
-			sprintf(buf, "\tstart = %" B_PRIdBIGTIME ", offset = %" B_PRIdBIGTIME "\n",
+			snprintf(buf, sizeof(buf), "\tstart = %" B_PRIdBIGTIME ", offset = %" B_PRIdBIGTIME "\n",
 				msg.buffer_data.start_time, msg.buffer_data.offset);
 			mWriteBuf += buf;
-			sprintf(buf, "\tBuffer received *LATE*\n");
+			snprintf(buf, sizeof(buf), "\tBuffer received *LATE*\n");
 			mWriteBuf += buf;
 		}
 		break;
 
 	case LOG_SET_PARAM_HANDLED:
-		sprintf(buf, "\tparam id = %" B_PRId32 ", value = %f\n", msg.param.id, msg.param.value);
+		snprintf(buf, sizeof(buf), "\tparam id = %" B_PRId32 ", value = %f\n", msg.param.id, msg.param.value);
 		mWriteBuf += buf;
 		break;
 
 	case LOG_INVALID_PARAM_HANDLED:
 	case LOG_GET_PARAM_VALUE:
-		sprintf(buf, "\tparam id = %" B_PRId32 "\n", msg.param.id);
+		snprintf(buf, sizeof(buf), "\tparam id = %" B_PRId32 "\n", msg.param.id);
 		mWriteBuf += buf;
 		break;
 
 	case LOG_BUFFER_HANDLED:
-		sprintf(buf, "\tstart = %" B_PRIdBIGTIME ", offset = %" B_PRIdBIGTIME ", size = %zu/%zu, "
+		snprintf(buf, sizeof(buf), "\tstart = %" B_PRIdBIGTIME ", offset = %" B_PRIdBIGTIME ", size = %zu/%zu, "
 			"flags = %" B_PRIx32 ", id = %" B_PRId32 ", type = %d\n",
 			msg.buffer_data.start_time, msg.buffer_data.offset, msg.buffer_data.size_used,
 			msg.buffer_data.size_available, msg.buffer_data.flags, msg.buffer_data.id,
@@ -274,18 +274,18 @@ LogWriter::HandleMessage(log_what what, const log_message& msg)
 		mWriteBuf += buf;
 		if (msg.buffer_data.offset < 0)
 		{
-			sprintf(buf, "\tBuffer handled *LATE*\n");
+			snprintf(buf, sizeof(buf), "\tBuffer handled *LATE*\n");
 			mWriteBuf += buf;
 		}
 		break;
 
 	case LOG_DATA_STATUS_HANDLED:
-		sprintf(buf, "\tstatus = %d\n", int(msg.data_status.status));
+		snprintf(buf, sizeof(buf), "\tstatus = %d\n", int(msg.data_status.status));
 		mWriteBuf += buf;
 		break;
 
 	case LOG_HANDLE_UNKNOWN:
-		sprintf(buf, "\tUNKNOWN EVENT CODE: %d\n", int(msg.unknown.what));
+		snprintf(buf, sizeof(buf), "\tUNKNOWN EVENT CODE: %d\n", int(msg.unknown.what));
 		mWriteBuf += buf;
 		break;
 

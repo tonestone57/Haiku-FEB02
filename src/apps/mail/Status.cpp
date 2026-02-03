@@ -135,14 +135,14 @@ TStatusWindow::MessageReceived(BMessage* msg)
 					char name[B_FILE_NAME_LENGTH];
 					char newName[B_FILE_NAME_LENGTH];
 
-					sprintf(name, "%s", fStatus->Text());
+					snprintf(name, sizeof(name), "%s", fStatus->Text());
 					if (strlen(name) > B_FILE_NAME_LENGTH - 10)
 						name[B_FILE_NAME_LENGTH - 10] = 0;
 					for (loop = 0; loop < strlen(name); loop++) {
 						if (name[loop] == '/')
 							name[loop] = '\\';
 					}
-					strcpy(newName, name);
+					strlcpy(newName, name, sizeof(newName));
 					while (1) {
 						if ((result = dir.CreateFile(newName, &file, true)) == B_NO_ERROR)
 							break;

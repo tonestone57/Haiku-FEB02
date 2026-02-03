@@ -493,7 +493,7 @@ NumericValControl::getString(BString& buffer)
 	BString format = "%.";
 	format << (int32)fFractionalDigits << 'f';
 	char cbuf[120];
-	sprintf(cbuf, format.String(), value());
+	snprintf(cbuf, sizeof(cbuf), format.String(), value());
 	buffer = cbuf;
 
 	return B_OK;

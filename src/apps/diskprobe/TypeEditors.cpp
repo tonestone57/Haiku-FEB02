@@ -656,38 +656,38 @@ NumberEditor::_Format(char *buffer)
 {
 	switch (fEditor.Type()) {
 		case B_INT8_TYPE:
-			strcpy(buffer, "%hd");
+			strlcpy(buffer, "%hd", 16);
 			return B_OK;
 		case B_UINT8_TYPE:
-			strcpy(buffer, "%hu");
+			strlcpy(buffer, "%hu", 16);
 			return B_OK;
 		case B_INT16_TYPE:
-			strcpy(buffer, "%hd");
+			strlcpy(buffer, "%hd", 16);
 			return B_OK;
 		case B_UINT16_TYPE:
-			strcpy(buffer, "%hu");
+			strlcpy(buffer, "%hu", 16);
 			return B_OK;
 		case B_SSIZE_T_TYPE:
 		case B_INT32_TYPE:
-			strcpy(buffer, "%ld");
+			strlcpy(buffer, "%ld", 16);
 			return B_OK;
 		case B_SIZE_T_TYPE:
 		case B_POINTER_TYPE:
 		case B_UINT32_TYPE:
-			strcpy(buffer, "%lu");
+			strlcpy(buffer, "%lu", 16);
 			return B_OK;
 		case B_INT64_TYPE:
 		case B_OFF_T_TYPE:
-			strcpy(buffer, "%lld");
+			strlcpy(buffer, "%lld", 16);
 			return B_OK;
 		case B_UINT64_TYPE:
-			strcpy(buffer, "%Lu");
+			strlcpy(buffer, "%Lu", 16);
 			return B_OK;
 		case B_FLOAT_TYPE:
-			strcpy(buffer, "%g");
+			strlcpy(buffer, "%g", 16);
 			return B_OK;
 		case B_DOUBLE_TYPE:
-			strcpy(buffer, "%lg");
+			strlcpy(buffer, "%lg", 16);
 			return B_OK;
 
 		default:
@@ -1194,9 +1194,9 @@ MessageView::SetTo(BMessage& message)
 					break;
 				case B_BOOL_TYPE:
 					if (*(uint8*)data)
-						strcpy(text, "true");
+						strlcpy(text, "true", sizeof(text));
 					else
-						strcpy(text, "false");
+						strlcpy(text, "false", sizeof(text));
 					break;
 				case B_STRING_TYPE:
 				case B_MIME_STRING_TYPE:
