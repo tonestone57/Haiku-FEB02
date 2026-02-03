@@ -147,6 +147,64 @@ ShapeListView::~ShapeListView()
 
 
 void
+ShapeListView::MakeEmpty()
+{
+	SimpleListView::_MakeEmpty();
+}
+
+
+bool
+ShapeListView::AddItem(BListItem* item, int32 atIndex)
+{
+	if (!SimpleListView::AddItem(item, atIndex))
+		return false;
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.insert(std::make_pair(shapeItem->shape, shapeItem));
+
+	return true;
+}
+
+
+bool
+ShapeListView::AddItem(BListItem* item)
+{
+	if (!SimpleListView::AddItem(item))
+		return false;
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.insert(std::make_pair(shapeItem->shape, shapeItem));
+
+	return true;
+}
+
+
+bool
+ShapeListView::RemoveItem(BListItem* item)
+{
+	if (!SimpleListView::RemoveItem(item))
+		return false;
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.erase(shapeItem->shape);
+
+	return true;
+}
+
+
+BListItem*
+ShapeListView::RemoveItem(int32 index)
+{
+	BListItem* item = SimpleListView::RemoveItem(index);
+
+	if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(item))
+		fItemMap.erase(shapeItem->shape);
+
+	return item;
+}
+
+
+void
 ShapeListView::SelectionChanged()
 {
 	SimpleListView::SelectionChanged();
@@ -563,22 +621,19 @@ int32
 ShapeListView::IndexOfSelectable(Selectable* selectable) const
 {
 	Shape* shape = dynamic_cast<Shape*>(selectable);
-	if (shape == NULL) {
-		Transformer* transformer = dynamic_cast<Transformer*>(selectable);
-		if (transformer == NULL)
-			return -1;
-		int32 count = CountItems();
-		for (int32 i = 0; i < count; i++) {
-			ShapeListItem* item = dynamic_cast<ShapeListItem*>(ItemAt(i));
-			if (item != NULL && item->shape->Transformers()->HasItem(transformer))
-				return i;
-		}
+	if (shape != NULL) {
+		ShapeListItem* item = _ItemForShape(shape);
+		if (item != NULL)
+			return IndexOf(item);
 	} else {
-		int32 count = CountItems();
-		for (int32 i = 0; i < count; i++) {
-			ShapeListItem* item = dynamic_cast<ShapeListItem*>(ItemAt(i));
-			if (item != NULL && item->shape == shape)
-				return i;
+		Transformer* transformer = dynamic_cast<Transformer*>(selectable);
+		if (transformer != NULL) {
+			std::map<Shape*, ShapeListItem*>::const_iterator it
+				= fItemMap.begin();
+			for (; it != fItemMap.end(); ++it) {
+				if (it->first->Transformers()->HasItem(transformer))
+					return IndexOf(it->second);
+			}
 		}
 	}
 
@@ -812,12 +867,10 @@ ShapeListView::_RemoveShape(Shape* shape)
 ShapeListItem*
 ShapeListView::_ItemForShape(Shape* shape) const
 {
-	int32 count = CountItems();
-	for (int32 i = 0; i < count; i++) {
-		ShapeListItem* item = dynamic_cast<ShapeListItem*>(ItemAt(i));
-		if (item != NULL && item->shape == shape)
-			return item;
-	}
+	std::map<Shape*, ShapeListItem*>::const_iterator it = fItemMap.find(shape);
+	if (it != fItemMap.end())
+		return it->second;
+
 	return NULL;
 }
 

@@ -10,6 +10,8 @@
 #define SHAPE_LIST_VIEW_H
 
 
+#include <map>
+
 #include "Container.h"
 #include "ListViews.h"
 #include "IconBuild.h"
@@ -48,7 +50,13 @@ class ShapeListView : public SimpleListView,
 	virtual							~ShapeListView();
 
 	// SimpleListView interface
+	virtual	void					MakeEmpty();
 	virtual	void					SelectionChanged();
+
+	virtual	bool					AddItem(BListItem* item);
+	virtual	bool					AddItem(BListItem* item, int32 atIndex);
+	virtual	bool					RemoveItem(BListItem* item);
+	virtual	BListItem*				RemoveItem(int32 index);
 
 	virtual	void					MessageReceived(BMessage* message);
 
@@ -86,6 +94,8 @@ class ShapeListView : public SimpleListView,
 			void					_UpdateMenu();
 
 			void					_GetSelectedShapes(BList& shapes) const;
+
+			std::map<Shape*, ShapeListItem*> fItemMap;
 
 			BMessage*				fMessage;
 
