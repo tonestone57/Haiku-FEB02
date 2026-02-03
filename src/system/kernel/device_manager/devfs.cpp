@@ -1404,10 +1404,7 @@ devfs_read_dir(fs_volume* _volume, fs_vnode* _vnode, void* _cookie,
 	if (dirent->d_reclen > bufferSize)
 		return ENOBUFS;
 
-	status = user_strlcpy(dirent->d_name, name,
-		bufferSize - offsetof(struct dirent, d_name));
-	if (status < B_OK)
-		return status;
+	strlcpy(dirent->d_name, name, bufferSize - offsetof(struct dirent, d_name));
 
 	cookie->current = nextChildNode;
 	cookie->state = nextState;

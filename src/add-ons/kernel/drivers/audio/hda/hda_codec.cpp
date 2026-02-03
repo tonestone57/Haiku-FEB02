@@ -206,8 +206,12 @@ dump_widget_audio_capabilities(uint32 capabilities)
 	int offset = 0;
 
 	for (uint32 j = 0; j < sizeof(kFlags) / sizeof(kFlags[0]); j++) {
-		if ((capabilities & kFlags[j].flag) != 0)
-			offset += sprintf(buffer + offset, "[%s] ", kFlags[j].name);
+		if ((capabilities & kFlags[j].flag) != 0) {
+			offset += snprintf(buffer + offset, sizeof(buffer) - offset,
+				"[%s] ", kFlags[j].name);
+			if (offset >= (int)sizeof(buffer))
+				break;
+		}
 	}
 
 	if (offset != 0)
@@ -226,10 +230,16 @@ dump_widget_inputs(hda_widget& widget)
 	for (uint32 i = 0; i < widget.num_inputs; i++) {
 		int32 input = widget.inputs[i];
 
-		if ((int32)i != widget.active_input)
-			offset += sprintf(buffer + offset, "%" B_PRId32 " ", input);
-		else
-			offset += sprintf(buffer + offset, "<%" B_PRId32 "> ", input);
+		if ((int32)i != widget.active_input) {
+			offset += snprintf(buffer + offset, sizeof(buffer) - offset,
+				"%" B_PRId32 " ", input);
+		} else {
+			offset += snprintf(buffer + offset, sizeof(buffer) - offset,
+				"<%" B_PRId32 "> ", input);
+		}
+
+		if (offset >= (int)sizeof(buffer))
+			break;
 	}
 
 	if (offset != 0)

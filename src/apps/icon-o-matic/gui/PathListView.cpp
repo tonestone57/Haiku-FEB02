@@ -344,6 +344,67 @@ PathListView::SelectionChanged()
 }
 
 
+bool
+PathListView::AddItem(BListItem* item)
+{
+	if (SimpleListView::AddItem(item)) {
+		if (PathListItem* pathItem = dynamic_cast<PathListItem*>(item))
+			fItemMap.insert(std::make_pair(pathItem->path, pathItem));
+		return true;
+	}
+	return false;
+}
+
+
+bool
+PathListView::AddItem(BListItem* item, int32 atIndex)
+{
+	if (SimpleListView::AddItem(item, atIndex)) {
+		if (PathListItem* pathItem = dynamic_cast<PathListItem*>(item))
+			fItemMap.insert(std::make_pair(pathItem->path, pathItem));
+		return true;
+	}
+	return false;
+}
+
+
+bool
+PathListView::RemoveItem(BListItem* item)
+{
+	if (SimpleListView::RemoveItem(item)) {
+		if (PathListItem* pathItem = dynamic_cast<PathListItem*>(item))
+			fItemMap.erase(pathItem->path);
+		return true;
+	}
+	return false;
+}
+
+
+BListItem*
+PathListView::RemoveItem(int32 index)
+{
+	BListItem* item = SimpleListView::RemoveItem(index);
+	if (PathListItem* pathItem = dynamic_cast<PathListItem*>(item))
+		fItemMap.erase(pathItem->path);
+	return item;
+}
+
+
+bool
+PathListView::RemoveItems(int32 index, int32 count)
+{
+	if (index < 0 || count <= 0 || index + count > CountItems())
+		return false;
+
+	for (int32 i = 0; i < count; i++) {
+		if (PathListItem* pathItem = dynamic_cast<PathListItem*>(ItemAt(index + i)))
+			fItemMap.erase(pathItem->path);
+	}
+
+	return SimpleListView::RemoveItems(index, count);
+}
+
+
 void
 PathListView::MouseDown(BPoint where)
 {
@@ -908,8 +969,6 @@ PathListView::_AddPath(VectorPath* path, int32 index)
 		return false;
 	}
 
-	fItemMap[path] = item;
-
 	return true;
 }
 
@@ -919,7 +978,6 @@ PathListView::_RemovePath(VectorPath* path)
 {
 	PathListItem* item = _ItemForPath(path);
 	if (item != NULL && RemoveItem(item)) {
-		fItemMap.erase(path);
 		delete item;
 		return true;
 	}
@@ -930,8 +988,8 @@ PathListView::_RemovePath(VectorPath* path)
 void
 PathListView::_MakeEmpty()
 {
-	SimpleListView::_MakeEmpty();
 	fItemMap.clear();
+	SimpleListView::_MakeEmpty();
 }
 
 

@@ -976,6 +976,11 @@ get_buffers(hda_audio_group* audioGroup, multi_buffer_list* data)
 	data->return_record_channels = data->request_record_channels;
 	data->return_record_buffer_size = data->request_record_buffer_size;
 
+	if (data->return_playback_channels > 32)
+		data->return_playback_channels = 32;
+	if (data->return_record_channels > 32)
+		data->return_record_channels = 32;
+
 	/* Workaround for Haiku multi_audio API, since it prefers to let the
 	   driver pick values, while the BeOS multi_audio actually gives the
 	   user's defaults. */
@@ -1042,7 +1047,7 @@ get_buffers(hda_audio_group* audioGroup, multi_buffer_list* data)
 		uint32 playbackSampleSize = audioGroup->playback_stream->sample_size;
 
 		for (int32 i = 0; i < data->return_playback_buffers; i++) {
-			struct buffer_desc descs[data->return_playback_channels];
+			struct buffer_desc descs[32];
 			for (int32 channelIndex = 0;
 					channelIndex < data->return_playback_channels; channelIndex++) {
 				descs[channelIndex].base = (char*)audioGroup->playback_stream->buffers[i]
@@ -1051,7 +1056,8 @@ get_buffers(hda_audio_group* audioGroup, multi_buffer_list* data)
 					* data->return_playback_channels;
 			}
 			if (!IS_USER_ADDRESS(data->playback_buffers[i])
-				|| user_memcpy(data->playback_buffers[i], descs, sizeof(descs))
+				|| user_memcpy(data->playback_buffers[i], descs,
+					sizeof(struct buffer_desc) * data->return_playback_channels)
 				< B_OK) {
 				return B_BAD_ADDRESS;
 			}
@@ -1062,7 +1068,7 @@ get_buffers(hda_audio_group* audioGroup, multi_buffer_list* data)
 		uint32 recordSampleSize = audioGroup->record_stream->sample_size;
 
 		for (int32 i = 0; i < data->return_record_buffers; i++) {
-			struct buffer_desc descs[data->return_record_channels];
+			struct buffer_desc descs[32];
 			for (int32 channelIndex = 0;
 					channelIndex < data->return_record_channels; channelIndex++) {
 				descs[channelIndex].base = (char*)audioGroup->record_stream->buffers[i]
@@ -1071,7 +1077,8 @@ get_buffers(hda_audio_group* audioGroup, multi_buffer_list* data)
 					* data->return_record_channels;
 			}
 			if (!IS_USER_ADDRESS(data->record_buffers[i])
-				|| user_memcpy(data->record_buffers[i], descs, sizeof(descs))
+				|| user_memcpy(data->record_buffers[i], descs,
+					sizeof(struct buffer_desc) * data->return_record_channels)
 				< B_OK) {
 				return B_BAD_ADDRESS;
 			}

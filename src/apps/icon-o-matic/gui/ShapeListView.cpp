@@ -204,6 +204,21 @@ ShapeListView::RemoveItem(int32 index)
 }
 
 
+bool
+ShapeListView::RemoveItems(int32 index, int32 count)
+{
+	if (index < 0 || count <= 0 || index + count > CountItems())
+		return false;
+
+	for (int32 i = 0; i < count; i++) {
+		if (ShapeListItem* shapeItem = dynamic_cast<ShapeListItem*>(ItemAt(index + i)))
+			fItemMap.erase(shapeItem->shape);
+	}
+
+	return SimpleListView::RemoveItems(index, count);
+}
+
+
 void
 ShapeListView::SelectionChanged()
 {
