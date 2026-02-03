@@ -52,13 +52,13 @@ Race condition where `WindowAdded` might be called concurrently, creating duplic
 **File:** `src/servers/package/CommitTransactionHandler.cpp`
 **Line:** 1896
 **Description:** `strcpy` used to copy package filename.
-**Status:** Pending Fix.
+**Status:** Fixed. Replaced with `strlcpy`.
 
 ### 3.4. Unsafe String Handling in `Media Addon` Server
 **File:** `src/servers/media_addon/MediaAddonServer.cpp`
 **Line:** 724
 **Description:** `strcpy` used to copy flavor name.
-**Status:** Pending Fix.
+**Status:** Fixed. Replaced with `strlcpy`.
 
 ### 3.5. Unsafe String Handling in `Debug` Server
 **File:** `src/servers/debug/DebugServer.cpp`
