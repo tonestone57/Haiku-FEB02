@@ -88,8 +88,8 @@ IRQDMAItem::DrawItem(BView *owner, BRect itemRect, bool complete)
 	owner->SetFont(be_plain_font);
 	owner->MovePenTo(point);
 	if (fNumber > -1) {
-		char string[2];
-		sprintf(string, "%ld", fNumber);
+		char string[16];
+		snprintf(string, sizeof(string), "%ld", fNumber);
 		owner->DrawString(string);
 	}
 	point += BPoint(28, 0);
@@ -159,7 +159,7 @@ RangeItem::DrawItem(BView *owner, BRect itemRect, bool complete)
 	
 	if (fLowAddress >= 0) {
 		char string[255];
-		sprintf(string, "0x%04lx - 0x%04lx", fLowAddress, fHighAddress);
+		snprintf(string, sizeof(string), "0x%04lx - 0x%04lx", fLowAddress, fHighAddress);
 		owner->DrawString(string);
 	}
 	point += BPoint(174, 0);
