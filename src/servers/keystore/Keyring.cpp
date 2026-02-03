@@ -8,6 +8,8 @@
 
 #ifdef HAVE_OPENSSL
 #include <openssl/evp.h>
+#include <openssl/kdf.h>
+#include <openssl/core_names.h>
 #include <openssl/rand.h>
 #endif
 
@@ -482,9 +484,45 @@ DeriveKey(const BMessage& keyMessage, const uint8* salt, size_t saltSize,
 	if (result != B_OK)
 		return result;
 
-	// Use PBKDF2 with HMAC-SHA256
-	// 25000 iterations is a reasonable baseline for older hardware
-	const int kIterations = 25000;
+	bool argon2Failed = true;
+
+	// Attempt to use ARGON2ID if available
+	EVP_KDF* kdf = EVP_KDF_fetch(NULL, "ARGON2ID", NULL);
+	if (kdf != NULL) {
+		EVP_KDF_CTX* kctx = EVP_KDF_CTX_new(kdf);
+		EVP_KDF_free(kdf);
+
+		if (kctx != NULL) {
+			OSSL_PARAM params[6];
+			const int threads = 1;
+			const int lanes = 1;
+			const int memory_cost = 65536; // 64 MiB
+			const int iterations = 3;
+
+			OSSL_PARAM* p = params;
+			*p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_THREADS, (int*)&threads);
+			*p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_LANES, (int*)&lanes);
+			*p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_ITER, (int*)&iterations);
+			*p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_MEMCOST, (int*)&memory_cost);
+			*p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SALT,
+				(void*)salt, saltSize);
+			*p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_PASSWORD,
+				(void*)buffer.Buffer(), buffer.BufferLength());
+			*p = OSSL_PARAM_construct_end();
+
+			if (EVP_KDF_derive(kctx, key, keySize, params) > 0)
+				argon2Failed = false;
+
+			EVP_KDF_CTX_free(kctx);
+		}
+	}
+
+	if (!argon2Failed)
+		return B_OK;
+
+	// Fallback to PBKDF2 with HMAC-SHA256
+	// 600,000 iterations recommended for PBKDF2-HMAC-SHA256 (OWASP 2023)
+	const int kIterations = 600000;
 	if (PKCS5_PBKDF2_HMAC((const char*)buffer.Buffer(), buffer.BufferLength(),
 			salt, saltSize, kIterations, EVP_sha256(), keySize, key) != 1) {
 		return B_ERROR;
