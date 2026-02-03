@@ -169,22 +169,56 @@ Features rarely used in modern software development.
 
 Based on results from the `os-test` basic suite ([link](https://sortix.org/os-test/basic/#basic)), Haiku achieves an overall score of **93%** (397/426 tests passing).
 
-### Specific Failure Areas:
-*   **Termios (`termios`): 69% (9/13 passed)**
-    *   **Impact:** CLI applications may behave incorrectly regarding terminal control.
-    *   **Affected Areas:** `libroot` (`termios` implementation), `kernel` (tty driver ioctls).
-*   **System Status (`sys_stat`): 85% (12/14 passed)**
-    *   **Impact:** File metadata retrieval discrepancies.
-    *   **Affected Areas:** `libroot` (`stat` wrappers), `kernel` (VFS stat implementation).
-*   **Process Scheduling (`PS` option): 0% (0/4 passed)**
-    *   **Impact:** `sched_*` functions are likely missing or stubbed.
-    *   **Affected Areas:** `headers` (`sched.h`), `libroot`, `kernel` (scheduler API).
-*   **Thread Execution Scheduling (`TPS` option): 44% (4/9 passed)**
-    *   **Impact:** Thread priority and policy management via pthreads is incomplete.
-    *   **Affected Areas:** `libroot` (`pthread` library), `kernel` (thread priority mapping).
-*   **Robust Mutex Priorities (`RPP|TPP` option): 0% (0/4 passed)**
-    *   **Impact:** Priority inheritance/protection for mutexes is missing.
-    *   **Affected Areas:** `libroot` (mutex init), `kernel` (scheduler priority boost).
+### Specific Failures (29 Total)
+
+#### 1. unistd (5 failures)
+*   **`_Fork`**: `compile_error`. Async-signal-safe fork is missing or undeclared.
+*   **`dup3`**: `compile_error`. Atomic duplicate-and-set-flags operation is missing.
+*   **`fexecve`**: `compile_error`. Execute program relative to a file descriptor is missing.
+*   **`link`**: `bad` ("EPERM"). Creating hard links often fails on file systems that don't support them or due to permissions.
+*   **`linkat`**: `bad` ("EPERM"). Relative hard link creation failed.
+
+#### 2. termios (4 failures)
+*   **`tcdrain`**: `bad` ("General system error"). Waiting for output to drain failed.
+*   **`tcflow`**: `bad` ("EINVAL"). Suspending/resuming transmission/reception failed.
+*   **`tcflush`**: `bad` ("General system error"). Flushing buffers failed.
+*   **`tcsetattr`**: `bad` ("EINVAL"). Setting terminal attributes failed (likely specific flags).
+
+#### 3. sys_stat (2 failures)
+*   **`futimens`**: `bad` ("did not set atim"). Setting file timestamps via FD failed.
+*   **`utimensat`**: `bad` ("futimens did not set atim"). Setting relative file timestamps failed.
+
+#### 4. pthread (8 failures)
+*   **`pthread_cancel`**: `bad` ("exit: 142"). Thread cancellation issue (likely SIGALRM/timeout related).
+*   **`pthread_cleanup_pop`**: `bad` ("exit: 142"). Cleanup handler execution failure.
+*   **`pthread_cleanup_push`**: `bad` ("exit: 142"). Cleanup handler registration failure.
+*   **`pthread_mutex_clocklock`**: `bad` ("EDEADLK"). Timed lock with clock failed.
+*   **`pthread_mutex_consistent`**: `compile_error`. Robust mutex consistency check is missing.
+*   **`pthread_mutexattr_getprioceiling`**: `bad` ("EPERM"). Priority ceiling retrieval failed.
+*   **`pthread_mutexattr_setprioceiling`**: `bad` ("EPERM"). Priority ceiling setting failed.
+*   **`pthread_mutexattr_setprotocol`**: `bad` ("EPERM"). Setting mutex protocol (e.g., Prio Inherit) failed.
+
+#### 5. stdlib (5 failures)
+*   **`abort`**: `bad` ("Abort exit: 142"). Signal handling during abort was unexpected.
+*   **`at_quick_exit`**: `compile_error`. Function missing.
+*   **`putenv`**: `bad` ("getenv did not return putenv's string"). Environment variable handling issue.
+*   **`quick_exit`**: `compile_error`. Function missing.
+*   **`strtold`**: `bad` ("returned 0.000000"). Long double string conversion failed.
+
+#### 6. signal (2 failures)
+*   **`sigtimedwait`**: `bad` ("sigqueue si_pid != getpid()"). Signal info mismatch.
+*   **`sigwaitinfo`**: `bad` ("sigqueue si_pid != getpid()"). Signal info mismatch.
+
+#### 7. stdio (1 failure)
+*   **`vdprintf`**: `compile_error`. Dprintf with varargs is missing.
+
+#### 8. sys_socket (1 failure)
+*   **`sockatmark`**: `bad` ("Operation not supported"). Out-of-band data marker check failed.
+
+#### 9. time (1 failure)
+*   **`timer_getoverrun`**: `bad` ("timer_getoverrun() did not reset"). Timer expiration count logic is incorrect.
+
+---
 
 ## General Compliance Verification (os-test)
 
