@@ -6,9 +6,10 @@
 
 #include "Keyring.h"
 
-#include <openssl/md5.h>
-
-#include "Arc4.h"
+#ifdef HAVE_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#endif
 
 
 Keyring::Keyring()
@@ -471,6 +472,7 @@ Keyring::Compare(const BString* name, const Keyring* keyring)
 }
 
 
+#ifdef HAVE_OPENSSL
 static status_t
 DeriveKey(const BMessage& keyMessage, const uint8* salt, size_t saltSize,
 	uint8* key, size_t keySize)
@@ -480,14 +482,17 @@ DeriveKey(const BMessage& keyMessage, const uint8* salt, size_t saltSize,
 	if (result != B_OK)
 		return result;
 
-	MD5_CTX context;
-	MD5_Init(&context);
-	MD5_Update(&context, buffer.Buffer(), buffer.BufferLength());
-	MD5_Update(&context, salt, saltSize);
-	MD5_Final(key, &context);
+	// Use PBKDF2 with HMAC-SHA256
+	// 25000 iterations is a reasonable baseline for older hardware
+	const int kIterations = 25000;
+	if (PKCS5_PBKDF2_HMAC((const char*)buffer.Buffer(), buffer.BufferLength(),
+			salt, saltSize, kIterations, EVP_sha256(), keySize, key) != 1) {
+		return B_ERROR;
+	}
 
 	return B_OK;
 }
+#endif
 
 
 status_t
@@ -516,44 +521,104 @@ Keyring::_EncryptToFlatBuffer()
 	fFlatBuffer.SetSize(0);
 	fFlatBuffer.Seek(0, SEEK_SET);
 
+#ifdef HAVE_OPENSSL
 	if (fHasUnlockKey) {
-		// We use a salt to prevent rainbow table attacks
-		uint8 salt[8];
-		for (size_t i = 0; i < sizeof(salt); i++)
-			salt[i] = (uint8)(rand() % 256);
+		// Use AES-256-GCM
+		const size_t kKeySize = 32;
+		const size_t kSaltSize = 16;
+		const size_t kIVSize = 12; // GCM standard IV size
+		const size_t kTagSize = 16;
 
-		uint8 key[MD5_DIGEST_LENGTH];
+		uint8 salt[kSaltSize];
+		if (RAND_bytes(salt, sizeof(salt)) != 1)
+			return B_ERROR;
+
+		uint8 key[kKeySize];
 		result = DeriveKey(fUnlockKey, salt, sizeof(salt), key, sizeof(key));
 		if (result != B_OK)
 			return result;
 
-		struct rc4_ctx ctx;
-		rc4_keysetup(&ctx, key, sizeof(key));
-
-		// Discard first 1024 bytes of stream
-		rc4_skip(&ctx, 1024);
-
-		if (fFlatBuffer.Write(salt, sizeof(salt)) != (ssize_t)sizeof(salt))
+		uint8 iv[kIVSize];
+		if (RAND_bytes(iv, sizeof(iv)) != 1)
 			return B_ERROR;
 
-		uint8* buffer = (uint8*)plainBuffer.Buffer();
-		size_t bufferSize = plainBuffer.BufferLength();
-		uint8* output = (uint8*)malloc(bufferSize);
-		if (output == NULL)
+		EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+		if (ctx == NULL)
 			return B_NO_MEMORY;
 
-		rc4_crypt(&ctx, buffer, output, bufferSize);
-		if (fFlatBuffer.Write(output, bufferSize) != (ssize_t)bufferSize) {
-			free(output);
-			return B_ERROR;
+		status_t status = B_OK;
+		if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1
+			|| EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv) != 1) {
+			status = B_ERROR;
 		}
-		free(output);
+
+		uint8* ciphertext = NULL;
+		int len = 0;
+		int ciphertextLen = 0;
+
+		if (status == B_OK) {
+			// Write metadata: Salt + IV
+			if (fFlatBuffer.Write(salt, sizeof(salt)) != (ssize_t)sizeof(salt)
+				|| fFlatBuffer.Write(iv, sizeof(iv)) != (ssize_t)sizeof(iv)) {
+				status = B_ERROR;
+			}
+		}
+
+		if (status == B_OK) {
+			ciphertext = (uint8*)malloc(plainBuffer.BufferLength()
+				+ EVP_CIPHER_block_size(EVP_aes_256_gcm()));
+			if (ciphertext == NULL)
+				status = B_NO_MEMORY;
+		}
+
+		if (status == B_OK) {
+			if (EVP_EncryptUpdate(ctx, ciphertext, &len,
+					(const uint8*)plainBuffer.Buffer(),
+					plainBuffer.BufferLength()) != 1) {
+				status = B_ERROR;
+			}
+			ciphertextLen = len;
+		}
+
+		if (status == B_OK) {
+			if (EVP_EncryptFinal_ex(ctx, ciphertext + len, &len) != 1)
+				status = B_ERROR;
+			ciphertextLen += len;
+		}
+
+		if (status == B_OK) {
+			// Get the tag
+			uint8 tag[kTagSize];
+			if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, kTagSize, tag)
+					!= 1) {
+				status = B_ERROR;
+			} else {
+				// Write ciphertext + tag
+				if (fFlatBuffer.Write(ciphertext, ciphertextLen)
+						!= (ssize_t)ciphertextLen
+					|| fFlatBuffer.Write(tag, sizeof(tag))
+						!= (ssize_t)sizeof(tag)) {
+					status = B_ERROR;
+				}
+			}
+		}
+
+		free(ciphertext);
+		EVP_CIPHER_CTX_free(ctx);
+
+		if (status != B_OK) {
+			fFlatBuffer.SetSize(0);
+			return status;
+		}
 	} else {
-		// Just copy plaintext if no key
+#endif
+		// Just copy plaintext if no key or no OpenSSL
 		if (fFlatBuffer.Write(plainBuffer.Buffer(), plainBuffer.BufferLength())
 				!= (ssize_t)plainBuffer.BufferLength())
 			return B_ERROR;
+#ifdef HAVE_OPENSSL
 	}
+#endif
 
 	fModified = false;
 	return B_OK;
@@ -569,39 +634,93 @@ Keyring::_DecryptFromFlatBuffer()
 	BMallocIO* inputBuffer = &fFlatBuffer;
 	BMallocIO decryptedBuffer;
 
+#ifdef HAVE_OPENSSL
 	if (fHasUnlockKey) {
+		const size_t kKeySize = 32;
+		const size_t kSaltSize = 16;
+		const size_t kIVSize = 12;
+		const size_t kTagSize = 16;
+
+		if (fFlatBuffer.BufferLength() < kSaltSize + kIVSize + kTagSize)
+			return B_ERROR;
+
 		fFlatBuffer.Seek(0, SEEK_SET);
 
-		uint8 salt[8];
+		uint8 salt[kSaltSize];
 		if (fFlatBuffer.Read(salt, sizeof(salt)) != (ssize_t)sizeof(salt))
 			return B_ERROR;
 
-		uint8 key[MD5_DIGEST_LENGTH];
+		uint8 iv[kIVSize];
+		if (fFlatBuffer.Read(iv, sizeof(iv)) != (ssize_t)sizeof(iv))
+			return B_ERROR;
+
+		uint8 key[kKeySize];
 		status_t result = DeriveKey(fUnlockKey, salt, sizeof(salt), key,
 			sizeof(key));
 		if (result != B_OK)
 			return result;
 
-		struct rc4_ctx ctx;
-		rc4_keysetup(&ctx, key, sizeof(key));
+		size_t dataSize = fFlatBuffer.BufferLength() - kSaltSize - kIVSize
+			- kTagSize;
+		uint8* buffer = (uint8*)fFlatBuffer.Buffer() + kSaltSize + kIVSize;
+		uint8* tag = buffer + dataSize;
 
-		// Discard first 1024 bytes of stream
-		rc4_skip(&ctx, 1024);
-
-		size_t dataSize = fFlatBuffer.BufferLength() - sizeof(salt);
-		uint8* buffer = (uint8*)fFlatBuffer.Buffer() + sizeof(salt);
-		uint8* output = (uint8*)malloc(dataSize);
-		if (output == NULL)
+		EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+		if (ctx == NULL)
 			return B_NO_MEMORY;
 
-		rc4_crypt(&ctx, buffer, output, dataSize);
+		status_t status = B_OK;
+		if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1
+			|| EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv) != 1) {
+			status = B_ERROR;
+		}
 
-		decryptedBuffer.SetSize(dataSize);
-		memcpy(decryptedBuffer.Buffer(), output, dataSize);
-		free(output);
+		uint8* plaintext = NULL;
+		int len = 0;
+		int plaintextLen = 0;
 
-		inputBuffer = &decryptedBuffer;
+		if (status == B_OK) {
+			plaintext = (uint8*)malloc(dataSize
+				+ EVP_CIPHER_block_size(EVP_aes_256_gcm()));
+			if (plaintext == NULL)
+				status = B_NO_MEMORY;
+		}
+
+		if (status == B_OK) {
+			if (EVP_DecryptUpdate(ctx, plaintext, &len, buffer, dataSize)
+					!= 1) {
+				status = B_ERROR;
+			}
+			plaintextLen = len;
+		}
+
+		if (status == B_OK) {
+			// Set expected tag
+			if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, kTagSize, tag)
+					!= 1) {
+				status = B_ERROR;
+			}
+		}
+
+		if (status == B_OK) {
+			if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) != 1)
+				status = B_ERROR; // Tag verification failed
+			plaintextLen += len;
+		}
+
+		if (status == B_OK) {
+			decryptedBuffer.SetSize(plaintextLen);
+			memcpy(decryptedBuffer.Buffer(), plaintext, plaintextLen);
+			inputBuffer = &decryptedBuffer;
+		}
+
+		free(plaintext);
+		EVP_CIPHER_CTX_free(ctx);
+
+		if (status != B_OK)
+			return status;
 	}
+#endif
 
 	BMessage container;
 	inputBuffer->Seek(0, SEEK_SET);

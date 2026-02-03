@@ -8,7 +8,6 @@ Application keystore_server :
 	KeyRequestWindow.cpp
 	Keyring.cpp
 	KeyStoreServer.cpp
-	Arc4.cpp
 	: be localestub shared [ TargetLibstdc++ ]
 	: keystore_server.rdef
 ;
@@ -18,6 +17,7 @@ if [ FIsBuildFeatureEnabled openssl ] {
 	LinkWithHeaders keystore_server :
 		[ BuildFeatureAttribute openssl : libraries ]
 		: [ BuildFeatureAttribute openssl : headers ] ;
+	SubDirC++Flags -DHAVE_OPENSSL ;
 }
 
 DoCatalogs keystore_server :
