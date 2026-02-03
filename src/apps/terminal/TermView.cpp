@@ -787,7 +787,7 @@ TermView::SetTermFont(const BFont *font)
 	// Not Bounding, check only A-Z (For case of fHalfFont is KanjiFont.)
 	for (int c = 0x20; c <= 0x7e; c++) {
 		char buf[4];
-		sprintf(buf, "%c", c);
+		snprintf(buf, sizeof(buf), "%c", c);
 		float tmpWidth = fHalfFont.StringWidth(buf);
 		if (tmpWidth > halfWidth)
 			halfWidth = tmpWidth;
