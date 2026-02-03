@@ -131,8 +131,8 @@ SpawningUploadClient::getpty(char* pty, char* tty)
 	{
 		for (j = 0; j < sizeof(minor); j++)
 		{
-			sprintf(pty, "/dev/pt/%c%c", major[i], minor[j]);
-			sprintf(tty, "/dev/tt/%c%c", major[i], minor[j]);
+			snprintf(pty, 20, "/dev/pt/%c%c", major[i], minor[j]);
+			snprintf(tty, 20, "/dev/tt/%c%c", major[i], minor[j]);
 			fd = open(pty, O_RDWR|O_NOCTTY);
 			if (fd >= 0)
 				return fd;

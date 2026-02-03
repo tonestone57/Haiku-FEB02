@@ -420,11 +420,11 @@ VideoWindow::VideoWindow(const char* title, window_type type,
 	fFtpInfo.translator = 0;
 	fFtpInfo.passiveFtp = true;
 	fFtpInfo.uploadClient = 0;
-	strcpy(fFtpInfo.fileNameText, "filename");
-	strcpy(fFtpInfo.serverText, "server");
-	strcpy(fFtpInfo.loginText, "login");
-	strcpy(fFtpInfo.passwordText, "password");
-	strcpy(fFtpInfo.directoryText, "directory");
+	strlcpy(fFtpInfo.fileNameText, "filename", sizeof(fFtpInfo.fileNameText));
+	strlcpy(fFtpInfo.serverText, "server", sizeof(fFtpInfo.serverText));
+	strlcpy(fFtpInfo.loginText, "login", sizeof(fFtpInfo.loginText));
+	strlcpy(fFtpInfo.passwordText, "password", sizeof(fFtpInfo.passwordText));
+	strlcpy(fFtpInfo.directoryText, "directory", sizeof(fFtpInfo.directoryText));
 
 	_SetUpSettings("codycam", "");
 
