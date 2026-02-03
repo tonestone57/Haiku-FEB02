@@ -57,6 +57,7 @@ class ShapeListView : public SimpleListView,
 	virtual	bool					AddItem(BListItem* item, int32 atIndex);
 	virtual	bool					RemoveItem(BListItem* item);
 	virtual	BListItem*				RemoveItem(int32 index);
+	virtual	bool					RemoveItems(int32 index, int32 count);
 
 	virtual	void					MessageReceived(BMessage* message);
 
