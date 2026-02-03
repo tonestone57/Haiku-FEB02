@@ -52,7 +52,7 @@ modem_put_line(int32 handle, const char *string, int32 length)
 	if (length > 126)
 		return -1;
 
-	sprintf(line, "%s\r", string);
+	snprintf(line, sizeof(line), "%s\r", string);
 	return write(handle, line, length + 1);
 }
 

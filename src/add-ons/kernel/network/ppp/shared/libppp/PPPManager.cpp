@@ -166,7 +166,7 @@ PPPManager::Control(uint32 op, void *data, size_t length) const
 		return B_ERROR;
 	
 	control_net_module_args args;
-	sprintf(args.ifr_name, "%s", "ppp1");
+	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
 	args.name = PPP_INTERFACE_MODULE_NAME;
 	args.op = op;
 	args.data = data;
@@ -203,7 +203,7 @@ PPPManager::ControlModule(const char *name, uint32 op, void *data,
 		return B_ERROR;
 	
 	control_net_module_args args;
-	sprintf(args.ifr_name, "%s", "ppp1");
+	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
 	args.name = name;
 	args.op = op;
 	args.data = data;

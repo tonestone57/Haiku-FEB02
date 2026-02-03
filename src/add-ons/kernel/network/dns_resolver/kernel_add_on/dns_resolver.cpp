@@ -136,13 +136,13 @@ GetAddrInfo(const char* node, const char* service,
 
 	off_t off = 0;
 	if (node != NULL)
-		strcpy(buffer + off, node);
+		strlcpy(buffer + off, node, size - off);
 	else
 		buffer[off] = '\0';
 	off += nodeSize;
 
 	if (service != NULL)
-		strcpy(buffer + off, service);
+		strlcpy(buffer + off, service, size - off);
 	else
 		buffer[off] = '\0';
 	off += serviceSize;

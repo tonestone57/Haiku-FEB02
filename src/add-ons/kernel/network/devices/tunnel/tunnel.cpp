@@ -311,7 +311,7 @@ tunnel_init(const char* name, net_device** _device)
 	devicesLocker.Unlock();
 
 	memset(device, 0, sizeof(tunnel_device));
-	strcpy(device->name, name);
+	strlcpy(device->name, name, sizeof(device->name));
 
 	device->mtu = ETHER_MAX_FRAME_SIZE;
 	device->media = IFM_ACTIVE;

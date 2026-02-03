@@ -123,7 +123,7 @@ KPPPInterface::KPPPInterface(const char *name, ppp_interface_entry *entry,
 	if (name) {
 		// load settings from description file
 		char path[B_PATH_NAME_LENGTH];
-		sprintf(path, "ptpnet/%s", name);
+		snprintf(path, sizeof(path), "ptpnet/%s", name);
 
 		void *handle = load_driver_settings(path);
 		if (!handle) {
@@ -1508,7 +1508,7 @@ KPPPInterface::LoadModule(const char *name, driver_parameter *parameter,
 
 	char *moduleName = new char[B_PATH_NAME_LENGTH];
 
-	sprintf(moduleName, "%s/%s", PPP_MODULES_PATH, name);
+	snprintf(moduleName, sizeof(moduleName), "%s/%s", PPP_MODULES_PATH, name);
 
 	ppp_module_info *module;
 	if (get_module(moduleName, (module_info**) &module) != B_OK) {

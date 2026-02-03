@@ -63,7 +63,7 @@ Serialize(char** _reply, uint32* _totalSize, const struct addrinfo* ai)
 		memcpy(&temp, current, sizeof(addrinfo));
 
 		if (current->ai_canonname != NULL) {
-			strcpy(reply + namePos, current->ai_canonname);
+			strlcpy(reply + namePos, current->ai_canonname, totalSize - namePos);
 			uint32 nSize = strlen(current->ai_canonname) + 1;
 			temp.ai_canonname = reinterpret_cast<char*>(namePos);
 			namePos += nSize;
