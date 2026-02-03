@@ -11,6 +11,8 @@ This directory contains Markdown files describing various coding errors and bugs
 - [deskbar.md](deskbar.md): Bugs in the Deskbar application.
 - [tracker.md](tracker.md): Bugs in the Tracker application and kit.
 - [kernel.md](kernel.md): Bugs in the Haiku Kernel.
+- [audio.md](audio.md): Bugs in the Audio drivers.
+- [mail.md](mail.md): Bugs in the Mail Daemon and protocols.
 
 ## Summary of Bugs Found
 - **Icon-O-Matic**: Missing allocation checks, potential NULL pointer dereferences in command creation, and problematic use of Variable Length Arrays (VLAs).
@@ -21,3 +23,5 @@ This directory contains Markdown files describing various coding errors and bugs
 - **Deskbar**: Unhandled exceptions and inconsistent memory management.
 - **Tracker**: Memory leaks and unchecked string operations.
 - **Kernel**: Race conditions during lock destruction, team ID wrap-around issues, missing deadlock detection in VFS, unreliable resource iteration, and excessive stack usage.
+- **Audio Drivers**: VLA usage in kernel code, potential response loss in HDA, and buffer overflows in diagnostic dumps.
+- **Mail**: Fixed-size buffer assumptions and persistent resource growth in POP3.

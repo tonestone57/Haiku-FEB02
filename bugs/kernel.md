@@ -17,3 +17,6 @@ In `src/system/kernel/cache/file_cache.cpp`, the `read_into_cache` function allo
 
 ## 6. Fixed-size I/O Vectors in Page Writer
 In `src/system/kernel/vm/vm_page.cpp`, the `PageWriterRun` class uses a fixed-size array for I/O vectors (`generic_io_vec fVecs[32]`). This limits the number of non-contiguous pages that can be written in a single I/O operation, potentially reducing I/O efficiency.
+
+## 7. Unchecked `strdup` in `fs_mount`
+In `src/system/kernel/fs/vfs.cpp`, the `fs_mount` function (line 7606) calls `mount->device_name = strdup(device);` without checking for a NULL return value. While Haiku's `strdup` implementation handles a NULL input gracefully by returning NULL, if `malloc` fails internally, `strdup` returns NULL. Subsequent code should verify that the allocation succeeded if a device name is expected.
