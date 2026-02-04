@@ -95,11 +95,11 @@ FileDevice::Init(const char* path)
 {
 	fFD = open(path, O_RDONLY | O_NOTRAVERSE);
 	if (fFD < 0)
-		return errno;
+		return -errno;
 
 	struct stat st;
 	if (fstat(fFD, &st) != 0)
-		return errno;
+		return -errno;
 
 	if (!S_ISREG(st.st_mode))
 		return B_BAD_TYPE;
@@ -202,7 +202,7 @@ FileDevice::Read(void* _cookie, off_t pos, void* buffer, size_t* _length)
 	ssize_t bytesRead = pread(cookie->fd, buffer, *_length, pos);
 	if (bytesRead < 0) {
 		*_length = 0;
-		return errno;
+		return -errno;
 	}
 
 	*_length = bytesRead;
@@ -218,7 +218,7 @@ FileDevice::Write(void* _cookie, off_t pos, const void* buffer, size_t* _length)
 	ssize_t bytesWritten = pwrite(cookie->fd, buffer, *_length, pos);
 	if (bytesWritten < 0) {
 		*_length = 0;
-		return errno;
+		return -errno;
 	}
 
 	*_length = bytesWritten;
@@ -278,7 +278,7 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 		{
 			int flags = fcntl(cookie->fd, F_GETFL);
 			if (flags < 0)
-				return errno;
+				return -errno;
 
 			if (op == B_SET_NONBLOCKING_IO)
 				flags |= O_NONBLOCK;
@@ -286,7 +286,7 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 				flags &= ~O_NONBLOCK;
 
 			if (fcntl(cookie->fd, F_SETFL, flags) < 0)
-				return errno;
+				return -errno;
 
 			return B_OK;
 		}
@@ -300,7 +300,7 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 			pollFD.revents = 0;
 
 			if (poll(&pollFD, 1, 0) < 0)
-				return errno;
+				return -errno;
 
 			return set_ioctl_result((pollFD.revents & pollFD.events) != 0,
 				buffer, length);
@@ -369,7 +369,7 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 			return B_OK;
 
 		case B_FLUSH_DRIVE_CACHE:
-			return fsync(cookie->fd) == 0 ? B_OK : errno;
+			return fsync(cookie->fd) == 0 ? B_OK : -errno;
 
 		case B_GET_BIOS_DRIVE_ID:
 			return set_ioctl_result((uint8)0xf8, buffer, length);
