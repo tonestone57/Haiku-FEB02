@@ -1654,7 +1654,40 @@ release_advisory_lock(struct vnode* vnode, struct io_context* context,
 
 	// find matching lock entries
 
+	// count the locks we need to allocate
+	int32 count = 0;
 	LockList::Iterator iterator = locking->locks.GetIterator();
+	while (iterator.HasNext()) {
+		struct advisory_lock* lock = iterator.Next();
+
+		if (descriptor == NULL && lock->bound_to == context
+			&& advisory_lock_intersects(lock, flock)) {
+			// POSIX locks
+			bool endsBeyond = false;
+			bool startsBefore = false;
+			if (flock != NULL) {
+				startsBefore = lock->start < flock->l_start;
+				endsBeyond = lock->end > flock->l_start - 1 + flock->l_len;
+			}
+
+			if (startsBefore && endsBeyond)
+				count++;
+		}
+	}
+
+	LockList newLocks;
+	for (int32 i = 0; i < count; i++) {
+		struct advisory_lock* lock = new(std::nothrow) advisory_lock;
+		if (lock == NULL) {
+			while ((lock = newLocks.RemoveHead()) != NULL)
+				delete lock;
+			put_advisory_locking(locking);
+			return B_NO_MEMORY;
+		}
+		newLocks.Add(lock);
+	}
+
+	iterator = locking->locks.GetIterator();
 	while (iterator.HasNext()) {
 		struct advisory_lock* lock = iterator.Next();
 		bool removeLock = false;
@@ -1683,13 +1716,10 @@ release_advisory_lock(struct vnode* vnode, struct io_context* context,
 				lock->start = flock->l_start + flock->l_len;
 			} else {
 				// divide the lock into two locks
-				struct advisory_lock* secondLock = new advisory_lock;
-				if (secondLock == NULL) {
-					// TODO: we should probably revert the locks we already
-					// changed... (ie. allocate upfront)
-					put_advisory_locking(locking);
-					return B_NO_MEMORY;
-				}
+				struct advisory_lock* secondLock = newLocks.RemoveHead();
+				// This should not happen if the logic above is correct
+				if (secondLock == NULL)
+					continue;
 
 				lock->end = flock->l_start - 1;
 
@@ -1711,6 +1741,10 @@ release_advisory_lock(struct vnode* vnode, struct io_context* context,
 			delete lock;
 		}
 	}
+
+	// free unused new locks
+	while ((struct advisory_lock* lock = newLocks.RemoveHead()) != NULL)
+		delete lock;
 
 	bool removeLocking = locking->locks.IsEmpty();
 	release_sem_etc(locking->wait_sem, 1, B_RELEASE_ALL);
