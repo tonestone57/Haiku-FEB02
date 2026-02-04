@@ -297,6 +297,22 @@ dump_device_nodes(int argc, char** argv)
 }
 
 
+static bool
+is_valid_node(device_node* root, device_node* target)
+{
+	if (root == target)
+		return true;
+
+	NodeList::ConstIterator iterator = root->Children().GetIterator();
+	while (iterator.HasNext()) {
+		if (is_valid_node(iterator.Next(), target))
+			return true;
+	}
+
+	return false;
+}
+
+
 static void
 publish_directories(const char* subPath)
 {
@@ -342,9 +358,8 @@ static status_t
 control_device_manager(const char* subsystem, uint32 function, void* buffer,
 	size_t bufferSize)
 {
-	// TODO: this function passes pointers to userland, and uses pointers
-	// to device nodes that came from userland - this is completely unsafe
-	// and should be changed.
+	RecursiveLocker _(sLock);
+
 	switch (function) {
 		case DM_GET_ROOT:
 		{
@@ -371,6 +386,9 @@ control_device_manager(const char* subsystem, uint32 function, void* buffer,
 				return B_BAD_ADDRESS;
 
 			device_node* node = (device_node*)cookie;
+			if (!is_valid_node(sRootNode, node))
+				return B_BAD_VALUE;
+
 			NodeList::ConstIterator iterator = node->Children().GetIterator();
 
 			if (!iterator.HasNext()) {
@@ -395,6 +413,9 @@ control_device_manager(const char* subsystem, uint32 function, void* buffer,
 				return B_BAD_ADDRESS;
 
 			device_node* last = (device_node*)cookie;
+			if (!is_valid_node(sRootNode, last))
+				return B_BAD_VALUE;
+
 			if (!last->Parent())
 				return B_ENTRY_NOT_FOUND;
 
@@ -429,6 +450,9 @@ control_device_manager(const char* subsystem, uint32 function, void* buffer,
 				return B_BAD_ADDRESS;
 
 			device_node* node = (device_node*)attrInfo.node_cookie;
+			if (!is_valid_node(sRootNode, node))
+				return B_BAD_VALUE;
+
 			device_attr* last = (device_attr*)attrInfo.cookie;
 			AttributeList::Iterator iterator = node->Attributes().GetIterator();
 			// skip those we already traversed
