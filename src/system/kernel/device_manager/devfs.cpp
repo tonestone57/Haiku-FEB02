@@ -746,15 +746,6 @@ publish_device(struct devfs* fs, const char* path, BaseDevice* device)
 	if (device == NULL || path == NULL || path[0] == '\0' || path[0] == '/')
 		return B_BAD_VALUE;
 
-// TODO: this has to be done in the BaseDevice sub classes!
-#if 0
-	// are the provided device hooks okay?
-	if (info->device_open == NULL || info->device_close == NULL
-		|| info->device_free == NULL
-		|| ((info->device_read == NULL || info->device_write == NULL)
-			&& info->device_io == NULL))
-		return B_BAD_VALUE;
-#endif
 
 	struct devfs_vnode* node;
 	struct devfs_vnode* dirNode;

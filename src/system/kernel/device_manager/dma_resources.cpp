@@ -106,7 +106,14 @@ DMAResource::~DMAResource()
 	mutex_destroy(&fLock);
 	free(fScratchVecs);
 
-// TODO: Delete DMABuffers and BounceBuffers!
+	while (DMABuffer* buffer = fDMABuffers.RemoveHead())
+		free(buffer);
+
+	while (DMABounceBuffer* buffer = fBounceBuffers.RemoveHead()) {
+		if (buffer->address != NULL)
+			delete_area(area_for(buffer->address));
+		delete buffer;
+	}
 }
 
 
