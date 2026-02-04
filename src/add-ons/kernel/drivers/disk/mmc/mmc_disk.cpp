@@ -25,6 +25,7 @@
 #include <kernel/OS.h>
 #include <util/fs_trim_support.h>
 
+#include <IORequest.h>
 #include <AutoDeleter.h>
 
 
@@ -134,7 +135,10 @@ mmc_disk_execute_iorequest(void* data, IOOperation* operation)
 	status_t error;
 
 	uint8_t command;
-	if (operation->IsWrite())
+	if (info->specialRequest != NULL
+		&& operation->Parent() == info->specialRequest) {
+		command = info->specialCommand;
+	} else if (operation->IsWrite())
 		command = SD_WRITE_MULTIPLE_BLOCKS;
 	else
 		command = SD_READ_MULTIPLE_BLOCKS;
@@ -154,6 +158,8 @@ mmc_disk_execute_iorequest(void* data, IOOperation* operation)
 static status_t
 mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 {
+	MutexLocker locker(info->scanLock);
+
 	struct mmc_disk_csd csd;
 	TRACE("Get geometry\n");
 	status_t error = info->mmc->execute_command(info->parent,
@@ -199,6 +205,41 @@ mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 		uint32_t arg = (3 << 24) | (183 << 16) | (1 << 8);
 		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
 			MMC_SWITCH, arg, &cardStatus);
+
+		if (deviceType == CARD_TYPE_MMC_HC) {
+			// Read EXT_CSD to get sector count
+			uint8* ext_csd = (uint8*)malloc(512);
+			if (ext_csd != NULL) {
+				MemoryDeleter deleter(ext_csd);
+				IORequest request;
+				if (request.Init(0, (addr_t)ext_csd, 512, false, 0) == B_OK) {
+					info->specialRequest = &request;
+					info->specialCommand = MMC_SEND_EXT_CSD;
+
+					status_t status = info->scheduler->ScheduleRequest(&request);
+					if (status == B_OK)
+						status = request.Wait(0, 0);
+
+					info->specialRequest = NULL;
+					info->specialCommand = 0;
+
+					if (status == B_OK) {
+						uint32 sec_count = B_LENDIAN_TO_HOST_INT32(
+							*(uint32*)&ext_csd[212]);
+						if (sec_count > 0) {
+							TRACE("MMC EXT_CSD sec_count: %" B_PRIu32 "\n",
+								sec_count);
+							geometry->sectors_per_track = sec_count;
+							geometry->cylinder_count = 1;
+							geometry->head_count = 1;
+						}
+					} else {
+						ERROR("Failed to read EXT_CSD: %s\n", strerror(status));
+					}
+				}
+			}
+		}
+
 	} else {
 		const uint32 k4BitMode = 2;
 		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
@@ -303,6 +344,8 @@ mmc_disk_init_driver(device_node* node, void** cookie)
 	}
 	info->scheduler->SetCallback(&mmc_disk_execute_iorequest, info);
 
+	mutex_init(&info->scanLock, "mmc_disk scan lock");
+
 	memset(&info->geometry, 0, sizeof(info->geometry));
 
 	TRACE("MMC card device initialized for RCA %x\n", info->rca);
@@ -316,6 +359,7 @@ mmc_disk_uninit_driver(void* _cookie)
 {
 	CALLED();
 	mmc_disk_driver_info* info = (mmc_disk_driver_info*)_cookie;
+	mutex_destroy(&info->scanLock);
 	delete info->scheduler;
 	delete info->dmaResource;
 	sDeviceManager->put_node(info->parent);
