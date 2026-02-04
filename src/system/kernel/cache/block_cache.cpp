@@ -3032,6 +3032,10 @@ block_cache_init(void)
 	new (&sCaches) DoublyLinkedList<block_cache>;
 		// manually call constructor
 
+	// verify that sMarkCache can be safely cast to block_cache
+	ASSERT((void*)&sMarkCache
+		== (void*)((block_cache*)&sMarkCache)->GetDoublyLinkedListLink());
+
 	sEventSemaphore = create_sem(0, "block cache event");
 	if (sEventSemaphore < B_OK)
 		return sEventSemaphore;
