@@ -125,12 +125,15 @@ PeerAddress::UniversalAddress() const
 	if (uAddr == NULL)
 		return NULL;
 
-	if (inet_ntop(fAddress.ss_family, InAddr(), uAddr, AddressSize()) == NULL)
+	if (inet_ntop(fAddress.ss_family, InAddr(), uAddr, INET6_ADDRSTRLEN)
+			== NULL) {
+		free(uAddr);
 		return NULL;
+	}
 
 	char port[16];
 	snprintf(port, sizeof(port), ".%d.%d", Port() >> 8, Port() & 0xff);
-	strcat(uAddr, port);
+	strlcat(uAddr, port, INET6_ADDRSTRLEN + 16);
 
 	return uAddr;
 }

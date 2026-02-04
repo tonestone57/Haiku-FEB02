@@ -57,13 +57,12 @@ status_t duckduckgo_request_process(struct duckduckgo_request *req)
 		goto err_con;
 	
 	err = ENOMEM;
-	url = (char*)malloc(strlen(BASEURL)+strlen(FMT_NUM)+10+strlen(FMT_Q)+strlen(p)+2);
+	size_t urlLen = strlen(BASEURL) + strlen(FMT_NUM) + 10 + strlen(FMT_Q) + strlen(p) + 2;
+	url = (char*)malloc(urlLen);
 	if (!url)
 		goto err_url;
-	strcpy(url, BASEURL);
-	sprintf(url+strlen(url), FMT_NUM, (unsigned int)max_results);
-	sprintf(url+strlen(url), FMT_Q, p);
-	
+	snprintf(url, urlLen, "%s" FMT_NUM FMT_Q, BASEURL, (unsigned int)max_results, p);
+
 	fprintf(stderr, "duckduckgo_request: final URL: %s\n", url);
 	
 	cnx = BUrlProtocolRoster::MakeRequest(url, &output, NULL);

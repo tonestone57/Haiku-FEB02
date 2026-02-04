@@ -157,7 +157,7 @@ static status_t websearchfs_mount(fs_volume *_vol, const char *devname, uint32 f
 	ns->root = root;
 	if (root) {
 		memset(root, 0, sizeof(fs_node));
-		strcpy(root->name, ".");
+		strlcpy(root->name, ".", WEBSEARCHFS_NAME_LEN);
 		root->is_perm = 1;
 		root->vnid = ns->rootid;
 		fill_default_stat(&root->st, ns->nsid, ns->rootid, 0777 | S_IFDIR);
@@ -434,7 +434,7 @@ static status_t websearchfs_readdir(fs_volume *_volume, fs_vnode *_node, void *_
 		buf->d_pdev = ns->nsid;
 		buf->d_ino = parent?parent->vnid:ns->rootid;
 		buf->d_pino = (parent && parent->parent)?parent->parent->vnid:ns->rootid;
-		strcpy(buf->d_name, "..");
+		strlcpy(buf->d_name, "..", bufsize - offsetof(struct dirent, d_name));
 		buf->d_reclen = offsetof(struct dirent, d_name)+strlen(buf->d_name)+1;
 		cookie->dir_current++;
 		*num = 1;
@@ -445,7 +445,7 @@ static status_t websearchfs_readdir(fs_volume *_volume, fs_vnode *_node, void *_
 		buf->d_pdev = ns->nsid;
 		buf->d_ino = node->vnid;
 		buf->d_pino = parent?parent->vnid:ns->rootid;
-		strcpy(buf->d_name, ".");
+		strlcpy(buf->d_name, ".", bufsize - offsetof(struct dirent, d_name));
 		buf->d_reclen = offsetof(struct dirent, d_name)+strlen(buf->d_name)+1;
 		cookie->dir_current++;
 		*num = 1;
@@ -458,7 +458,7 @@ static status_t websearchfs_readdir(fs_volume *_volume, fs_vnode *_node, void *_
 			buf->d_pdev = ns->nsid;
 			buf->d_ino = n->vnid;
 			buf->d_pino = node->vnid;
-			strcpy(buf->d_name, n->name);
+			strlcpy(buf->d_name, n->name, bufsize - offsetof(struct dirent, d_name));
 			buf->d_reclen = offsetof(struct dirent, d_name)+strlen(buf->d_name)+1;
 			cookie->dir_current++;
 			*num = 1;
@@ -519,9 +519,9 @@ static status_t websearchfs_rfsstat(fs_volume *_volume, struct fs_info *info)
 	info->dev=ns->nsid;
 	info->root=ns->rootid;
 	info->flags=/*B_FS_IS_SHARED|*/B_FS_IS_PERSISTENT|B_FS_HAS_MIME|B_FS_HAS_ATTR|B_FS_HAS_QUERY;
-	strcpy (info->device_name, "");
-	strcpy (info->volume_name, "Web Search");
-	strcpy (info->fsh_name, WEBSEARCHFS_NAME);
+	strlcpy (info->device_name, "", sizeof(info->device_name));
+	strlcpy (info->volume_name, "Web Search", sizeof(info->volume_name));
+	strlcpy (info->fsh_name, WEBSEARCHFS_NAME, sizeof(info->fsh_name));
 	return B_OK;
 }
 
@@ -732,7 +732,7 @@ static int websearchfs_create_gen(fs_volume *_volume, fs_node *dir, const char *
 	if (err < B_OK)
 		goto err_m;
 	atomic_add(&ns->nodecount, 1);
-	strcpy(n->name, name);
+	strlcpy(n->name, name, WEBSEARCHFS_NAME_LEN);
 	//n->is_perm = 1;
 	fill_default_stat(&n->st, ns->nsid, n->vnid, (perms & ~S_IFMT) | (mkdir?S_IFDIR:S_IFREG));
 
@@ -995,7 +995,7 @@ static status_t websearchfs_read_attrdir(fs_volume *_volume, fs_vnode *_node, vo
 		buf->d_pdev = ns->nsid;
 		buf->d_ino = node->vnid;
 		buf->d_pino = node->parent?node->parent->vnid:ns->rootid;
-		strcpy(buf->d_name, ae->name);
+		strlcpy(buf->d_name, ae->name, bufsize - offsetof(struct dirent, d_name));
 		buf->d_reclen = offsetof(struct dirent, d_name)+strlen(buf->d_name)+1;
 		cookie->dir_current++;
 		*num = 1;
@@ -1419,7 +1419,7 @@ static status_t websearchfs_read_query(fs_volume *_volume, void *_cookie, struct
 		buf->d_pdev = ns->nsid;
 		buf->d_ino = n->vnid;
 		buf->d_pino = node->vnid;
-		strcpy(buf->d_name, n->name);
+		strlcpy(buf->d_name, n->name, bufsize - offsetof(struct dirent, d_name));
 		buf->d_reclen = offsetof(struct dirent, d_name)+strlen(buf->d_name)+1;
 		cookie->dir_current++;
 		*num = 1;

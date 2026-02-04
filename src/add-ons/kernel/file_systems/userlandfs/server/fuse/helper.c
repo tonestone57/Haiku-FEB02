@@ -138,7 +138,7 @@ static int add_default_subtype(const char *progname, struct fuse_args *args)
 		fprintf(stderr, "fuse: memory allocation failed\n");
 		return -1;
 	}
-	sprintf(subtype_opt, "-osubtype=%s", basename);
+	snprintf(subtype_opt, strlen(basename) + 64, "-osubtype=%s", basename);
 	res = fuse_opt_add_arg(args, subtype_opt);
 	free(subtype_opt);
 	return res;

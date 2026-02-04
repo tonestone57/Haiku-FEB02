@@ -36,9 +36,10 @@ status_t
 add_server(int fd, const char* serverName)
 {
 	netfs_ioctl_add_server params;
-	if (strlen(serverName) >= sizeof(params.serverName))
+	if (strlcpy(params.serverName, serverName, sizeof(params.serverName))
+			>= sizeof(params.serverName)) {
 		return B_BAD_VALUE;
-	strcpy(params.serverName, serverName);
+	}
 	if (ioctl(fd, NET_FS_IOCTL_ADD_SERVER, &params) < 0)
 		return errno;
 	return B_OK;
@@ -50,9 +51,10 @@ status_t
 remove_server(int fd, const char* serverName)
 {
 	netfs_ioctl_remove_server params;
-	if (strlen(serverName) >= sizeof(params.serverName))
+	if (strlcpy(params.serverName, serverName, sizeof(params.serverName))
+			>= sizeof(params.serverName)) {
 		return B_BAD_VALUE;
-	strcpy(params.serverName, serverName);
+	}
 	if (ioctl(fd, NET_FS_IOCTL_REMOVE_SERVER, &params) < 0)
 		return errno;
 	return B_OK;

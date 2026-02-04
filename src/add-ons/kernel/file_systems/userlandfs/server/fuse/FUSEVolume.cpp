@@ -3592,7 +3592,8 @@ FUSEVolume::_AddReadDirEntry(ReadDirBuffer* buffer, const char* name,
 		dirent* dirEntry = (dirent*)((uint8*)buffer->buffer + buffer->usedSize);
 		dirEntry->d_dev = fID;
 		dirEntry->d_ino = nodeID;
-		strcpy(dirEntry->d_name, name);
+		strlcpy(dirEntry->d_name, name, buffer->bufferSize - buffer->usedSize
+			- offsetof(struct dirent, d_name));
 
 		if (buffer->entriesRead + 1 < buffer->maxEntries) {
 			// align the entry length, so the next dirent will be aligned
