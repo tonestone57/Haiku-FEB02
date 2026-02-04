@@ -1216,6 +1216,15 @@ fifo_read_stat(fs_volume* volume, fs_vnode* vnode, struct ::stat* st)
 	st->st_atim.tv_nsec = 0;
 	st->st_mtim = st->st_ctim = fifo->ModificationTime();
 
+	// If the file system supports writing stat, we can update the super node
+	// with our local modification time.
+	if (superVnode != NULL && superVnode->ops->write_stat != NULL) {
+		struct stat superStat;
+		superStat.st_mtim = fifo->ModificationTime();
+		superVnode->ops->write_stat(volume, superVnode, &superStat,
+			B_STAT_MODIFICATION_TIME);
+	}
+
 	return B_OK;
 }
 
