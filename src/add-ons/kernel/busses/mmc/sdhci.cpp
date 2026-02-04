@@ -603,7 +603,10 @@ SdhciBus::PowerOn()
 	}
 
 	uint8_t targetVoltage = 0;
-	if ((supportedVoltages & Capabilities::k3v3) != 0)
+	if ((fQuirks & SDHCI_QUIRK_PREFER_1V8)
+		&& (supportedVoltages & Capabilities::k1v8)) {
+		targetVoltage = PowerControl::k1v8;
+	} else if ((supportedVoltages & Capabilities::k3v3) != 0)
 		targetVoltage = PowerControl::k3v3;
 	else if ((supportedVoltages & Capabilities::k3v0) != 0)
 		targetVoltage = PowerControl::k3v0;
