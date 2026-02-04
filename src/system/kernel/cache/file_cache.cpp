@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <new>
 
 #include <AutoDeleter.h>
 #include <KernelExport.h>
@@ -385,25 +386,51 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 	VMCache* cache = ref->cache;
 
-	// TODO: We're using way too much stack! Rather allocate a sufficiently
-	// large chunk on the heap.
-	generic_io_vec vecs[MAX_IO_VECS];
+	generic_io_vec* vecs = new(std::nothrow) generic_io_vec[MAX_IO_VECS];
+	vm_page** pages = new(std::nothrow) vm_page*[MAX_IO_VECS];
+	if (vecs == NULL || pages == NULL) {
+		delete[] vecs;
+		delete[] pages;
+		return B_NO_MEMORY;
+	}
+	ArrayDeleter<generic_io_vec> vecsDeleter(vecs);
+	ArrayDeleter<vm_page*> pagesDeleter(pages);
+
 	uint32 vecCount = 0;
 
 	generic_size_t numBytes = PAGE_ALIGN(pageOffset + bufferSize);
-	vm_page* pages[MAX_IO_VECS];
 	int32 pageIndex = 0;
 
 	// allocate pages for the cache and mark them busy
 	for (generic_size_t pos = 0; pos < numBytes; pos += B_PAGE_SIZE) {
+		if (pageIndex >= MAX_IO_VECS) {
+			for (int32 i = 0; i < pageIndex; i++) {
+				cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				cache->RemovePage(pages[i]);
+				vm_page_free(cache, pages[i]);
+			}
+			return B_BUFFER_OVERFLOW;
+		}
+
 		vm_page* page = pages[pageIndex++] = vm_page_allocate_page(
 			reservation, PAGE_STATE_CACHED | VM_PAGE_ALLOC_BUSY);
 
 		cache->InsertPage(page, offset + pos);
 
-		add_to_iovec(vecs, vecCount, MAX_IO_VECS,
-			page->physical_page_number * B_PAGE_SIZE, B_PAGE_SIZE);
-			// TODO: check if the array is large enough (currently panics)!
+		generic_addr_t address = page->physical_page_number * B_PAGE_SIZE;
+		if (vecCount > 0 && vecs[vecCount - 1].base + vecs[vecCount - 1].length
+				!= address && vecCount >= MAX_IO_VECS) {
+			// Cannot add more iovecs, and cannot merge with previous.
+			// Cleanup allocated pages.
+			for (int32 i = 0; i < pageIndex; i++) {
+				cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				cache->RemovePage(pages[i]);
+				vm_page_free(cache, pages[i]);
+			}
+			return B_BUFFER_OVERFLOW;
+		}
+
+		add_to_iovec(vecs, vecCount, MAX_IO_VECS, address, B_PAGE_SIZE);
 	}
 
 	push_access(ref, offset, bufferSize, false);
@@ -500,12 +527,18 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	int32 pageOffset, addr_t buffer, size_t bufferSize, bool useBuffer,
 	vm_page_reservation* reservation, size_t reservePages)
 {
-	// TODO: We're using way too much stack! Rather allocate a sufficiently
-	// large chunk on the heap.
-	generic_io_vec vecs[MAX_IO_VECS];
+	generic_io_vec* vecs = new(std::nothrow) generic_io_vec[MAX_IO_VECS];
+	vm_page** pages = new(std::nothrow) vm_page*[MAX_IO_VECS];
+	if (vecs == NULL || pages == NULL) {
+		delete[] vecs;
+		delete[] pages;
+		return B_NO_MEMORY;
+	}
+	ArrayDeleter<generic_io_vec> vecsDeleter(vecs);
+	ArrayDeleter<vm_page*> pagesDeleter(pages);
+
 	uint32 vecCount = 0;
 	generic_size_t numBytes = PAGE_ALIGN(pageOffset + bufferSize);
-	vm_page* pages[MAX_IO_VECS];
 	int32 pageIndex = 0;
 	status_t status = B_OK;
 
@@ -514,6 +547,15 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 	// allocate pages for the cache and mark them busy
 	for (generic_size_t pos = 0; pos < numBytes; pos += B_PAGE_SIZE) {
+		if (pageIndex >= MAX_IO_VECS) {
+			for (int32 i = 0; i < pageIndex; i++) {
+				ref->cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				ref->cache->RemovePage(pages[i]);
+				vm_page_free(ref->cache, pages[i]);
+			}
+			return B_BUFFER_OVERFLOW;
+		}
+
 		// TODO: if space is becoming tight, and this cache is already grown
 		//	big - shouldn't we better steal the pages directly in that case?
 		//	(a working set like approach for the file cache)
@@ -528,8 +570,20 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 		ref->cache->InsertPage(page, offset + pos);
 
-		add_to_iovec(vecs, vecCount, MAX_IO_VECS,
-			page->physical_page_number * B_PAGE_SIZE, B_PAGE_SIZE);
+		generic_addr_t address = page->physical_page_number * B_PAGE_SIZE;
+		if (vecCount > 0 && vecs[vecCount - 1].base + vecs[vecCount - 1].length
+				!= address && vecCount >= MAX_IO_VECS) {
+			// Cannot add more iovecs, and cannot merge with previous.
+			// Cleanup allocated pages.
+			for (int32 i = 0; i < pageIndex; i++) {
+				ref->cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				ref->cache->RemovePage(pages[i]);
+				vm_page_free(ref->cache, pages[i]);
+			}
+			return B_BUFFER_OVERFLOW;
+		}
+
+		add_to_iovec(vecs, vecCount, MAX_IO_VECS, address, B_PAGE_SIZE);
 	}
 
 	push_access(ref, offset, bufferSize, true);

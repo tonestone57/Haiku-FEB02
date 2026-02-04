@@ -3839,8 +3839,11 @@ block_cache_discard(void* _cache, off_t blockNumber, size_t numBlocks)
 			writer.Add(block);
 	}
 
-	writer.Write();
-		// TODO: this can fail, too!
+	status_t status = writer.Write();
+	if (status != B_OK) {
+		TRACE_ALWAYS("block_cache_discard: failed to write back dirty blocks: %s\n",
+			strerror(status));
+	}
 
 	blockNumber -= numBlocks;
 		// reset blockNumber to its original value
