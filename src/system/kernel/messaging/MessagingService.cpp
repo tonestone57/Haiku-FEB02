@@ -9,6 +9,8 @@
 
 #include <new>
 
+#include <limits.h>
+
 #include <AutoDeleter.h>
 #include <BytePointer.h>
 #include <KernelExport.h>
@@ -382,8 +384,18 @@ messageSize, targets, targetCount));
 	if (!message || messageSize <= 0 || !targets || targetCount <= 0)
 		return B_BAD_VALUE;
 
-	int32 dataSize = sizeof(messaging_command_send_message)
-		+ targetCount * sizeof(messaging_target) + messageSize;
+	if (targetCount > INT_MAX / (int32)sizeof(messaging_target))
+		return B_BAD_VALUE;
+
+	int32 targetsSize = targetCount * sizeof(messaging_target);
+	int32 commandSize = sizeof(messaging_command_send_message);
+
+	if (targetsSize > INT_MAX - commandSize
+		|| messageSize > INT_MAX - commandSize - targetsSize) {
+		return B_BAD_VALUE;
+	}
+
+	int32 dataSize = commandSize + targetsSize + messageSize;
 
 	// allocate space for the command
 	MessagingArea *area;

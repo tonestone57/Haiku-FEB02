@@ -6,6 +6,7 @@
 
 #include <util/KMessage.h>
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -790,6 +791,10 @@ KMessage::_AddFieldData(KMessageField* field, const void* data,
 	if (fieldHeader->HasFixedElementSize()) {
 		if (elementSize != fieldHeader->elementSize)
 			return B_BAD_VALUE;
+
+		if (elementCount > 0 && elementSize > INT_MAX / elementCount)
+			return B_BAD_VALUE;
+
 		void* address;
 		int32 alignedSize;
 		status_t error = _AllocateSpace(elementSize * elementCount,
@@ -804,25 +809,37 @@ KMessage::_AddFieldData(KMessageField* field, const void* data,
 		return B_OK;
 	}
 	// non-fixed size values
-	// add the elements individually (TODO: Optimize!)
 	int32 valueHeaderSize = _Align(sizeof(FieldValueHeader));
+	if (elementSize > INT_MAX - valueHeaderSize)
+		return B_BAD_VALUE;
+
 	int32 entrySize = valueHeaderSize + elementSize;
+	int32 alignedEntrySize = _Align(entrySize);
+	if (elementCount > 0 && alignedEntrySize > INT_MAX / elementCount)
+		return B_BAD_VALUE;
+
+	void* address;
+	int32 alignedSize;
+	status_t error = _AllocateSpace(alignedEntrySize * elementCount, true,
+		false, &address, &alignedSize);
+	if (error != B_OK)
+		return error;
+
+	fieldHeader = field->_Header();	// might have been relocated
+
+	uint8* dataPointer = (uint8*)address;
 	for (int32 i = 0; i < elementCount; i++) {
-		void* address;
-		int32 alignedSize;
-		status_t error = _AllocateSpace(entrySize, true, false, &address,
-			&alignedSize);
-		if (error != B_OK)
-			return error;
-		fieldHeader = field->_Header();	// might have been relocated
-		FieldValueHeader* valueHeader = (FieldValueHeader*)address;
+		FieldValueHeader* valueHeader = (FieldValueHeader*)dataPointer;
 		valueHeader->size = elementSize;
 		memcpy(valueHeader->Data(), (const uint8*)data + i * elementSize,
 			elementSize);
-		fieldHeader->elementCount++;
-		fieldHeader->fieldSize = (uint8*)address + alignedSize
-			- (uint8*)fieldHeader;
+		dataPointer += alignedEntrySize;
 	}
+
+	fieldHeader->elementCount += elementCount;
+	fieldHeader->fieldSize = (uint8*)address + alignedSize
+		- (uint8*)fieldHeader;
+
 	return B_OK;
 }
 
