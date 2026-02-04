@@ -3982,9 +3982,9 @@ volume_for_vnode(fs_vnode* _vnode)
 }
 
 
-extern "C" status_t
-check_access_permissions(int accessMode, mode_t mode, gid_t nodeGroupID,
-	uid_t nodeUserID)
+static status_t
+check_access_permissions_etc(int accessMode, mode_t mode, gid_t nodeGroupID,
+	uid_t nodeUserID, uid_t uid, gid_t gid)
 {
 	// get node permissions
 	int userPermissions = (mode & S_IRWXU) >> 6;
@@ -3993,7 +3993,6 @@ check_access_permissions(int accessMode, mode_t mode, gid_t nodeGroupID,
 
 	// get the node permissions for this uid/gid
 	int permissions = 0;
-	uid_t uid = geteuid();
 
 	if (uid == 0) {
 		// user is root
@@ -4006,7 +4005,8 @@ check_access_permissions(int accessMode, mode_t mode, gid_t nodeGroupID,
 	} else if (uid == nodeUserID) {
 		// user is node owner
 		permissions = userPermissions;
-	} else if (is_in_group(thread_get_current_thread()->team, nodeGroupID)) {
+	} else if (gid == nodeGroupID
+		|| is_in_group(thread_get_current_thread()->team, nodeGroupID)) {
 		// user is in owning group
 		permissions = groupPermissions;
 	} else {
@@ -4015,6 +4015,15 @@ check_access_permissions(int accessMode, mode_t mode, gid_t nodeGroupID,
 	}
 
 	return (accessMode & ~permissions) == 0 ? B_OK : B_PERMISSION_DENIED;
+}
+
+
+extern "C" status_t
+check_access_permissions(int accessMode, mode_t mode, gid_t nodeGroupID,
+	uid_t nodeUserID)
+{
+	return check_access_permissions_etc(accessMode, mode, nodeGroupID,
+		nodeUserID, geteuid(), thread_get_current_thread()->team->effective_gid);
 }
 
 
@@ -6694,12 +6703,27 @@ common_access(int fd, char* path, int mode, bool effectiveUserGroup, bool kernel
 {
 	status_t status;
 
-	// TODO: honor effectiveUserGroup argument
-
 	VnodePutter vnode;
 	status = fd_and_path_to_vnode(fd, path, true, vnode, NULL, kernel);
 	if (status != B_OK)
 		return status;
+
+	if (!effectiveUserGroup) {
+		struct stat stat;
+		status = vfs_stat_vnode(vnode.Get(), &stat);
+		if (status != B_OK)
+			return status;
+
+		if ((mode & W_OK) != 0) {
+			struct fs_info info;
+			status = fs_read_info(vnode->device, &info);
+			if (status == B_OK && (info.flags & B_FS_IS_READONLY) != 0)
+				return B_READ_ONLY_DEVICE;
+		}
+
+		return check_access_permissions_etc(mode, stat.st_mode, stat.st_gid,
+			stat.st_uid, getuid(), getgid());
+	}
 
 	if (HAS_FS_CALL(vnode, access))
 		status = FS_CALL(vnode.Get(), access, mode);
