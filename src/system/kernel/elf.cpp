@@ -1133,7 +1133,10 @@ verify_eheader(elf_ehdr *elfHeader)
 	if (elfHeader->e_phoff == 0)
 		return B_NOT_AN_EXECUTABLE;
 
-	if (elfHeader->e_phentsize < sizeof(elf_phdr))
+	if (elfHeader->e_phentsize != sizeof(elf_phdr))
+		return B_NOT_AN_EXECUTABLE;
+
+	if (elfHeader->e_shentsize != sizeof(elf_shdr))
 		return B_NOT_AN_EXECUTABLE;
 
 	return 0;

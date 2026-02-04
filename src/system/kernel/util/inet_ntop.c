@@ -31,12 +31,6 @@ static const char rcsid[] = "$Id: inet_ntop.c,v 1.5 2005/11/03 22:59:52 marka Ex
 #include <stdio.h>
 #include <string.h>
 
-#ifdef SPRINTF_CHAR
-# define SPRINTF(x) strlen(sprintf/**/x)
-#else
-# define SPRINTF(x) ((size_t)sprintf x)
-#endif
-
 /*%
  * WARNING: Don't even consider trying to compile this on a system where
  * sizeof(int) < 4.  sizeof(int) > 4 is fine; all the world's not a VAX.
@@ -91,8 +85,10 @@ inet_ntop4(src, dst, size)
 {
 	static const char fmt[] = "%u.%u.%u.%u";
 	char tmp[sizeof "255.255.255.255"];
+	int l;
 
-	if (SPRINTF((tmp, fmt, src[0], src[1], src[2], src[3])) >= size) {
+	l = snprintf(tmp, sizeof(tmp), fmt, src[0], src[1], src[2], src[3]);
+	if (l <= 0 || (size_t)l >= size) {
 		errno = ENOSPC;
 		return (NULL);
 	}
@@ -181,7 +177,12 @@ inet_ntop6(src, dst, size)
 			tp += strlen(tp);
 			break;
 		}
-		tp += SPRINTF((tp, "%x", words[i]));
+		{
+			int l = snprintf(tp, sizeof tmp - (tp - tmp), "%x", words[i]);
+			if (l <= 0)
+				return (NULL);
+			tp += l;
+		}
 	}
 	/* Was it a trailing run of 0x00's? */
 	if (best.base != -1 && (best.base + best.len) ==

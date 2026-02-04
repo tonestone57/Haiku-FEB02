@@ -59,6 +59,17 @@ KDiskDeviceManager* KDiskDeviceManager::sDefaultManager = NULL;
 
 
 struct device_event {
+	device_event()
+		:
+		name(NULL)
+	{
+	}
+
+	~device_event()
+	{
+		free(const_cast<char*>(name));
+	}
+
 	int32					opcode;
 	const char*				name;
 	dev_t					device;
@@ -153,10 +164,13 @@ public:
 					break;
 
 				const char* name = event->GetString("name", NULL);
-				if (name != NULL)
+				if (name != NULL) {
 					deviceEvent->name = strdup(name);
-				else
-					deviceEvent->name = NULL;
+					if (deviceEvent->name == NULL) {
+						delete deviceEvent;
+						break;
+					}
+				}
 
 				deviceEvent->opcode = opcode;
 				deviceEvent->device = event->GetInt32("device", -1);
@@ -200,7 +214,7 @@ public:
 	{
 		device_event* event = (device_event*)_event;
 
-		if (strcmp(event->name, "raw") == 0) {
+		if (event->name != NULL && strcmp(event->name, "raw") == 0) {
 			// a new raw device was added/removed
 			KPath path;
 			if (path.InitCheck() != B_OK
