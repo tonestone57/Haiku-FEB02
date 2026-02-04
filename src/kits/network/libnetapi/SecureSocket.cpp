@@ -321,7 +321,7 @@ BSecureSocket::Private::_CreateContext()
 	// Setup Key Exchange Curves / Groups
 	// Prioritize Hybrid Post-Quantum Key Exchange (X25519 + ML-KEM-768)
 	// Fallback to classical X25519
-	if (SSL_CTX_set1_groups_list(sContext, "X25519-ML-KEM-768:X25519") != 1) {
+	if (SSL_CTX_set1_groups_list(sContext, "X25519MLKEM768:X25519") != 1) {
 		// If hybrid is not available (e.g. older OpenSSL), fallback to just X25519
 		// or let OpenSSL use its defaults.
 		// Forcing X25519 ensures we stick to Curve25519 as the baseline if possible.
