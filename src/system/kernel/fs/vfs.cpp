@@ -433,6 +433,7 @@ static status_t dec_vnode_ref_count(struct vnode* vnode, bool alwaysFree,
 static inline void put_vnode(struct vnode* vnode);
 static status_t fs_unmount(char* path, dev_t mountID, uint32 flags,
 	bool kernel);
+static status_t fs_read_info(dev_t device, struct fs_info* info);
 static int open_vnode(struct vnode* vnode, int openMode, bool kernel);
 
 
