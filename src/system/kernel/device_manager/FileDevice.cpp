@@ -406,11 +406,15 @@ FileDevice::Deselect(void* cookie, uint8 event, selectsync* sync)
 
 
 status_t
-FileDevice::Close(void* cookie)
+FileDevice::Close(void* _cookie)
 {
-	// TODO: This should probably really close the FD. Depending on the
-	// underlying FS operations could block and close() would be needed to
-	// unblock them.
+	Cookie* cookie = (Cookie*)_cookie;
+
+	if (cookie->fd >= 0) {
+		close(cookie->fd);
+		cookie->fd = -1;
+	}
+
 	return B_OK;
 }
 
