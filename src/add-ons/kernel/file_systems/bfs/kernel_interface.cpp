@@ -1074,7 +1074,7 @@ bfs_create_symlink(fs_volume* _volume, fs_vnode* _directory, const char* name,
 
 	size_t length = strlen(path);
 	if (length < SHORT_SYMLINK_NAME_LENGTH) {
-		strcpy(link->Node().short_symlink, path);
+		strlcpy(link->Node().short_symlink, path, SHORT_SYMLINK_NAME_LENGTH);
 	} else {
 		link->Node().flags |= HOST_ENDIAN_TO_BFS_INT32(INODE_LONG_SYMLINK
 			| INODE_LOGGED);

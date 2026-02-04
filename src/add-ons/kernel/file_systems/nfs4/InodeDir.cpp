@@ -86,13 +86,12 @@ Inode::LoadAttrDirHandle()
 	if (!fFileSystem->GetConfiguration().fEmulateNamedAttrs)
 		return B_UNSUPPORTED;
 
-	char* attrDir
-		= reinterpret_cast<char*>(malloc(strlen(Name()) + 32));
+	size_t bufferSize = strlen(Name()) + 32;
+	char* attrDir = reinterpret_cast<char*>(malloc(bufferSize));
 	if (attrDir == NULL)
 		return B_NO_MEMORY;
-	strcpy(attrDir, ".");
-	strcat(attrDir, Name());
-	strcat(attrDir, "-haiku-attrs");
+
+	snprintf(attrDir, bufferSize, ".%s-haiku-attrs", Name());
 
 	result = NFS4Inode::LookUp(attrDir, NULL, NULL, &handle, true);
 	if (result == B_ENTRY_NOT_FOUND) {
