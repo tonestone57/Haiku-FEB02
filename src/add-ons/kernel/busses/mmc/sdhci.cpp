@@ -49,10 +49,12 @@ sdhci_generic_interrupt(void* data)
 }
 
 
-SdhciBus::SdhciBus(struct registers* registers, uint8_t irq, bool poll)
+SdhciBus::SdhciBus(struct registers* registers, uint8_t irq, bool poll,
+	uint32_t quirks)
 	:
 	fRegisters(registers),
-	fIrq(irq)
+	fIrq(irq),
+	fQuirks(quirks)
 {
 	if (irq == 0 || irq == 0xff) {
 		ERROR("IRQ not assigned\n");
@@ -589,17 +591,39 @@ SdhciBus::PowerOn()
 	}
 
 	uint8_t supportedVoltages = fRegisters->capabilities.SupportedVoltages();
+
+	// Quirk: Missing Caps (common on Intel)
+	// Some controllers support 1.8V/3.3V but don't advertise it in capabilities.
+	if (fQuirks & SDHCI_QUIRK_MISSING_CAPS) {
+		supportedVoltages |= Capabilities::k1v8 | Capabilities::k3v3;
+	}
+
+	uint8_t targetVoltage = 0;
 	if ((supportedVoltages & Capabilities::k3v3) != 0)
-		fRegisters->power_control.SetVoltage(PowerControl::k3v3);
+		targetVoltage = PowerControl::k3v3;
 	else if ((supportedVoltages & Capabilities::k3v0) != 0)
-		fRegisters->power_control.SetVoltage(PowerControl::k3v0);
+		targetVoltage = PowerControl::k3v0;
 	else if ((supportedVoltages & Capabilities::k1v8) != 0)
-		fRegisters->power_control.SetVoltage(PowerControl::k1v8);
+		targetVoltage = PowerControl::k1v8;
 	else {
 		fRegisters->power_control.PowerOff();
 		ERROR("No voltage is supported\n");
 		return false;
 	}
+
+	if (fQuirks & SDHCI_QUIRK_INTEL_POWER_UP_RESET) {
+		// Intel-specific power-up sequence
+		fRegisters->power_control.PowerOff();
+		snooze(10000);
+		fRegisters->power_control.SelectVoltage(targetVoltage);
+		fRegisters->power_control.PowerOn();
+		snooze(10000);
+	} else {
+		fRegisters->power_control.SetVoltage(targetVoltage);
+	}
+
+	if (fQuirks & SDHCI_QUIRK_WAIT_FOR_POWER)
+		snooze(20000);
 
 	return true;
 }

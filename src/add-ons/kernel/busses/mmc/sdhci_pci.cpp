@@ -55,32 +55,46 @@
 struct PciIdMatch {
 	uint16 vendor;
 	uint16 device;
+	uint32 quirks;
 };
 
 
 static const PciIdMatch kSupportedDevices[] = {
-	{ 0x1180, 0xe822 }, // Ricoh SD/MMC
-	{ 0x1180, 0xe823 }, // Ricoh SD/MMC
-	{ 0x8086, 0x0f14 }, // Intel Bay Trail eMMC
-	{ 0x8086, 0x0f15 }, // Intel Bay Trail SDIO
-	{ 0x8086, 0x0f16 }, // Intel Bay Trail SD
-	{ 0x8086, 0x2294 }, // Intel Braswell eMMC
-	{ 0x8086, 0x2296 }, // Intel Cherry Trail eMMC
-	{ 0x8086, 0x5aca }, // Intel Apollo Lake eMMC
-	{ 0x8086, 0x5acc }, // Intel Apollo Lake SD
-	{ 0x8086, 0x31b4 }, // Intel Gemini Lake eMMC
-	{ 0x8086, 0xa0c4 }, // Intel Tiger Lake eMMC
-	{ 0x8086, 0x4dc4 }, // Intel Jasper Lake eMMC
-	{ 0x8086, 0x4b47 }, // Intel Elkhart Lake eMMC
-	{ 0x8086, 0x54c4 }, // Intel Alder Lake N-Series eMMC
-	{ 0x10ec, 0x5209 }, // Realtek RTS5209
-	{ 0x10ec, 0x5229 }, // Realtek RTS5229
-	{ 0x10ec, 0x5227 }, // Realtek RTS5227
-	{ 0x1217, 0x8320 }, // O2 Micro 8320
-	{ 0x1217, 0x8321 }, // O2 Micro 8321
-	{ 0x1217, 0x8420 }, // O2 Micro 8420
-	{ 0x1217, 0x8421 }, // O2 Micro 8421
+	{ 0x1180, 0xe822, 0 }, // Ricoh SD/MMC
+	{ 0x1180, 0xe823, 0 }, // Ricoh SD/MMC
+	{ 0x8086, 0x0f14, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Bay Trail eMMC
+	{ 0x8086, 0x0f15, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Bay Trail SDIO
+	{ 0x8086, 0x0f16, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Bay Trail SD
+	{ 0x8086, 0x2294, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Braswell eMMC
+	{ 0x8086, 0x2296, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Cherry Trail eMMC
+	{ 0x8086, 0x5aca, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Apollo Lake eMMC
+	{ 0x8086, 0x5acc, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Apollo Lake SD
+	{ 0x8086, 0x31b4, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Gemini Lake eMMC
+	{ 0x8086, 0xa0c4, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Tiger Lake eMMC
+	{ 0x8086, 0x4dc4, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Jasper Lake eMMC
+	{ 0x8086, 0x4b47, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Elkhart Lake eMMC
+	{ 0x8086, 0x54c4, SDHCI_QUIRK_INTEL_POWER_UP_RESET | SDHCI_QUIRK_WAIT_FOR_POWER | SDHCI_QUIRK_MISSING_CAPS }, // Intel Alder Lake N-Series eMMC
+	{ 0x10ec, 0x5209, 0 }, // Realtek RTS5209
+	{ 0x10ec, 0x5229, 0 }, // Realtek RTS5229
+	{ 0x10ec, 0x5227, 0 }, // Realtek RTS5227
+	{ 0x1217, 0x8320, 0 }, // O2 Micro 8320
+	{ 0x1217, 0x8321, 0 }, // O2 Micro 8321
+	{ 0x1217, 0x8420, 0 }, // O2 Micro 8420
+	{ 0x1217, 0x8421, 0 }, // O2 Micro 8421
 };
+
+
+static uint32_t
+get_quirks_for_device(uint16 vendor, uint16 device)
+{
+	for (uint32 i = 0; i < sizeof(kSupportedDevices) / sizeof(kSupportedDevices[0]); i++) {
+		if (vendor == kSupportedDevices[i].vendor
+			&& device == kSupportedDevices[i].device) {
+			return kSupportedDevices[i].quirks;
+		}
+	}
+	return 0;
+}
 
 
 status_t
@@ -155,7 +169,8 @@ init_bus_pci(device_node* node, void** bus_cookie)
 	uint8_t irq = pciInfo.u.h0.interrupt_line;
 	TRACE("irq interrupt line: %d\n", irq);
 
-	SdhciBus* bus = new(std::nothrow) SdhciBus(_regs, irq, false);
+	SdhciBus* bus = new(std::nothrow) SdhciBus(_regs, irq, false,
+		get_quirks_for_device(pciInfo.vendor_id, pciInfo.device_id));
 
 	status_t status = B_NO_MEMORY;
 	if (bus != NULL)
