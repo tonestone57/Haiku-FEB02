@@ -215,8 +215,7 @@ MessagingArea::AllocateCommand(uint32 commandWhat, int32 dataSize,
 void
 MessagingArea::CommitCommand()
 {
-	// TODO: If invoked while locked, we should supply B_DO_NOT_RESCHEDULE.
-	release_sem(fCounterSem);
+	release_sem_etc(fCounterSem, 1, B_DO_NOT_RESCHEDULE);
 }
 
 
