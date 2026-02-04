@@ -25,6 +25,7 @@
 #include <kernel/OS.h>
 #include <util/fs_trim_support.h>
 
+#include <IORequest.h>
 #include <AutoDeleter.h>
 
 
@@ -103,6 +104,8 @@ mmc_disk_supports_device(device_node* parent)
 		TRACE("SDHC card found, parent: %p\n", parent);
 	else if (deviceType == CARD_TYPE_MMC)
 		TRACE("MMC card found, parent: %p\n", parent);
+	else if (deviceType == CARD_TYPE_MMC_HC)
+		TRACE("MMC HC card found, parent: %p\n", parent);
 	else
 		return 0.0;
 
@@ -132,7 +135,10 @@ mmc_disk_execute_iorequest(void* data, IOOperation* operation)
 	status_t error;
 
 	uint8_t command;
-	if (operation->IsWrite())
+	if (info->specialRequest != NULL
+		&& operation->Parent() == info->specialRequest) {
+		command = info->specialCommand;
+	} else if (operation->IsWrite())
 		command = SD_WRITE_MULTIPLE_BLOCKS;
 	else
 		command = SD_READ_MULTIPLE_BLOCKS;
@@ -152,6 +158,8 @@ mmc_disk_execute_iorequest(void* data, IOOperation* operation)
 static status_t
 mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 {
+	MutexLocker locker(info->scanLock);
+
 	struct mmc_disk_csd csd;
 	TRACE("Get geometry\n");
 	status_t error = info->mmc->execute_command(info->parent,
@@ -181,11 +189,64 @@ mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 	// opportunity to switch the card to 4-bit data transfers (instead of the
 	// default 1 bit mode)
 	uint32_t cardStatus;
-	const uint32 k4BitMode = 2;
-	info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
-		SD_APP_CMD, info->rca << 16, &cardStatus);
-	info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
-		SD_SET_BUS_WIDTH, k4BitMode, &cardStatus);
+	uint8_t deviceType;
+	sDeviceManager->get_attr_uint8(info->parent, kMmcTypeAttribute,
+			&deviceType, true);
+
+	if (deviceType == CARD_TYPE_MMC || deviceType == CARD_TYPE_MMC_HC) {
+		// MMC SWITCH (CMD6) argument format:
+		// [31:26] 0
+		// [25:24] Access (00: switch, 01: set bits, 10: clear bits, 11: write byte)
+		// [23:16] Index
+		// [15:8] Value
+		// [7:3] 0
+		// [2:0] Cmd Set
+		// Write Byte (3) to BUS_WIDTH (183) with value 1 (4-bit)
+		uint32_t arg = (3 << 24) | (183 << 16) | (1 << 8);
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			MMC_SWITCH, arg, &cardStatus);
+
+		if (deviceType == CARD_TYPE_MMC_HC) {
+			// Read EXT_CSD to get sector count
+			uint8* ext_csd = (uint8*)malloc(512);
+			if (ext_csd != NULL) {
+				MemoryDeleter deleter(ext_csd);
+				IORequest request;
+				if (request.Init(0, (addr_t)ext_csd, 512, false, 0) == B_OK) {
+					info->specialRequest = &request;
+					info->specialCommand = MMC_SEND_EXT_CSD;
+
+					status_t status = info->scheduler->ScheduleRequest(&request);
+					if (status == B_OK)
+						status = request.Wait(0, 0);
+
+					info->specialRequest = NULL;
+					info->specialCommand = 0;
+
+					if (status == B_OK) {
+						uint32 sec_count = B_LENDIAN_TO_HOST_INT32(
+							*(uint32*)&ext_csd[212]);
+						if (sec_count > 0) {
+							TRACE("MMC EXT_CSD sec_count: %" B_PRIu32 "\n",
+								sec_count);
+							geometry->sectors_per_track = sec_count;
+							geometry->cylinder_count = 1;
+							geometry->head_count = 1;
+						}
+					} else {
+						ERROR("Failed to read EXT_CSD: %s\n", strerror(status));
+					}
+				}
+			}
+		}
+
+	} else {
+		const uint32 k4BitMode = 2;
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			SD_APP_CMD, info->rca << 16, &cardStatus);
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			SD_SET_BUS_WIDTH, k4BitMode, &cardStatus);
+	}
 
 	// From now on we use 4 bit mode
 	info->mmc->set_bus_width(info->parent, info->parentCookie, 4);
@@ -283,6 +344,8 @@ mmc_disk_init_driver(device_node* node, void** cookie)
 	}
 	info->scheduler->SetCallback(&mmc_disk_execute_iorequest, info);
 
+	mutex_init(&info->scanLock, "mmc_disk scan lock");
+
 	memset(&info->geometry, 0, sizeof(info->geometry));
 
 	TRACE("MMC card device initialized for RCA %x\n", info->rca);
@@ -296,6 +359,7 @@ mmc_disk_uninit_driver(void* _cookie)
 {
 	CALLED();
 	mmc_disk_driver_info* info = (mmc_disk_driver_info*)_cookie;
+	mutex_destroy(&info->scanLock);
 	delete info->scheduler;
 	delete info->dmaResource;
 	sDeviceManager->put_node(info->parent);
@@ -540,18 +604,43 @@ mmc_block_trim(mmc_disk_driver_info* info, fs_trim_data* trimData)
 		}
 
 		uint32_t response;
-		result = info->mmc->execute_command(info->parent, info->parentCookie,
-			info->rca, SD_ERASE_WR_BLK_START, offset, &response);
-		if (result != B_OK)
-			break;
-		result = info->mmc->execute_command(info->parent, info->parentCookie,
-			info->rca, SD_ERASE_WR_BLK_END, offset + length, &response);
-		if (result != B_OK)
-			break;
-		result = info->mmc->execute_command(info->parent, info->parentCookie,
-			info->rca, SD_ERASE, kEraseModeDiscard, &response);
-		if (result != B_OK)
-			break;
+		uint8_t deviceType;
+		sDeviceManager->get_attr_uint8(info->parent, kMmcTypeAttribute,
+			&deviceType, true);
+
+		if (deviceType == CARD_TYPE_MMC || deviceType == CARD_TYPE_MMC_HC) {
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, MMC_ERASE_GROUP_START, offset,
+				&response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, MMC_ERASE_GROUP_END,
+				offset + length, &response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, MMC_ERASE, 0,
+				&response);
+			if (result != B_OK)
+				break;
+		} else {
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, SD_ERASE_WR_BLK_START, offset,
+				&response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, SD_ERASE_WR_BLK_END,
+				offset + length, &response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, SD_ERASE, kEraseModeDiscard,
+				&response);
+			if (result != B_OK)
+				break;
+		}
 
 		trimmedSize += (info->flags & kIoCommandOffsetAsSectors) != 0
 			? length * kBlockSize : length;

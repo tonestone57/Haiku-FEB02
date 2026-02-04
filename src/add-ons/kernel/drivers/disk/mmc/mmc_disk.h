@@ -13,6 +13,7 @@
 #include <device_manager.h>
 #include <KernelExport.h>
 
+#include <lock.h>
 #include <stdint.h>
 
 #include <mmc.h>
@@ -39,6 +40,10 @@ typedef struct {
 
 	DMAResource* dmaResource;
 	IOScheduler* scheduler;
+
+	mutex scanLock;
+	struct IORequest* specialRequest;
+	uint8_t specialCommand;
 
 	off_t DeviceSize() const {
 		return (off_t)geometry.bytes_per_sector * geometry.sectors_per_track

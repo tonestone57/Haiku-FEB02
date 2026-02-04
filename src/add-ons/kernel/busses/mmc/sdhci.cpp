@@ -266,10 +266,21 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 		case SD_ERASE_WR_BLK_START:
 		case SD_ERASE_WR_BLK_END:
 		case SD_SET_BUS_WIDTH: // SD Application command
+		case MMC_SET_RELATIVE_ADDR:
+		case MMC_ERASE_GROUP_START:
+		case MMC_ERASE_GROUP_END:
 			replyType = Command::kR1Type;
 			break;
 		case SD_SEND_OP_COND: // SD Application command
+		case MMC_SEND_OP_COND:
 			replyType = Command::kR3Type;
+			break;
+		case MMC_SWITCH:
+			replyType = Command::kR1bType;
+			break;
+		case MMC_SEND_EXT_CSD:
+			transferMode = TransferMode::kRead | TransferMode::kDmaEnable;
+			replyType = Command::kR1Type | Command::kDataPresent;
 			break;
 		default:
 			ERROR("Unknown command %x\n", command);
@@ -294,7 +305,7 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 		|| (replyType == (Command::kR1Type | Command::kDataPresent)))
 		fRegisters->transfer_mode = transferMode;
 
-	fRegisters->command.SendCommand(command, replyType);
+	fRegisters->command.SendCommand(command & 0x3f, replyType);
 
 	// Wait for command response to be available ("command complete" interrupt)
 	TRACE("Wait for command complete...");
