@@ -170,12 +170,17 @@ syslog_output(syslog_message &message)
 	pos = 0;
 
 	while (true) {
-		strcpy(buffer, header);
+		strlcpy(buffer, header, sizeof(buffer));
 		int32 length;
 
 		const char *newLine = strchr(message.message + pos, '\n');
 		if (newLine != NULL) {
 			length = newLine - message.message + 1 - pos;
+			if (headerLength + length >= (int32)sizeof(buffer))
+				newLine = NULL;
+		}
+
+		if (newLine != NULL) {
 			strlcpy(buffer + headerLength, message.message + pos, length + 1);
 			pos += length;
 		} else {

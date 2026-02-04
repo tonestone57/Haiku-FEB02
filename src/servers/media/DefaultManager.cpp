@@ -62,7 +62,8 @@ DefaultManager::DefaultManager()
 	fRescanLock("rescan default manager"),
 	fRoster(NULL)
 {
-	strcpy(fPhysicalAudioOutInputName, "default");
+	strlcpy(fPhysicalAudioOutInputName, "default",
+		sizeof(fPhysicalAudioOutInputName));
 	fBeginHeader[0] = 0xab00150b;
 	fBeginHeader[1] = 0x18723462;
 	fBeginHeader[2] = 0x00000002;
@@ -244,8 +245,9 @@ DefaultManager::Set(media_node_id node_id, const char *input_name,
 		case AUDIO_OUTPUT:
 			fPhysicalAudioOut = node_id;
 			fPhysicalAudioOutInputID = input_id;
-			strcpy(fPhysicalAudioOutInputName,
-				input_name ? input_name : "<null>");
+			strlcpy(fPhysicalAudioOutInputName,
+				input_name ? input_name : "<null>",
+				sizeof(fPhysicalAudioOutInputName));
 			return B_OK;
 		case TIME_SOURCE:
 			return B_ERROR;
@@ -303,7 +305,7 @@ DefaultManager::Get(media_node_id *nodeid, char *input_name, int32 *inputid,
 				return B_NAME_NOT_FOUND;
 			*nodeid = fPhysicalAudioOut;
 			*inputid = fPhysicalAudioOutInputID;
-			strcpy(input_name, fPhysicalAudioOutInputName);
+			strlcpy(input_name, fPhysicalAudioOutInputName, B_MEDIA_NAME_LENGTH);
 			return B_OK;
 
 		case AUDIO_MIXER:		// output: nodeid
@@ -455,7 +457,7 @@ DefaultManager::_FindPhysical(volatile media_node_id *id, uint32 default_type,
 			msg->FindString(kDefaultManagerFlavorName, &name);
 			msg->FindString(kDefaultManagerPath, &path);
 			if (name)
-				strcpy(msgDninfo.name, name);
+				strlcpy(msgDninfo.name, name, sizeof(msgDninfo.name));
 			if (path)
 				msgPath = BPath(path);
 			break;
