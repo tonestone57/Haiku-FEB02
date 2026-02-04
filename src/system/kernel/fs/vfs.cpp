@@ -4006,7 +4006,8 @@ check_access_permissions_etc(int accessMode, mode_t mode, gid_t nodeGroupID,
 		// user is node owner
 		permissions = userPermissions;
 	} else if (gid == nodeGroupID
-		|| is_in_group(thread_get_current_thread()->team, nodeGroupID)) {
+		|| is_in_supplementary_groups(thread_get_current_thread()->team,
+			nodeGroupID)) {
 		// user is in owning group
 		permissions = groupPermissions;
 	} else {

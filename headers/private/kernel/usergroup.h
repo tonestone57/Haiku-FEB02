@@ -23,6 +23,7 @@ using BKernel::Team;
 void		inherit_parent_user_and_group(Team* team, Team* parent);
 status_t	update_set_id_user_and_group(Team* team, const char* file);
 bool		is_in_group(Team* team, gid_t gid);
+bool		is_in_supplementary_groups(Team* team, gid_t gid);
 
 
 #ifdef __cplusplus
