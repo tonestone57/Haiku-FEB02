@@ -925,6 +925,9 @@ KMessage::_InitFromBuffer(bool sizeFromBuffer)
 			int32 dataSize = fieldHeader->elementSize
 				* fieldHeader->elementCount;
 			fieldSize = (uint8*)fieldHeader->Data() + dataSize - data;
+
+			if (fieldSize > fieldHeader->fieldSize)
+				return B_BAD_DATA;
 		} else {
 			// non-fixed element size
 			FieldValueHeader* valueHeader
