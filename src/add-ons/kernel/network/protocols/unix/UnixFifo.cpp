@@ -436,6 +436,15 @@ UnixFifo::Read(const iovec* vecs, size_t vecCount,
 	if (IsReadShutdown() && fBuffer.Readable() == 0)
 		RETURN_ERROR(UNIX_FIFO_SHUTDOWN);
 
+	// validate vectors
+	size_t totalSize = 0;
+	for (size_t i = 0; i < vecCount; i++) {
+		if (vecs[i].iov_len > SSIZE_MAX || totalSize > SSIZE_MAX - vecs[i].iov_len)
+			RETURN_ERROR(B_BAD_VALUE);
+
+		totalSize += vecs[i].iov_len;
+	}
+
 	UnixRequest request(vecs, vecCount, NULL, address, peek);
 	fReaders.Add(&request);
 	fReadRequested += request.TotalSize();
@@ -485,6 +494,15 @@ UnixFifo::Write(const iovec* vecs, size_t vecCount,
 
 	if (IsReadShutdown())
 		RETURN_ERROR(EPIPE);
+
+	// validate vectors
+	size_t totalSize = 0;
+	for (size_t i = 0; i < vecCount; i++) {
+		if (vecs[i].iov_len > SSIZE_MAX || totalSize > SSIZE_MAX - vecs[i].iov_len)
+			RETURN_ERROR(B_BAD_VALUE);
+
+		totalSize += vecs[i].iov_len;
+	}
 
 	UnixRequest request(vecs, vecCount, ancillaryData,
 		(struct sockaddr_storage*)address);
