@@ -135,10 +135,10 @@ VirtualVolume::AddChildVolume(Volume* volume)
 
 	// get and check the node name
 	char name[B_FILE_NAME_LENGTH];
-	int32 nameLen = strlen(volume->GetName());
-	if (nameLen == 0 || nameLen >= B_FILE_NAME_LENGTH)
+	if (strlcpy(name, volume->GetName(), sizeof(name)) >= sizeof(name)
+		|| name[0] == '\0') {
 		return B_BAD_VALUE;
-	strcpy(name, volume->GetName());
+	}
 
 	// add the volume's root node
 	status_t error = fRootNode->AddEntry(name, volume->GetRootNode());
@@ -227,29 +227,27 @@ VirtualVolume::GetUniqueEntryName(const char* baseName, char* buffer)
 		return B_BAD_VALUE;
 
 	// check the base name len
-	int32 baseLen = strlen(baseName);
-	if (baseLen == 0 || baseLen >= B_FILE_NAME_LENGTH)
+	size_t baseLen = strlcpy(buffer, baseName, B_FILE_NAME_LENGTH);
+	if (baseLen >= B_FILE_NAME_LENGTH || baseLen == 0)
 		return B_BAD_VALUE;
-
-	strcpy(buffer, baseName);
 
 	AutoLocker<Locker> _(fLock);
 
 	// adjust the name, if necessary
 	int32 suffixNumber = 2;
-	while (fRootNode->GetChildNode(baseName)) {
+	while (fRootNode->GetChildNode(buffer)) {
 		// create a suffix
 		char suffix[13];
-		sprintf(suffix, " %" B_PRId32, suffixNumber);
+		snprintf(suffix, sizeof(suffix), " %" B_PRId32, suffixNumber);
 		suffixNumber++;
 
 		// check the len
-		int32 suffixLen = strlen(suffix);
+		size_t suffixLen = strlen(suffix);
 		if (baseLen + suffixLen >= B_FILE_NAME_LENGTH)
 			return B_NAME_TOO_LONG;
 
 		// compose the final name
-		strcpy(buffer + baseLen, suffix);
+		memcpy(buffer + baseLen, suffix, suffixLen + 1);
 	}
 
 	return B_OK;

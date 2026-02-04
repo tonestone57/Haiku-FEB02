@@ -1736,22 +1736,22 @@ read_into_ents(int dev, fs_off_t bnum, cache_ent **ents, int num, int bsize)
 
 
 static char *
-op_to_str(int op)
+op_to_str(int op, char *buff, size_t buff_size)
 {
-    static char buff[128];
-
     if (op & CACHE_READ)
-        strcpy(buff, "READ");
+        strlcpy(buff, "READ", buff_size);
     else if (op & CACHE_WRITE)
-        strcpy(buff, "WRITE");
+        strlcpy(buff, "WRITE", buff_size);
     else if (op & CACHE_NOOP)
-        strcpy(buff, "NOP");
+        strlcpy(buff, "NOP", buff_size);
+    else
+        strlcpy(buff, "UNKNOWN", buff_size);
 
     if (op & CACHE_LOCKED)
-        strcat(buff, " LOCKED");
+        strlcat(buff, " LOCKED", buff_size);
 
     if (op & CACHE_READ_AHEAD_OK)
-        strcat(buff, " (AHEAD)");
+        strlcat(buff, " (AHEAD)", buff_size);
 
     return buff;
 }
@@ -1764,9 +1764,12 @@ cache_block_io(int dev, fs_off_t bnum, void *data, fs_off_t num_blocks, int bsiz
     cache_ent      *ce;
     cache_ent_list *cel;
 
-    if (chatty_io > 1)
+    if (chatty_io > 1) {
+        char op_buf[128];
         printf("cbio: bnum = %" B_PRIdOFF ", num_blocks = %" B_PRIdOFF ", "
-            "bsize = %d, op = %s\n", bnum, num_blocks, bsize, op_to_str(op));
+            "bsize = %d, op = %s\n", bnum, num_blocks, bsize,
+            op_to_str(op, op_buf, sizeof(op_buf)));
+    }
 
     /* some sanity checks first */
     if (bsize == 0)

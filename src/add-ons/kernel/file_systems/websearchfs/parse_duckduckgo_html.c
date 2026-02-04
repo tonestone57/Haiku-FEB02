@@ -135,15 +135,15 @@ int duckduckgo_parse_results(const char *html, size_t htmlsize, long *nextid, st
 		/* strip <*b> off */
 		PRST;
 		while ((tmp = strstr(q, "<b>")))
-			strcpy(tmp, tmp + 3);
+			memmove(tmp, tmp + 3, strlen(tmp + 3) + 1);
 		while ((tmp = strstr(q, "</b>")))
-			strcpy(tmp, tmp + 4);
+			memmove(tmp, tmp + 4, strlen(tmp + 4) + 1);
 		/* strip <*em> off */
 		PRST;
 		while ((tmp = strstr(q, "<em>")))
-			strcpy(tmp, tmp + 4);
+			memmove(tmp, tmp + 4, strlen(tmp + 4) + 1);
 		while ((tmp = strstr(q, "</em>")))
-			strcpy(tmp, tmp + 5);
+			memmove(tmp, tmp + 5, strlen(tmp + 5) + 1);
 		/* strip &foo; */
 		tmp = unentitify_string(q);
 		free(q);
@@ -180,11 +180,11 @@ int duckduckgo_parse_results(const char *html, size_t htmlsize, long *nextid, st
 			free(tmp);
 			/* strip <*b> off */
 			while ((tmp = strstr(nres->snipset, "<b>")))
-				strcpy(tmp, tmp + 3);
+				memmove(tmp, tmp + 3, strlen(tmp + 3) + 1);
 			while ((tmp = strstr(nres->snipset, "</b>")))
-				strcpy(tmp, tmp + 4);
+				memmove(tmp, tmp + 4, strlen(tmp + 4) + 1);
 			while ((tmp = strstr(nres->snipset, "\r")))
-				strcpy(tmp, tmp + 1);
+				memmove(tmp, tmp + 1, strlen(tmp + 1) + 1);
 			while ((tmp = strstr(nres->snipset, "\n")))
 				*tmp = ' ';
 		}
