@@ -1170,4 +1170,3 @@ x86_init_user_debug()
 		"Single-steps to the next instruction.\n", 0);
 #endif
 }
-

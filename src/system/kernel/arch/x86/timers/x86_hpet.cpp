@@ -283,4 +283,3 @@ hpet_init(struct kernel_args *args)
 
 	return status;
 }
-
