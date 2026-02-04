@@ -217,20 +217,39 @@ MMCBus::_WorkerThread(void* cookie)
 		// Probe OCR, waiting for card to become ready
 		// We keep repeating ACMD41 until the card replies that it is
 		// initialized.
-		uint32_t ocr;
+		uint32_t ocr = 0;
+		bool isMMC = false;
 		do {
-			uint32_t cardStatus;
-			while (bus->ExecuteCommand(0, SD_APP_CMD, 0, &cardStatus)
-					== B_BUSY) {
-				ERROR("Card locked after CMD8...\n");
-				snooze(1000000);
-			}
-			if ((cardStatus & 0xFFFF8000) != 0)
-				ERROR("SD card reports error %x\n", cardStatus);
-			if ((cardStatus & (1 << 5)) == 0)
-				ERROR("Card did not enter ACMD mode\n");
+			if (isMMC) {
+				status_t status = bus->ExecuteCommand(0, MMC_SEND_OP_COND,
+					0x40FF8000, &ocr);
+				if (status != B_OK) {
+					TRACE("MMC CMD1 failed: %s\n", strerror(status));
+				}
+			} else {
+				uint32_t cardStatus;
+				status_t status = bus->ExecuteCommand(0, SD_APP_CMD, 0,
+					&cardStatus);
 
-			bus->ExecuteCommand(0, SD_SEND_OP_COND, hcs | 0xFF8000, &ocr);
+				while (status == B_BUSY) {
+					ERROR("Card locked after CMD8...\n");
+					snooze(1000000);
+					status = bus->ExecuteCommand(0, SD_APP_CMD, 0, &cardStatus);
+				}
+
+				if (status != B_OK) {
+					TRACE("SD_APP_CMD failed, assuming MMC card\n");
+					isMMC = true;
+					continue;
+				}
+
+				if ((cardStatus & 0xFFFF8000) != 0)
+					ERROR("SD card reports error %x\n", cardStatus);
+				if ((cardStatus & (1 << 5)) == 0)
+					ERROR("Card did not enter ACMD mode\n");
+
+				bus->ExecuteCommand(0, SD_SEND_OP_COND, hcs | 0xFF8000, &ocr);
+			}
 
 			if ((ocr & (1 << 31)) == 0) {
 				TRACE("Card is busy\n");
@@ -242,7 +261,9 @@ MMCBus::_WorkerThread(void* cookie)
 		// ones. So ACMD41 should be moved inside the probing loop below?
 		uint8_t cardType = CARD_TYPE_SD;
 
-		if ((ocr & hcs) != 0)
+		if (isMMC)
+			cardType = CARD_TYPE_MMC;
+		else if ((ocr & hcs) != 0)
 			cardType = CARD_TYPE_SDHC;
 		if ((ocr & (1 << 29)) != 0)
 			cardType = CARD_TYPE_UHS2;

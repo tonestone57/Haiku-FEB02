@@ -101,6 +101,8 @@ mmc_disk_supports_device(device_node* parent)
 		TRACE("SD card found, parent: %p\n", parent);
 	else if (deviceType == CARD_TYPE_SDHC)
 		TRACE("SDHC card found, parent: %p\n", parent);
+	else if (deviceType == CARD_TYPE_MMC)
+		TRACE("MMC card found, parent: %p\n", parent);
 	else
 		return 0.0;
 

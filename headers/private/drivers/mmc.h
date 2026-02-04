@@ -68,6 +68,11 @@ enum SDHCI_APPLICATION_COMMANDS {
 };
 
 
+enum MMC_COMMANDS {
+	MMC_SEND_OP_COND = 1,
+};
+
+
 // Interface between mmc_bus and underlying implementation (sdhci_pci or any
 // other thing that can execute mmc commands)
 typedef struct mmc_bus_interface {
