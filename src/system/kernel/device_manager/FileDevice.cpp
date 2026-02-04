@@ -7,6 +7,7 @@
 #include "FileDevice.h"
 
 #include <errno.h>
+#include <poll.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -274,13 +275,36 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 
 		case B_SET_BLOCKING_IO:
 		case B_SET_NONBLOCKING_IO:
-			// TODO: Translate to O_NONBLOCK and pass on!
+		{
+			int flags = fcntl(cookie->fd, F_GETFL);
+			if (flags < 0)
+				return errno;
+
+			if (op == B_SET_NONBLOCKING_IO)
+				flags |= O_NONBLOCK;
+			else
+				flags &= ~O_NONBLOCK;
+
+			if (fcntl(cookie->fd, F_SETFL, flags) < 0)
+				return errno;
+
 			return B_OK;
+		}
 
 		case B_GET_READ_STATUS:
 		case B_GET_WRITE_STATUS:
-			// TODO: poll() the FD!
-			return set_ioctl_result(true, buffer, length);
+		{
+			struct pollfd pollFD;
+			pollFD.fd = cookie->fd;
+			pollFD.events = op == B_GET_READ_STATUS ? POLLIN : POLLOUT;
+			pollFD.revents = 0;
+
+			if (poll(&pollFD, 1, 0) < 0)
+				return errno;
+
+			return set_ioctl_result((pollFD.revents & pollFD.events) != 0,
+				buffer, length);
+		}
 
 		case B_GET_ICON:
 			return B_UNSUPPORTED;
