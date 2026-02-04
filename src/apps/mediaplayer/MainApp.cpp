@@ -585,7 +585,8 @@ MainApp::_InstallPlaylistMimeType()
 	// set sniffer rule
 	char snifferRule[32];
 	uint32 bigEndianMagic = B_HOST_TO_BENDIAN_INT32(kPlaylistMagicBytes);
-	sprintf(snifferRule, "0.9 ('%4s')", (const char*)&bigEndianMagic);
+	snprintf(snifferRule, sizeof(snifferRule), "0.9 ('%.4s')",
+		(const char*)&bigEndianMagic);
 	ret = mime.SetSnifferRule(snifferRule);
 	if (ret != B_OK) {
 		BString parseError;
