@@ -12,6 +12,14 @@ Application keystore_server :
 	: keystore_server.rdef
 ;
 
+if [ FIsBuildFeatureEnabled openssl ] {
+	UseBuildFeatureHeaders openssl ;
+	LinkWithHeaders keystore_server :
+		[ BuildFeatureAttribute openssl : libraries ]
+		: [ BuildFeatureAttribute openssl : headers ] ;
+	SubDirC++Flags -DHAVE_OPENSSL ;
+}
+
 DoCatalogs keystore_server :
     x-vnd.Haiku-keystore_server
     :

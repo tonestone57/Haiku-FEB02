@@ -32,7 +32,7 @@ The function concatenates user-controlled strings into a fixed-size `path` buffe
 **Description:**
 The code responsible for encrypting the keyring data is unimplemented (TODO).
 **Impact:** Information Disclosure. Passwords stored in cleartext.
-**Status:** Open. Requires adding crypto library dependency.
+**Status:** Fixed. Implemented AES-256-GCM encryption with Argon2id/PBKDF2 key derivation using OpenSSL.
 
 ## 3. High/Medium Risks
 
