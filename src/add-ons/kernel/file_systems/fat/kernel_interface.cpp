@@ -399,7 +399,7 @@ dosfs_identify_partition(int fd, partition_data* partition, void** _cookie)
 	}
 
 	char name[LABEL_CSTRING];
-	strcpy(name, "no name");
+	strlcpy(name, "no name", sizeof(name));
 	read_label(&dummyVolume, fd, buf, name);
 
 	IdentifyCookie* cookie = new(std::nothrow) IdentifyCookie;
@@ -3037,7 +3037,7 @@ dosfs_read_attrdir(fs_volume* volume, fs_vnode* vnode, void* cookie, struct dire
 			return B_BUFFER_OVERFLOW;
 
 		*_num = 1;
-		strcpy(buffer->d_name, "BEOS:TYPE");
+		strlcpy(buffer->d_name, "BEOS:TYPE", sizeof(buffer->d_name));
 		buffer->d_reclen = length;
 	}
 

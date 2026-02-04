@@ -120,7 +120,7 @@ Volume::Mount(fs_volume *fsVolume, const char *path)
 	if (error == B_OK) {
 		fDeviceName = new(nothrow) char[strlen(path) + 1];
 		if (fDeviceName)
-			strcpy(fDeviceName, path);
+			strlcpy(fDeviceName, path, strlen(path) + 1);
 		else
 			error = B_NO_MEMORY;
 	}

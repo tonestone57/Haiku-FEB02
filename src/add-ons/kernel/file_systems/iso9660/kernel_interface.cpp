@@ -227,11 +227,11 @@ fs_read_fs_stat(fs_volume* _volume, struct fs_info* info)
 	}
 
 	if (i < 0)
-		strcpy(info->volume_name, "UNKNOWN");
+		strlcpy(info->volume_name, "UNKNOWN", sizeof(info->volume_name));
 	else
 		info->volume_name[i + 1] = 0;
 
-	strcpy(info->fsh_name, "iso9660");
+	strlcpy(info->fsh_name, "iso9660", sizeof(info->fsh_name));
 	return B_OK;
 }
 
