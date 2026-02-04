@@ -455,12 +455,20 @@ control_device_manager(const char* subsystem, uint32 function, void* buffer,
 
 			device_attr* last = (device_attr*)attrInfo.cookie;
 			AttributeList::Iterator iterator = node->Attributes().GetIterator();
-			// skip those we already traversed
-			while (iterator.HasNext() && last != NULL) {
-				device_attr* attr = iterator.Next();
 
-				if (attr == last)
-					break;
+			if (last != NULL) {
+				// verify that the cookie is valid
+				bool found = false;
+				while (iterator.HasNext()) {
+					device_attr* attr = iterator.Next();
+					if (attr == last) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found)
+					return B_BAD_VALUE;
 			}
 
 			if (!iterator.HasNext()) {
