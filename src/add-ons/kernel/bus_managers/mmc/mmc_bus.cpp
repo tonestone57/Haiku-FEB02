@@ -267,9 +267,12 @@ MMCBus::_WorkerThread(void* cookie)
 		// ones. So ACMD41 should be moved inside the probing loop below?
 		uint8_t cardType = CARD_TYPE_SD;
 
-		if (isMMC)
-			cardType = CARD_TYPE_MMC;
-		else if ((ocr & hcs) != 0)
+		if (isMMC) {
+			if ((ocr & (1 << 30)) != 0)
+				cardType = CARD_TYPE_MMC_HC;
+			else
+				cardType = CARD_TYPE_MMC;
+		} else if ((ocr & hcs) != 0)
 			cardType = CARD_TYPE_SDHC;
 		if ((ocr & (1 << 29)) != 0)
 			cardType = CARD_TYPE_UHS2;
@@ -290,16 +293,27 @@ MMCBus::_WorkerThread(void* cookie)
 		
 		// This being an if statement as opposed to a while statement restricts
 		// it to one device per bus.
-		if (bus->ExecuteCommand(0, SD_ALL_SEND_CID, 0, cid) == B_OK) {
-			bus->ExecuteCommand(0, SD_SEND_RELATIVE_ADDR, 0, &response);
+		if (bus->ExecuteCommand(0, MMC_ALL_SEND_CID, 0, cid) == B_OK) {
+			uint16_t rca;
+			if (isMMC) {
+				rca = 1;
+				if (bus->ExecuteCommand(0, MMC_SET_RELATIVE_ADDR, rca << 16,
+						&response) != B_OK) {
+					break;
+				}
+			} else {
+				bus->ExecuteCommand(0, SD_SEND_RELATIVE_ADDR, 0, &response);
 
-			TRACE("RCA: %x Status: %x\n", response >> 16, response & 0xFFFF);
+				TRACE("RCA: %x Status: %x\n", response >> 16,
+					response & 0xFFFF);
 
-			if ((response & 0xFF00) != 0x500) {
-				TRACE("Card did not enter data state\n");
-				// This probably means there are no more cards to scan on the
-				// bus, so exit the loop.
-				break;
+				if ((response & 0xFF00) != 0x500) {
+					TRACE("Card did not enter data state\n");
+					// This probably means there are no more cards to scan on the
+					// bus, so exit the loop.
+					break;
+				}
+				rca = response >> 16;
 			}
 
 			// The card now has an RCA and it entered the data phase, which
@@ -315,7 +329,6 @@ MMCBus::_WorkerThread(void* cookie)
 			revision += (cid[1] >> 16) & 0xF;
 			uint8_t month = cid[0] & 0xF;
 			uint16_t year = 2000 + ((cid[0] >> 4) & 0xFF);
-			uint16_t rca = response >> 16;
 				
 			device_attr attrs[] = {
 				{ B_DEVICE_BUS, B_STRING_TYPE, {.string = "mmc" }},

@@ -103,6 +103,8 @@ mmc_disk_supports_device(device_node* parent)
 		TRACE("SDHC card found, parent: %p\n", parent);
 	else if (deviceType == CARD_TYPE_MMC)
 		TRACE("MMC card found, parent: %p\n", parent);
+	else if (deviceType == CARD_TYPE_MMC_HC)
+		TRACE("MMC HC card found, parent: %p\n", parent);
 	else
 		return 0.0;
 
@@ -181,11 +183,29 @@ mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 	// opportunity to switch the card to 4-bit data transfers (instead of the
 	// default 1 bit mode)
 	uint32_t cardStatus;
-	const uint32 k4BitMode = 2;
-	info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
-		SD_APP_CMD, info->rca << 16, &cardStatus);
-	info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
-		SD_SET_BUS_WIDTH, k4BitMode, &cardStatus);
+	uint8_t deviceType;
+	sDeviceManager->get_attr_uint8(info->parent, kMmcTypeAttribute,
+			&deviceType, true);
+
+	if (deviceType == CARD_TYPE_MMC || deviceType == CARD_TYPE_MMC_HC) {
+		// MMC SWITCH (CMD6) argument format:
+		// [31:26] 0
+		// [25:24] Access (00: switch, 01: set bits, 10: clear bits, 11: write byte)
+		// [23:16] Index
+		// [15:8] Value
+		// [7:3] 0
+		// [2:0] Cmd Set
+		// Write Byte (3) to BUS_WIDTH (183) with value 1 (4-bit)
+		uint32_t arg = (3 << 24) | (183 << 16) | (1 << 8);
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			MMC_SWITCH, arg, &cardStatus);
+	} else {
+		const uint32 k4BitMode = 2;
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			SD_APP_CMD, info->rca << 16, &cardStatus);
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			SD_SET_BUS_WIDTH, k4BitMode, &cardStatus);
+	}
 
 	// From now on we use 4 bit mode
 	info->mmc->set_bus_width(info->parent, info->parentCookie, 4);
@@ -540,18 +560,43 @@ mmc_block_trim(mmc_disk_driver_info* info, fs_trim_data* trimData)
 		}
 
 		uint32_t response;
-		result = info->mmc->execute_command(info->parent, info->parentCookie,
-			info->rca, SD_ERASE_WR_BLK_START, offset, &response);
-		if (result != B_OK)
-			break;
-		result = info->mmc->execute_command(info->parent, info->parentCookie,
-			info->rca, SD_ERASE_WR_BLK_END, offset + length, &response);
-		if (result != B_OK)
-			break;
-		result = info->mmc->execute_command(info->parent, info->parentCookie,
-			info->rca, SD_ERASE, kEraseModeDiscard, &response);
-		if (result != B_OK)
-			break;
+		uint8_t deviceType;
+		sDeviceManager->get_attr_uint8(info->parent, kMmcTypeAttribute,
+			&deviceType, true);
+
+		if (deviceType == CARD_TYPE_MMC || deviceType == CARD_TYPE_MMC_HC) {
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, MMC_ERASE_GROUP_START, offset,
+				&response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, MMC_ERASE_GROUP_END,
+				offset + length, &response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, MMC_ERASE, 0,
+				&response);
+			if (result != B_OK)
+				break;
+		} else {
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, SD_ERASE_WR_BLK_START, offset,
+				&response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, SD_ERASE_WR_BLK_END,
+				offset + length, &response);
+			if (result != B_OK)
+				break;
+			result = info->mmc->execute_command(info->parent,
+				info->parentCookie, info->rca, SD_ERASE, kEraseModeDiscard,
+				&response);
+			if (result != B_OK)
+				break;
+		}
 
 		trimmedSize += (info->flags & kIoCommandOffsetAsSectors) != 0
 			? length * kBlockSize : length;
