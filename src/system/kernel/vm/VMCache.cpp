@@ -812,10 +812,17 @@ VMCache::_FreePageRange(VMCachePagesTree::Iterator it,
 		// remove the page and put it into the free queue
 		DEBUG_PAGE_ACCESS_START(page);
 		vm_remove_all_page_mappings(page);
-		ASSERT(page->WiredCount() == 0);
+		if (page->WiredCount() > 0) {
 			// TODO: Find a real solution! If the page is wired
 			// temporarily (e.g. by lock_memory()), we actually must not
 			// unmap it!
+			// For now we just keep the page. It will be orphaned, but that
+			// is better than corrupting memory.
+			dprintf("VMCache::_FreePageRange(): page %p wired, not freeing!\n", page);
+			DEBUG_PAGE_ACCESS_END(page);
+			continue;
+		}
+
 		RemovePage(page);
 			// Note: When iterating through a IteratableSplayTree
 			// removing the current node is safe.
