@@ -16,6 +16,7 @@
 #include <SupportDefs.h>
 #include <ByteOrder.h>
 #include <netinet/udp.h>
+#include <stdio.h>
 
 #ifndef UDP_SIZE_MAX
 #define UDP_SIZE_MAX 65515
