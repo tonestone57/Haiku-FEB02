@@ -707,7 +707,7 @@ static int websearchfs_create_gen(fs_volume *_volume, fs_node *dir, const char *
 		//sprintf("%"#(WEBSEARCHFS_NAME_LEN-8)"s %05d", name, i);
 		strncpy(newname, name, 56);
 		newname[56] = '\0';
-		sprintf(newname+strlen(newname), " %05d", i);
+		snprintf(newname+strlen(newname), sizeof(newname) - strlen(newname), " %05d", i);
 		n = (fs_node *)SLL_FIND(dir->children, next,
 								(sll_compare_func)compare_fs_node_by_name, (void *)newname);
 	}
@@ -1265,7 +1265,7 @@ static status_t websearchfs_open_query(fs_volume *_volume, const char *query, ui
 	/* strip out slashes */
 	q = qname;
 	while ((q = strchr(q, '/')))
-		strcpy(q, q + 1);
+		memmove(q, q + 1, strlen(q + 1) + 1);
 
 	/* should get/put_vnode(ns->root); around that I think... */
 	err = websearchfs_create_gen(_volume, ns->root, qname, 0, 0755, NULL, &qn, folders_attrs, true, true);

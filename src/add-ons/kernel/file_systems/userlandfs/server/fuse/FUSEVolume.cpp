@@ -3443,7 +3443,7 @@ FUSEVolume::_AddReadDirEntryLowLevel(ReadDirBuffer* buffer, char* buf, size_t bu
 	dirent* dirEntry = (dirent*)(buf);
 	dirEntry->d_dev = fID;
 	dirEntry->d_ino = nodeID;
-	strcpy(dirEntry->d_name, name);
+	strlcpy(dirEntry->d_name, name, bufsize - offsetof(struct dirent, d_name));
 
 	// align the entry length, so the next dirent will be aligned
 	entryLen = offsetof(struct dirent, d_name) + strlen(name) + 1;
