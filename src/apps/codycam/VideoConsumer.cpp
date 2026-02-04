@@ -84,11 +84,11 @@ VideoConsumer::VideoConsumer(const char* name, BView* view,
 		fBufferMap[j] = NULL;
 	}
 
-	strcpy(fFileNameText, "");
-	strcpy(fServerText, "");
-	strcpy(fLoginText, "");
-	strcpy(fPasswordText, "");
-	strcpy(fDirectoryText, "");
+	strlcpy(fFileNameText, "", sizeof(fFileNameText));
+	strlcpy(fServerText, "", sizeof(fServerText));
+	strlcpy(fLoginText, "", sizeof(fLoginText));
+	strlcpy(fPasswordText, "", sizeof(fPasswordText));
+	strlcpy(fDirectoryText, "", sizeof(fDirectoryText));
 
 	SetPriority(B_DISPLAY_PRIORITY);
 }
@@ -224,11 +224,11 @@ VideoConsumer::HandleMessage(int32 message, const void* data, size_t size)
 			fTranslator = info->translator;
 			fPassiveFtp = info->passiveFtp;
 			fUploadClient = info->uploadClient;
-			strcpy(fFileNameText, info->fileNameText);
-			strcpy(fServerText, info->serverText);
-			strcpy(fLoginText, info->loginText);
-			strcpy(fPasswordText, info->passwordText);
-			strcpy(fDirectoryText, info->directoryText);
+			strlcpy(fFileNameText, info->fileNameText, sizeof(fFileNameText));
+			strlcpy(fServerText, info->serverText, sizeof(fServerText));
+			strlcpy(fLoginText, info->loginText, sizeof(fLoginText));
+			strlcpy(fPasswordText, info->passwordText, sizeof(fPasswordText));
+			strlcpy(fDirectoryText, info->directoryText, sizeof(fDirectoryText));
 			// remove old user events
 			EventQueue()->FlushEvents(TimeSource()->Now(),
 				BTimedEventQueue::B_ALWAYS, true,
@@ -382,7 +382,7 @@ VideoConsumer::Connected(const media_source& producer,
 	fIn.source = producer;
 	fIn.format = withFormat;
 	fIn.node = Node();
-	sprintf(fIn.name, "Video Consumer");
+	snprintf(fIn.name, B_MEDIA_NAME_LENGTH, "Video Consumer");
 	*outInput = fIn;
 
 	uint32 userData = 0;
@@ -471,7 +471,7 @@ VideoConsumer::GetNextInput(int32* cookie, media_input* outInput)
 	if (*cookie < 1) {
 		fIn.node = Node();
 		fIn.destination.id = *cookie;
-		sprintf(fIn.name, "Video Consumer");
+		snprintf(fIn.name, B_MEDIA_NAME_LENGTH, "Video Consumer");
 		*outInput = fIn;
 		(*cookie)++;
 
@@ -767,8 +767,8 @@ VideoConsumer::FtpSave(char* filename)
 					// change to the desired name
 					uint32 time = real_time_clock();
 					char s[80];
-					strcpy(s, B_TRANSLATE("Last Capture: "));
-					strcat(s, ctime((const time_t*)&time));
+					snprintf(s, sizeof(s), "%s%s", B_TRANSLATE("Last Capture: "),
+						ctime((const time_t*)&time));
 					s[strlen(s) - 1] = 0;
 					UpdateFtpStatus(s);
 					delete ftp;

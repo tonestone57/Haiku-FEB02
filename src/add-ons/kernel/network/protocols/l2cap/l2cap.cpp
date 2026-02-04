@@ -211,6 +211,9 @@ l2cap_get_mtu(net_protocol* protocol, const struct sockaddr* address)
 static HciConnection*
 connection_for(net_buffer* buffer)
 {
+	if (buffer->interface_address == NULL || buffer->interface_address->local == NULL)
+		return NULL;
+
 	const sockaddr_l2cap* l2capAddr = (sockaddr_l2cap*)buffer->source;
 	const sockaddr_dl* interfaceAddr = (sockaddr_dl*)buffer->interface_address->local;
 	struct HciConnection* connection = btCoreData->ConnectionByDestination(
@@ -256,7 +259,7 @@ l2cap_receive_data(net_buffer* buffer)
 			// We need to find the connection this packet is associated with.
 			struct HciConnection* connection = connection_for(buffer);
 			if (connection == NULL) {
-				panic("no connection for received L2CAP command");
+				ERROR("no connection for received L2CAP command\n");
 				return ENOTCONN;
 			}
 

@@ -232,10 +232,14 @@ CardView::ForwardMessage(BMessage* message)
 	copy.RemoveName("_view_token");
 
 	size_t length = copy.FlattenedSize();
-	char stream[length];
+	char* stream = new(std::nothrow) char[length];
+	if (stream == NULL)
+		return;
 
 	if (copy.Flatten(stream, length) == B_OK)
 		write_port(fInputPort, 0, stream, length);
+
+	delete[] stream;
 }
 
 
@@ -596,9 +600,10 @@ ViewHWInterface::GetDeviceInfo(accelerant_device_info* info)
 	// a software-only driver, but we'll have some fun, anyway.
 	if (ReadLock()) {
 		info->version = 100;
-		sprintf(info->name, "Haiku, Inc. ViewHWInterface");
-		sprintf(info->chipset, "Haiku, Inc. Chipset");
-		sprintf(info->serial_no, "3.14159265358979323846");
+		snprintf(info->name, sizeof(info->name), "Haiku, Inc. ViewHWInterface");
+		snprintf(info->chipset, sizeof(info->chipset), "Haiku, Inc. Chipset");
+		snprintf(info->serial_no, sizeof(info->serial_no),
+			"3.14159265358979323846");
 		info->memory = 134217728;	// 128 MB, not that we really have that much. :)
 		info->dac_speed = 0xFFFFFFFF;	// *heh*
 

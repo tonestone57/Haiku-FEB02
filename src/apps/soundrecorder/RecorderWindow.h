@@ -158,7 +158,7 @@ private:
 		status_t BreakPlayConnection();
 		status_t StopPlaying();
 
-		status_t NewTempName(char * buffer);
+		status_t NewTempName(char * buffer, size_t size);
 		void CalcSizes(float min_width, float min_height);
 		void SetButtonState(BtnState state);
 		void UpdateButtons();

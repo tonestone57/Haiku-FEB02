@@ -65,9 +65,7 @@ AddDomain(const char* name)
 	if (fullName == NULL)
 		return NULL;
 
-	strcpy(fullName, name);
-	strcat(fullName, "@");
-	strcat(fullName, gDomainName);
+	snprintf(fullName, fullLength, "%s@%s", name, gDomainName);
 
 	return fullName;
 }

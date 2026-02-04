@@ -43,8 +43,8 @@ public:
 		|| top - offset.y >= (int32)bitmap.height()
 		|| bottom - offset.y >= (int32)bitmap.height()) {
 		char message[256];
-		sprintf(message, "reading outside of bitmap (%ld, %ld, %ld, %ld) "
-				"(%d, %d) (%ld, %ld)",
+		snprintf(message, sizeof(message), "reading outside of bitmap "
+				"(%ld, %ld, %ld, %ld) (%d, %d) (%ld, %ld)",
 			left - offset.x, top - offset.y,
 			right - offset.x, bottom - offset.y,
 			bitmap.width(), bitmap.height(), offset.x, offset.y);

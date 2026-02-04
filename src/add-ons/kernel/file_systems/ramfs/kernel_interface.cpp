@@ -149,7 +149,7 @@ ramfs_read_fs_info(fs_volume* _volume, struct fs_info *info)
 	info->device_name[0] = '\0';
 	strlcpy(info->volume_name, volume->GetName(),
 		sizeof(info->volume_name));
-	strcpy(info->fsh_name, "ramfs");
+	strlcpy(info->fsh_name, "ramfs", sizeof(info->fsh_name));
 	return B_OK;
 }
 

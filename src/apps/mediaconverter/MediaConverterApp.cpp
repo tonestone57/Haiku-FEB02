@@ -422,12 +422,17 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 //			audioFrameSize = (raf->format & 0xf) * raf->channel_count;
 			outAudTrack = outFile->CreateTrack(&outAudFormat, audioCodec);
 
-			// Negociate the format with the inTrack again in case the codec
-			// made some changes to it...
-			inTrack->DecodedFormat(&outAudFormat);
-
 			if (outAudTrack != NULL) {
-				if (outAudTrack->SetQuality(audioQuality / 100.0f) != B_OK
+				// Negotiate the format with the inTrack again in case the codec
+				// made some changes to it...
+				if (inTrack->DecodedFormat(&outAudFormat) != B_OK) {
+					// The decoder couldn't handle the format the encoder wants.
+					SetStatusMessage(B_TRANSLATE("Error negotiating audio format."));
+					outFile->ReleaseTrack(outAudTrack);
+					outAudTrack = NULL;
+					inFile->ReleaseTrack(inAudTrack);
+					inAudTrack = NULL;
+				} else if (outAudTrack->SetQuality(audioQuality / 100.0f) != B_OK
 					&& fWin->Lock()) {
 					fWin->SetAudioQualityLabel(
 						B_TRANSLATE("Audio quality not supported"));
@@ -435,6 +440,8 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 				}
 			} else {
 				SetStatusMessage(B_TRANSLATE("Error creating track."));
+				inFile->ReleaseTrack(inAudTrack);
+				inAudTrack = NULL;
 			}
 
 		} else if (inFormat.IsVideo() && (videoCodec != NULL)) {
@@ -460,7 +467,6 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 			inVidTrack->DecodedFormat(&outVidFormat);
 
 			if (rvf->display.format == B_RGBA32) {
-				printf("fixing color space (B_RGBA32 -> B_RGB32)");
 				rvf->display.format = B_RGB32;
 			}
 			// Transfer the display aspect ratio.
@@ -476,7 +482,7 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 					= inFormat.u.raw_video.pixel_height_aspect;
 			}
 
-			videoBuffer = new (std::nothrow) uint8[height
+			videoBuffer = new (std::nothrow) uint8[rvf->display.line_count
 				* rvf->display.bytes_per_row];
 			if (videoBuffer == NULL) {
 				ret = B_NO_MEMORY;
@@ -519,6 +525,8 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 				}
 			} else {
 				SetStatusMessage(B_TRANSLATE("Error creating video."));
+				inFile->ReleaseTrack(inVidTrack);
+				inVidTrack = NULL;
 			}
 		} else {
 			//  didn't do anything with the track

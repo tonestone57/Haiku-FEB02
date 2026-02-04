@@ -456,7 +456,7 @@ TListItem::DrawItem(BView *owner, BRect frame, bool /* complete */)
 
 		char name[B_FILE_NAME_LENGTH * 2];
 		if ((attachment == NULL) || (attachment->FileName(name) < B_OK))
-			strcpy(name, "unnamed");
+			strlcpy(name, "unnamed", sizeof(name));
 
 		BMimeType type;
 		if (fComponent->MIMEType(&type) == B_OK)

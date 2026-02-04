@@ -419,10 +419,10 @@ DWindowHWInterface::_OpenGraphicsDevice(int deviceNumber)
 	// Open VESA or Framebuffer driver if we were not able to get a better one.
 	if (count < deviceNumber) {
 		if (deviceNumber == 1) {
-			sprintf(path, "/dev/graphics/vesa");
+			strlcpy(path, "/dev/graphics/vesa", sizeof(path));
 			current_card_fd = open(path, B_READ_WRITE);
 			if (current_card_fd < 0) {
-				sprintf(path, "/dev/graphics/framebuffer");
+				strlcpy(path, "/dev/graphics/framebuffer", sizeof(path));
 				current_card_fd = open(path, B_READ_WRITE);
 			}
 		} else {
@@ -504,7 +504,8 @@ DWindowHWInterface::_OpenAccelerant(int device)
 //
 //			getCloneInfo(cloneInfoData);
 // TODO: this is what works for the ATI Radeon driver...
-sprintf((char*)cloneInfoData, "graphics/%s", fCardNameInDevFS.String());
+snprintf((char*)cloneInfoData, cloneSize, "graphics/%s",
+	fCardNameInDevFS.String());
 
 			clone_accelerant cloneAccelerant;
 			cloneAccelerant = (clone_accelerant)fAccelerantHook(B_CLONE_ACCELERANT, NULL);

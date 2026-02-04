@@ -335,7 +335,7 @@ public:
 		// try to update them later on.
 		if (type == THREAD_BLOCK_TYPE_SNOOZE
 			|| type == THREAD_BLOCK_TYPE_SIGNAL) {
-			strcpy(waitObject->name, "?");
+			strlcpy(waitObject->name, "?", sizeof(waitObject->name));
 		}
 
 		if (_waitObject != NULL)
@@ -543,7 +543,7 @@ private:
 		if (waitObject->name[0] != '\0')
 			return;
 
-		strcpy(waitObject->name, "?");
+		strlcpy(waitObject->name, "?", sizeof(waitObject->name));
 	}
 
 	bool _IsInKernelImage(const void* _address)

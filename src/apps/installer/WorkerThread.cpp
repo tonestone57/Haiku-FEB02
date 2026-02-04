@@ -8,6 +8,8 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <set>
 #include <string>
@@ -416,12 +418,22 @@ WorkerThread::WriteBootSector(BMenu* targetMenu)
 status_t
 WorkerThread::_WriteBootSector(BPath &path)
 {
-	BPath bootPath;
-	find_directory(B_BEOS_BOOT_DIRECTORY, &bootPath);
-	BString command;
-	command.SetToFormat("makebootable \"%s\"", path.Path());
 	_SetStatusMessage(B_TRANSLATE("Writing bootsector."));
-	return system(command.String());
+
+	const char* args[] = { "makebootable", path.Path(), NULL };
+
+	int status = 0;
+	pid_t pid = fork();
+	if (pid == 0) {
+		execvp("makebootable", (char* const*)args);
+		exit(1);
+	} else if (pid > 0) {
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+			return B_OK;
+	}
+
+	return B_ERROR;
 }
 
 
@@ -430,26 +442,37 @@ WorkerThread::_LaunchFinishScript(BPath &path)
 {
 	_SetStatusMessage(B_TRANSLATE("Finishing installation."));
 
-	BString command;
-	command.SetToFormat("mkdir -p \"%s/system/cache/tmp\"", path.Path());
-	if (system(command.String()) != 0)
+	BPath directoryPath(path);
+	directoryPath.Append("system/cache/tmp");
+	if (create_directory(directoryPath.Path(), 0755) != B_OK)
 		return B_ERROR;
-	command.SetToFormat("mkdir -p \"%s/system/packages/administrative\"",
-		path.Path());
-	if (system(command.String()) != 0)
+
+	directoryPath.SetTo(path.Path());
+	directoryPath.Append("system/packages/administrative");
+	if (create_directory(directoryPath.Path(), 0755) != B_OK)
 		return B_ERROR;
 
 	// Ask for first boot processing of all the packages copied into the new
 	// installation, since by just copying them the normal package processing
 	// isn't done.  package_daemon will detect the magic file and do it.
-	command.SetToFormat("echo 'First Boot written by Installer.' > "
-		"\"%s/system/packages/administrative/FirstBootProcessingNeeded\"",
-		path.Path());
-	if (system(command.String()) != 0)
+	BPath filePath(directoryPath);
+	filePath.Append("FirstBootProcessingNeeded");
+	BFile file(filePath.Path(), B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
+	if (file.InitCheck() != B_OK)
 		return B_ERROR;
 
-	command.SetToFormat("rm -f \"%s/home/Desktop/Installer\"", path.Path());
-	return system(command.String());
+	const char* content = "First Boot written by Installer.\n";
+	if (file.Write(content, strlen(content)) < 0)
+		return B_ERROR;
+	file.Unset();
+
+	filePath.SetTo(path.Path());
+	filePath.Append("home/Desktop/Installer");
+	BEntry entry(filePath.Path());
+	if (entry.Exists())
+		return entry.Remove();
+
+	return B_OK;
 }
 
 

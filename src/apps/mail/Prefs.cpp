@@ -366,9 +366,9 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 					}
 				}
 
-				strcpy(label,fReplyTo == ACCOUNT_USE_DEFAULT
+				strlcpy(label, fReplyTo == ACCOUNT_USE_DEFAULT
 					? B_TRANSLATE("Use default account")
-					: B_TRANSLATE("Account from mail"));
+					: B_TRANSLATE("Account from mail"), sizeof(label));
 				if ((item = fReplyToMenu->FindItem(label)) != NULL)
 					item->SetMarked(true);
 

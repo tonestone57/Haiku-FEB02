@@ -264,7 +264,7 @@ extern InputServer* gInputServer;
 			char buf[1024];
 			va_list ap;
 			va_start(ap, fmt);
-			vsprintf(buf, fmt, ap);
+			vsnprintf(buf, sizeof(buf), fmt, ap);
 			va_end(ap);
 			fputs(buf, log);
 			fflush(log);

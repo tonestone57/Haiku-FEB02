@@ -263,7 +263,7 @@ ClientMemoryAllocator::_AllocateChunk(size_t size)
 
 		char name[B_OS_NAME_LENGTH];
 #ifdef HAIKU_TARGET_PLATFORM_LIBBE_TEST
-		strcpy(name, "client heap");
+		strlcpy(name, "client heap", sizeof(name));
 #else
 		snprintf(name, sizeof(name), "heap:%" B_PRId32 ":%s",
 			fApplication->ClientTeam(), fApplication->SignatureLeaf());

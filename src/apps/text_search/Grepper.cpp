@@ -426,7 +426,7 @@ Grepper::_RunnerThread()
 				// parse grep output
 				int lineNumber = -1;
 				int textPos = -1;
-				sscanf(line, "%[^\n:]:%d:%n", fileName, &lineNumber, &textPos);
+				sscanf(line, "%1023[^\n:]:%d:%n", fileName, &lineNumber, &textPos);
 				// printf("sscanf(\"%s\") -> %s %d %d\n", line, fileName,
 				//		lineNumber, textPos);
 				if (textPos > 0) {

@@ -536,7 +536,7 @@ PrefHandler::_LoadFromTextFile(const char * path)
 		if (*buffer == '#')
 			continue;
 
-		n = sscanf(buffer, "%*[\"]%[^\"]%*[\"]%*[^\"]%*[\"]%[^\"]", key, data);
+		n = sscanf(buffer, "%*[\"]%254[^\"]%*[\"]%*[^\"]%*[\"]%511[^\"]", key, data);
 		if (n == 2)
 			setString(key, data);
 	}

@@ -2686,7 +2686,7 @@ TMailWindow::SaveAsDraft()
 						break;
 					char appendix[B_FILE_NAME_LENGTH];
 					snprintf(appendix, sizeof(appendix), " %" B_PRId32, i++);
-					int32 pos = min_c(sizeof(fileName) - strlen(appendix),
+					int32 pos = min_c(sizeof(fileName) - strlen(appendix) - 1,
 						originalLength);
 					sprintf(fileName + pos, "%s", appendix);
 				} while (status == B_FILE_EXISTS);

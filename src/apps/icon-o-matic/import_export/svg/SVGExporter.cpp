@@ -446,10 +446,9 @@ SVGExporter::_ExportGradient(const Gradient* gradient, BPositionIO* stream)
 	char color[16];
 	for (int32 i = 0; BGradient::ColorStop* stop = gradient->ColorAt(i); i++) {
 
-		sprintf(color, "%.2x%.2x%.2x", stop->color.red,
+		snprintf(color, sizeof(color), "%.2x%.2x%.2x", stop->color.red,
 									   stop->color.green,
 									   stop->color.blue);
-		color[6] = 0;
 
 		helper << "   <stop offset=\"";
 		append_float(helper, stop->offset);
@@ -513,9 +512,9 @@ SVGExporter::_GetFill(const Style* style, char* string,
 	status_t ret = B_OK;
 	if (Gradient* gradient = style->Gradient()) {
 		ret = _ExportGradient(gradient, stream);
-		sprintf(string, "url(#gradient%" B_PRId32 ")", fGradientCount++);
+		snprintf(string, 64, "url(#gradient%" B_PRId32 ")", fGradientCount++);
 	} else {
-		sprintf(string, "#%.2x%.2x%.2x", style->Color().red,
+		snprintf(string, 64, "#%.2x%.2x%.2x", style->Color().red,
 										 style->Color().green,
 										 style->Color().blue);
 	}

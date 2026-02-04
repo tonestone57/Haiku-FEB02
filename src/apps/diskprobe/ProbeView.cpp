@@ -211,6 +211,9 @@ private:
 static void
 get_type_string(char* buffer, size_t bufferSize, type_code type)
 {
+	if (bufferSize < 5)
+		return;
+
 	for (int32 i = 0; i < 4; i++) {
 		buffer[i] = type >> (24 - 8 * i);
 		if (buffer[i] < ' ' || buffer[i] == 0x7f) {

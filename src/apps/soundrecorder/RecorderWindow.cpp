@@ -659,7 +659,7 @@ RecorderWindow::Record(BMessage * message)
 
 	char name[256];
 	//	Create a file with a temporary name
-	status_t err = NewTempName(name);
+	status_t err = NewTempName(name, sizeof(name));
 	if (err < B_OK) {
 		ErrorAlert(B_TRANSLATE("Cannot find an unused name to use for the "
 			"new recording"), err);
@@ -1151,7 +1151,7 @@ RecorderWindow::ErrorAlert(const char * action, status_t err)
 
 
 status_t
-RecorderWindow::NewTempName(char * name)
+RecorderWindow::NewTempName(char * name, size_t size)
 {
 	int init_count = fTempCount;
 again:
@@ -1161,9 +1161,9 @@ again:
 	else {
 		fTempCount++;
 		if (fTempCount==0)
-			sprintf(name, "Audio Clip");
+			snprintf(name, size, "Audio Clip");
 		else
-			sprintf(name, "Audio Clip %d", fTempCount);
+			snprintf(name, size, "Audio Clip %d", fTempCount);
 		BPath path;
 		status_t err;
 		BEntry tempEnt;

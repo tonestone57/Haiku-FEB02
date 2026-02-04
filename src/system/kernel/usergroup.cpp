@@ -316,6 +316,23 @@ is_in_group(Team* team, gid_t gid)
 }
 
 
+bool
+is_in_supplementary_groups(Team* team, gid_t gid)
+{
+	TeamLocker teamLocker(team);
+
+	if (team->supplementary_groups == NULL)
+		return false;
+
+	for (int i = 0; i < team->supplementary_groups->count; i++) {
+		if (gid == team->supplementary_groups->groups[i])
+			return true;
+	}
+
+	return false;
+}
+
+
 status_t
 _kern_setresgid(gid_t rgid, gid_t egid, gid_t ssgid, bool setAllIfPrivileged)
 {

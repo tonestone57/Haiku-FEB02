@@ -29,7 +29,7 @@ DirectoryIterator::GetNextEntry(char *name, uint32 *length, ino_t *id)
 	status_t status = B_OK;
 	if (fAtBeginning) {
 		TRACE(("DirectoryIterator::GetNextEntry: .\n"));
-		sprintf(name, ".");
+		snprintf(name, B_FILE_NAME_LENGTH, ".");
 		*length = 1;
 		*id = Parent()->Id();
 		fAtBeginning = false;
@@ -57,7 +57,7 @@ DirectoryIterator::GetNextEntry(char *name, uint32 *length, ino_t *id)
 
 			if (entry->is_parent()) {
 				TRACE(("DirectoryIterator::GetNextEntry: ..\n"));
-				sprintf(name, "..");
+				snprintf(name, B_FILE_NAME_LENGTH, "..");
 				*length = 2;
 			} else {
 				UdfString string(entry->id(), entry->id_length());
@@ -65,7 +65,7 @@ DirectoryIterator::GetNextEntry(char *name, uint32 *length, ino_t *id)
 					"length = %" B_PRIu32 "\n", string.Utf8(),
 					string.Utf8Length()));
 				DUMP(entry->icb());
-				sprintf(name, "%s", string.Utf8());
+				snprintf(name, B_FILE_NAME_LENGTH, "%s", string.Utf8());
 				*length = string.Utf8Length();
 			}
 			*id = to_vnode_id(entry->icb());
