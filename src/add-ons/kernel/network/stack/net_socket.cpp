@@ -1349,8 +1349,13 @@ socket_send(net_socket* socket, msghdr* header, const void* data, size_t length,
 		if (header->msg_iovlen <= 1) {
 			header = NULL;
 		} else {
-			for (int i = 1; i < header->msg_iovlen; i++)
+			for (int i = 1; i < header->msg_iovlen; i++) {
+				if (header->msg_iov[i].iov_len > SSIZE_MAX
+					|| bytesLeft > SSIZE_MAX - header->msg_iov[i].iov_len)
+					return B_BAD_VALUE;
+
 				bytesLeft += header->msg_iov[i].iov_len;
+			}
 		}
 	}
 
