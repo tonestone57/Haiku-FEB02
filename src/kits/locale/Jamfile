@@ -52,7 +52,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			$(sources)
 			;
 
-		StaticLibrary <$(architecture)>liblocalestub.a
+		StaticLibrary [ MultiArchDefaultGristFiles liblocalestub.a ]
 			: CatalogStub.cpp
 			;
 	}
