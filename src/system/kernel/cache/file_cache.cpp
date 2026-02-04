@@ -46,22 +46,22 @@
 struct file_cache_ref {
 	VMCache			*cache;
 	struct vnode	*vnode;
-	off_t			last_access[LAST_ACCESSES];
-		// TODO: it would probably be enough to only store the least
-		//	significant 31 bits, and make this uint32 (one bit for
-		//	write vs. read)
+	uint32			last_access[LAST_ACCESSES];
 	int32			last_access_index;
 	uint16			disabled_count;
 
 	inline void SetLastAccess(int32 index, off_t access, bool isWrite)
 	{
-		// we remember writes as negative offsets
-		last_access[index] = isWrite ? -access : access;
+		// we remember writes as bit 31
+		last_access[index] = (uint32)access | (isWrite ? 0x80000000 : 0);
 	}
 
 	inline off_t LastAccess(int32 index, bool isWrite) const
 	{
-		return isWrite ? -last_access[index] : last_access[index];
+		if (((last_access[index] & 0x80000000) != 0) != isWrite)
+			return 0;
+
+		return (off_t)(last_access[index] & 0x7fffffff);
 	}
 
 	inline uint32 LastAccessPageOffset(int32 index, bool isWrite)
