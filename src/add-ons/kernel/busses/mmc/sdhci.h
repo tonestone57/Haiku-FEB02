@@ -17,9 +17,18 @@
 #include <KernelExport.h>
 
 
+enum {
+	SDHCI_QUIRK_INTEL_POWER_UP_RESET = 0x01,
+	SDHCI_QUIRK_WAIT_FOR_POWER       = 0x02,
+	SDHCI_QUIRK_MISSING_CAPS         = 0x04,
+	SDHCI_QUIRK_BROKEN_AUTO_STOP     = 0x08
+};
+
+
 class SdhciBus {
 	public:
-								SdhciBus(struct registers* registers, uint8_t irq, bool poll);
+								SdhciBus(struct registers* registers, uint8_t irq,
+									bool poll, uint32_t quirks = 0);
 								~SdhciBus();
 
 			void				EnableInterrupts(uint32_t mask);
@@ -44,6 +53,7 @@ class SdhciBus {
 			struct registers*	fRegisters;
 			uint32				fCommandResult;
 			uint8				fIrq;
+			uint32_t			fQuirks;
 			ConditionVariable	fInterruptNotifier;
 			sem_id				fScanSemaphore;
 			status_t			fStatus;
@@ -143,8 +153,12 @@ class PowerControl {
 		uint8_t Bits() { return fBits; }
 
 		void SetVoltage(int voltage) {
-			fBits |= voltage | kBusPowerOn;
+			fBits = (fBits & ~0x0F) | voltage | kBusPowerOn;
 		}
+		void SelectVoltage(int voltage) {
+			fBits = (fBits & ~0x0E) | voltage;
+		}
+		void PowerOn() { fBits |= kBusPowerOn; }
 		void PowerOff() { fBits &= ~kBusPowerOn; }
 
 		static const uint8_t k3v3 = 7 << 1;
