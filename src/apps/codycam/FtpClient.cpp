@@ -663,7 +663,7 @@ FtpClient::_OpenDataConnection()
 					host[i] = ',';
 			}
 
-			sprintf(buf, ",%d,%d", (port & 0xff00) >> 8, port & 0x00ff);
+			snprintf(buf, sizeof(buf), ",%d,%d", (port & 0xff00) >> 8, port & 0x00ff);
 			cmd = "PORT ";
 			cmd += host;
 			cmd += buf;
