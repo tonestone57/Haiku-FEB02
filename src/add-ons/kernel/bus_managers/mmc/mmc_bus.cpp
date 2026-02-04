@@ -219,12 +219,14 @@ MMCBus::_WorkerThread(void* cookie)
 		// initialized.
 		uint32_t ocr = 0;
 		bool isMMC = false;
+		int retry = 0;
 		do {
 			if (isMMC) {
 				status_t status = bus->ExecuteCommand(0, MMC_SEND_OP_COND,
 					0x40FF8000, &ocr);
 				if (status != B_OK) {
 					TRACE("MMC CMD1 failed: %s\n", strerror(status));
+					break;
 				}
 			} else {
 				uint32_t cardStatus;
@@ -254,6 +256,10 @@ MMCBus::_WorkerThread(void* cookie)
 			if ((ocr & (1 << 31)) == 0) {
 				TRACE("Card is busy\n");
 				snooze(100000);
+				if (++retry > 100) {
+					ERROR("Card busy timeout\n");
+					break;
+				}
 			}
 		} while (((ocr & (1 << 31)) == 0));
 

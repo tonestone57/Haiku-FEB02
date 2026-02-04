@@ -52,6 +52,27 @@
 #define SDHCI_PCI_RICOH_MODE_SD20						0x10
 
 
+struct PciIdMatch {
+	uint16 vendor;
+	uint16 device;
+};
+
+
+static const PciIdMatch kSupportedDevices[] = {
+	{ 0x1180, 0xe822 }, // Ricoh SD/MMC
+	{ 0x1180, 0xe823 }, // Ricoh SD/MMC
+	{ 0x8086, 0x0f14 }, // Intel Bay Trail eMMC
+	{ 0x8086, 0x0f15 }, // Intel Bay Trail SDIO
+	{ 0x8086, 0x0f16 }, // Intel Bay Trail SD
+	{ 0x8086, 0x2294 }, // Intel Braswell eMMC
+	{ 0x8086, 0x2296 }, // Intel Cherry Trail eMMC
+	{ 0x8086, 0x5aca }, // Intel Apollo Lake eMMC
+	{ 0x8086, 0x5acc }, // Intel Apollo Lake SD
+	{ 0x8086, 0x31b4 }, // Intel Gemini Lake eMMC
+	{ 0x8086, 0xa0c4 }, // Intel Tiger Lake eMMC
+};
+
+
 status_t
 init_bus_pci(device_node* node, void** bus_cookie)
 {
@@ -281,6 +302,13 @@ supports_device_pci(device_node* parent)
 
 	TRACE("supports_device(vid:%04x pid:%04x)\n", vendorId, deviceId);
 
+	for (uint32 i = 0; i < sizeof(kSupportedDevices) / sizeof(kSupportedDevices[0]); i++) {
+		if (vendorId == kSupportedDevices[i].vendor
+			&& deviceId == kSupportedDevices[i].device) {
+			return 0.8f;
+		}
+	}
+
 	if (gDeviceManager->get_attr_uint16(parent, B_DEVICE_SUB_TYPE, &subType,
 			false) < B_OK
 		|| gDeviceManager->get_attr_uint16(parent, B_DEVICE_TYPE, &type,
@@ -291,13 +319,8 @@ supports_device_pci(device_node* parent)
 
 	if (type == PCI_base_peripheral) {
 		if (subType != PCI_sd_host) {
-			// Also accept some compliant devices that do not advertise
-			// themselves as such.
-			if (vendorId != 0x1180
-				|| (deviceId != 0xe823 && deviceId != 0xe822)) {
-				TRACE("Not the right subclass, and not a Ricoh device\n");
-				return 0.0f;
-			}
+			TRACE("Not the right subclass\n");
+			return 0.0f;
 		}
 
 		pci_device_module_info* pci;
