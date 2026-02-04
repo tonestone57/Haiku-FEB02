@@ -13,6 +13,16 @@
 #include <openssl/kdf.h>
 #include <openssl/core_names.h>
 #include <openssl/rand.h>
+
+#ifndef OSSL_KDF_PARAM_LANES
+#define OSSL_KDF_PARAM_LANES "lanes"
+#endif
+#ifndef OSSL_KDF_PARAM_MEMCOST
+#define OSSL_KDF_PARAM_MEMCOST "memcost"
+#endif
+#ifndef OSSL_KDF_PARAM_THREADS
+#define OSSL_KDF_PARAM_THREADS "threads"
+#endif
 #endif
 
 
@@ -784,7 +794,7 @@ Keyring::_DecryptFromFlatBuffer()
 
 		if (status == B_OK) {
 			decryptedBuffer.SetSize(plaintextLen);
-			memcpy(decryptedBuffer.Buffer(), plaintext, plaintextLen);
+			decryptedBuffer.WriteAt(0, plaintext, plaintextLen);
 			inputBuffer = &decryptedBuffer;
 		}
 
