@@ -575,6 +575,9 @@ init_messaging_service()
 area_id
 _user_register_messaging_service(sem_id lockSem, sem_id counterSem)
 {
+	if (geteuid() != 0)
+		return B_PERMISSION_DENIED;
+
 	// check, if init_messaging_service() has been called yet
 	if (!sMessagingService)
 		return B_NO_INIT;
@@ -595,6 +598,9 @@ _user_register_messaging_service(sem_id lockSem, sem_id counterSem)
 status_t
 _user_unregister_messaging_service()
 {
+	if (geteuid() != 0)
+		return B_PERMISSION_DENIED;
+
 	// check, if init_messaging_service() has been called yet
 	if (!sMessagingService)
 		return B_NO_INIT;

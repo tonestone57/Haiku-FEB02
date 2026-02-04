@@ -918,6 +918,10 @@ KMessage::_InitFromBuffer(bool sizeFromBuffer)
 		int32 fieldSize =  fieldHeader->headerSize;
 		if (fieldHeader->HasFixedElementSize()) {
 			// fixed element size
+			if (fieldHeader->elementCount > 0
+				&& fieldHeader->elementSize > INT_MAX / fieldHeader->elementCount) {
+				return B_BAD_DATA;
+			}
 			int32 dataSize = fieldHeader->elementSize
 				* fieldHeader->elementCount;
 			fieldSize = (uint8*)fieldHeader->Data() + dataSize - data;
@@ -984,11 +988,20 @@ KMessage::_AllocateSpace(int32 size, bool alignAddress, bool alignSize,
 		return B_NOT_ALLOWED;
 
 	int32 offset = ContentSize();
-	if (alignAddress)
+	if (alignAddress) {
+		if (offset > INT_MAX - (int32)kMessageBufferAlignment + 1)
+			return B_NO_MEMORY;
 		offset = _Align(offset);
+	}
+	if (size > INT_MAX - offset)
+		return B_NO_MEMORY;
+
 	int32 newSize = offset + size;
-	if (alignSize)
+	if (alignSize) {
+		if (newSize > INT_MAX - (int32)kMessageBufferAlignment + 1)
+			return B_NO_MEMORY;
 		newSize = _Align(newSize);
+	}
 	// reallocate if necessary
 	if (fBuffer == &fHeader) {
 		int32 newCapacity = _CapacityFor(newSize);
