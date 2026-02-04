@@ -15,13 +15,19 @@
 #include <openssl/rand.h>
 
 #ifndef OSSL_KDF_PARAM_LANES
+#ifdef OSSL_KDF_PARAM_ARGON2_LANES
+#define OSSL_KDF_PARAM_LANES OSSL_KDF_PARAM_ARGON2_LANES
+#else
 #define OSSL_KDF_PARAM_LANES "lanes"
 #endif
+#endif
+
 #ifndef OSSL_KDF_PARAM_MEMCOST
+#ifdef OSSL_KDF_PARAM_ARGON2_MEMCOST
+#define OSSL_KDF_PARAM_MEMCOST OSSL_KDF_PARAM_ARGON2_MEMCOST
+#else
 #define OSSL_KDF_PARAM_MEMCOST "memcost"
 #endif
-#ifndef OSSL_KDF_PARAM_THREADS
-#define OSSL_KDF_PARAM_THREADS "threads"
 #endif
 #endif
 
