@@ -3,6 +3,11 @@ SubDir HAIKU_TOP src servers keystore ;
 UsePrivateHeaders app ;
 UsePrivateHeaders shared ;
 
+if [ FIsBuildFeatureEnabled openssl ] {
+	UseBuildFeatureHeaders openssl ;
+	SubDirC++Flags -DHAVE_OPENSSL ;
+}
+
 Application keystore_server :
 	AppAccessRequestWindow.cpp
 	KeyRequestWindow.cpp
@@ -13,11 +18,7 @@ Application keystore_server :
 ;
 
 if [ FIsBuildFeatureEnabled openssl ] {
-	UseBuildFeatureHeaders openssl ;
-	LinkWithHeaders keystore_server :
-		[ BuildFeatureAttribute openssl : libraries ]
-		: [ BuildFeatureAttribute openssl : headers ] ;
-	SubDirC++Flags -DHAVE_OPENSSL ;
+	LinkAgainst keystore_server : [ BuildFeatureAttribute openssl : libraries ] ;
 }
 
 DoCatalogs keystore_server :
