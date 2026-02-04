@@ -1495,7 +1495,18 @@ swap_file_add(const char* path)
 
 	// set slot index and add this file to swap file list
 	mutex_lock(&sSwapFileListLock);
-	// TODO: Also check whether the swap file is already registered!
+
+	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
+			swap_file* existingSwap = it.Next();) {
+		if (existingSwap->vnode == node) {
+			mutex_unlock(&sSwapFileListLock);
+			radix_bitmap_destroy(swap->bmp);
+			delete swap;
+			close(fd);
+			return B_FILE_EXISTS;
+		}
+	}
+
 	if (sSwapFileList.IsEmpty()) {
 		swap->first_slot = 0;
 		swap->last_slot = pageCount;
