@@ -5354,7 +5354,7 @@ vfs_setrlimit(int resource, const struct rlimit* rlp)
 			if (rlp->rlim_max != RLIM_SAVED_MAX
 				&& rlp->rlim_max != MAX_FD_TABLE_SIZE) {
 				if (geteuid() != 0)
-					return B_PERMISSION_DENIED;
+					return B_NOT_ALLOWED;
 			}
 
 			return vfs_resize_fd_table(get_current_io_context(false),
@@ -5364,7 +5364,7 @@ vfs_setrlimit(int resource, const struct rlimit* rlp)
 			if (rlp->rlim_max != RLIM_SAVED_MAX
 				&& rlp->rlim_max != MAX_NODE_MONITORS) {
 				if (geteuid() != 0)
-					return B_PERMISSION_DENIED;
+					return B_NOT_ALLOWED;
 			}
 
 			return resize_monitor_table(get_current_io_context(false),
