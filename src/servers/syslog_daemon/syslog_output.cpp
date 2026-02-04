@@ -107,7 +107,7 @@ prepare_output()
 
 
 static status_t
-write_to_log(const char *buffer, int32 length)
+write_to_log(const char *buffer, size_t length)
 {
 	if (sRepeatCount > 0) {
 		char repeat[64];
@@ -119,7 +119,7 @@ write_to_log(const char *buffer, int32 length)
 			return B_ERROR;
 	}
 
-	if (write(sLog, buffer, length) < length)
+	if (write(sLog, buffer, length) < (ssize_t)length)
 		return B_ERROR;
 
 	return B_OK;
@@ -130,7 +130,7 @@ static void
 syslog_output(syslog_message &message)
 {
 	char header[128];
-	int32 headerLength;
+	size_t headerLength;
 	int32 pos = 0;
 
 	if (sLogTimeStamps) {
@@ -161,7 +161,7 @@ syslog_output(syslog_message &message)
 	}
 
 	headerLength = pos + strlcpy(header + pos, ": ", sizeof(header) - pos);
-	if (headerLength >= (int32)sizeof(header))
+	if (headerLength >= sizeof(header))
 		headerLength = sizeof(header) - 1;
 
 	// add header to every line of the message and write it to the syslog
@@ -171,12 +171,12 @@ syslog_output(syslog_message &message)
 
 	while (true) {
 		strlcpy(buffer, header, sizeof(buffer));
-		int32 length;
+		size_t length;
 
 		const char *newLine = strchr(message.message + pos, '\n');
 		if (newLine != NULL) {
 			length = newLine - message.message + 1 - pos;
-			if (headerLength + length >= (int32)sizeof(buffer))
+			if (headerLength + length >= sizeof(buffer))
 				newLine = NULL;
 		}
 
@@ -192,7 +192,7 @@ syslog_output(syslog_message &message)
 
 		length += headerLength;
 
-		if (length >= (int32)sizeof(buffer))
+		if (length >= sizeof(buffer))
 			length = sizeof(buffer) - 1;
 
 		if (message.from == sLastThread
