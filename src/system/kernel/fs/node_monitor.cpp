@@ -52,6 +52,7 @@ struct monitor_listener {
 	NotificationListener *listener;
 	uint32				flags;
 	node_monitor		*monitor;
+	io_context			*context;
 };
 
 typedef DoublyLinkedList<monitor_listener, DoublyLinkedListMemberGetLink<
@@ -281,6 +282,9 @@ NodeMonitorService::_RemoveListener(io_context *context, dev_t device,
 	if (listener == NULL)
 		return B_BAD_VALUE;
 
+	if (listener->context != context)
+		return B_BAD_VALUE;
+
 	_RemoveListener(listener);
 	context->num_monitors--;
 
@@ -417,6 +421,7 @@ NodeMonitorService::_AddMonitorListener(io_context *context,
 	listener->listener = &notificationListener;
 	listener->flags = flags;
 	listener->monitor = monitor;
+	listener->context = context;
 
 	monitor->listeners.Add(listener);
 	list_add_link_to_head(&context->node_monitors, listener);
