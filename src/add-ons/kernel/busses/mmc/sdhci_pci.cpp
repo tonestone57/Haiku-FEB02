@@ -70,6 +70,13 @@ static const PciIdMatch kSupportedDevices[] = {
 	{ 0x8086, 0x5acc }, // Intel Apollo Lake SD
 	{ 0x8086, 0x31b4 }, // Intel Gemini Lake eMMC
 	{ 0x8086, 0xa0c4 }, // Intel Tiger Lake eMMC
+	{ 0x10ec, 0x5209 }, // Realtek RTS5209
+	{ 0x10ec, 0x5229 }, // Realtek RTS5229
+	{ 0x10ec, 0x5227 }, // Realtek RTS5227
+	{ 0x1217, 0x8320 }, // O2 Micro 8320
+	{ 0x1217, 0x8321 }, // O2 Micro 8321
+	{ 0x1217, 0x8420 }, // O2 Micro 8420
+	{ 0x1217, 0x8421 }, // O2 Micro 8421
 };
 
 
