@@ -145,12 +145,13 @@ NetAddress::GetString(HashString* string, bool includePort) const
 	char buffer[32];
 	uint32 ip = GetIP();
 	if (includePort) {
-		sprintf(buffer, "%" B_PRIu32 ".%" B_PRIu32 ".%" B_PRIu32 ".%" B_PRIu32
-			":%hu", ip >> 24, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff,
-			GetPort());
+		snprintf(buffer, sizeof(buffer), "%" B_PRIu32 ".%" B_PRIu32 ".%"
+			B_PRIu32 ".%" B_PRIu32 ":%hu", ip >> 24, (ip >> 16) & 0xff,
+			(ip >> 8) & 0xff, ip & 0xff, GetPort());
 	} else {
-		sprintf(buffer, "%" B_PRIu32 ".%" B_PRIu32 ".%" B_PRIu32 ".%" B_PRIu32,
-			ip >> 24, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
+		snprintf(buffer, sizeof(buffer), "%" B_PRIu32 ".%" B_PRIu32 ".%"
+			B_PRIu32 ".%" B_PRIu32, ip >> 24, (ip >> 16) & 0xff,
+			(ip >> 8) & 0xff, ip & 0xff);
 	}
 	return (string->SetTo(buffer) ? B_OK : B_NO_MEMORY);
 }

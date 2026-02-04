@@ -3037,7 +3037,7 @@ dosfs_read_attrdir(fs_volume* volume, fs_vnode* vnode, void* cookie, struct dire
 			return B_BUFFER_OVERFLOW;
 
 		*_num = 1;
-		strlcpy(buffer->d_name, "BEOS:TYPE", sizeof(buffer->d_name));
+		strlcpy(buffer->d_name, "BEOS:TYPE", bufferSize - offsetof(struct dirent, d_name));
 		buffer->d_reclen = length;
 	}
 
