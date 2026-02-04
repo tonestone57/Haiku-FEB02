@@ -202,6 +202,10 @@ InterfaceAddress::~InterfaceAddress()
 
 	if (interface != NULL && (flags & IFAF_DIRECT_ADDRESS) == 0)
 		((Interface*)interface)->ReleaseReference();
+
+	free(local);
+	free(destination);
+	free(mask);
 }
 
 
@@ -411,10 +415,8 @@ InterfaceAddress::Prepare(sockaddr** _address, size_t size)
 
 	if (address == NULL || size > address->sa_len) {
 		sockaddr* resized = (sockaddr*)realloc(address, size);
-		if (resized == NULL) {
-			free(address);
+		if (resized == NULL)
 			return NULL;
-		}
 
 		address = resized;
 	}

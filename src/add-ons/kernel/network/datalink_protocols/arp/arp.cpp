@@ -304,6 +304,7 @@ arp_entry::~arp_entry()
 	sStackModule->wait_for_timer(&timer);
 
 	ClearQueue();
+	delete_request_buffer(this);
 }
 
 
