@@ -211,7 +211,7 @@ dialup_init(const char* name, net_device** _device)
 
 	memset(device, 0, sizeof(dialup_device));
 
-	strcpy(device->name, name);
+	strlcpy(device->name, name, sizeof(device->name));
 	device->flags = IFF_POINTOPOINT;
 	device->type = IFT_PPP; // this device handle RFC 1331 frame format only
 	device->mtu = 1500;

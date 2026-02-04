@@ -67,6 +67,9 @@ bool
 DiscoveryPacket::AddTag(uint16 type, const void *data, uint16 length, int32 index)
 {
 	pppoe_tag *add = (pppoe_tag*) malloc(length + 4);
+	if (add == NULL)
+		return false;
+
 	add->type = type;
 	add->length = length;
 	memcpy(add->data, data, length);

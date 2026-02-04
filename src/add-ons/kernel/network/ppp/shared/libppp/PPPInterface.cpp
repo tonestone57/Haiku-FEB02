@@ -151,7 +151,7 @@ PPPInterface::Control(uint32 op, void *data, size_t length) const
 	ppp_control_info info;
 	control_net_module_args args;
 
-	sprintf(args.ifr_name, "%s", "ppp1");
+	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
 	args.name = PPP_INTERFACE_MODULE_NAME;
 	args.op = PPPC_CONTROL_INTERFACE;
 	args.data = &info;
@@ -399,7 +399,7 @@ PPPInterface::Up() const
 
 	int32 id = ID();
 	control_net_module_args args;
-	sprintf(args.ifr_name, "%s", "ppp1");
+	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
 	args.name = PPP_INTERFACE_MODULE_NAME;
 	args.op = PPPC_BRING_INTERFACE_UP;
 	args.data = &id;
@@ -432,7 +432,7 @@ PPPInterface::Down() const
 
 	int32 id = ID();
 	control_net_module_args args;
-	sprintf(args.ifr_name, "%s", "ppp1");
+	snprintf(args.ifr_name, sizeof(args.ifr_name), "%s", "ppp1");
 	args.name = PPP_INTERFACE_MODULE_NAME;
 	args.op = PPPC_BRING_INTERFACE_DOWN;
 	args.data = &id;

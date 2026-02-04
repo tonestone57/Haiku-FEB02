@@ -86,7 +86,7 @@ ppp_init(const char *name, net_device **_device)
 		return B_NO_MEMORY;
 	}
 
-	strcpy(device->name, name);
+	strlcpy(device->name, name, sizeof(device->name));
 	device->flags = (IFF_BROADCAST | IFF_LINK) & (~IFF_UP);
 	device->type = IFT_PPP;
 	device->mtu = 1492;

@@ -459,9 +459,16 @@ ndp_update_entry(const in6_addr& protocolAddress, sockaddr_dl* hardwareAddress,
 			&& entry->hardware_address.sdl_alen != 0
 			&& memcmp(LLADDR(&entry->hardware_address),
 				LLADDR(hardwareAddress), ETHER_ADDRESS_LENGTH)) {
-			// TODO: also printf the address
-			dprintf("NDP host updated with different hardware address "
-				"%02x:%02x:%02x:%02x:%02x:%02x.\n",
+			dprintf("NDP host %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x updated with "
+				"different hardware address %02x:%02x:%02x:%02x:%02x:%02x.\n",
+				(protocolAddress.s6_addr[0] << 8) | protocolAddress.s6_addr[1],
+				(protocolAddress.s6_addr[2] << 8) | protocolAddress.s6_addr[3],
+				(protocolAddress.s6_addr[4] << 8) | protocolAddress.s6_addr[5],
+				(protocolAddress.s6_addr[6] << 8) | protocolAddress.s6_addr[7],
+				(protocolAddress.s6_addr[8] << 8) | protocolAddress.s6_addr[9],
+				(protocolAddress.s6_addr[10] << 8) | protocolAddress.s6_addr[11],
+				(protocolAddress.s6_addr[12] << 8) | protocolAddress.s6_addr[13],
+				(protocolAddress.s6_addr[14] << 8) | protocolAddress.s6_addr[15],
 				hardwareAddress->sdl_data[0], hardwareAddress->sdl_data[1],
 				hardwareAddress->sdl_data[2], hardwareAddress->sdl_data[3],
 				hardwareAddress->sdl_data[4], hardwareAddress->sdl_data[5]);

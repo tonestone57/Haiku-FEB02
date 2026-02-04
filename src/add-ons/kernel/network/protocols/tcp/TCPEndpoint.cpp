@@ -983,7 +983,7 @@ TCPEndpoint::ReadData(size_t numBytes, uint32 flags, net_buffer** _buffer)
 	// When MSG_WAITALL is set then the function should block
 	// until the full amount of data can be returned.
 	if (flags & MSG_WAITALL)
-		dataNeeded = numBytes;
+		dataNeeded = min_c(numBytes, socket->receive.buffer_size);
 
 	// TODO: add support for urgent data (MSG_OOB)
 
@@ -2634,7 +2634,7 @@ TCPEndpoint::_UpdateRoundTripTime(int32 roundTripTime, int32 expectedSamples)
 	if (fSmoothedRoundTripTime <= 0) {
 		fSmoothedRoundTripTime = roundTripTime;
 		fRoundTripVariation = roundTripTime / 2;
-		fRetransmitTimeout = (fSmoothedRoundTripTime + max_c(100, fRoundTripVariation * 4))
+		fRetransmitTimeout = (bigtime_t)(fSmoothedRoundTripTime + max_c(100, fRoundTripVariation * 4))
 				* kTimestampFactor;
 	} else {
 		int32 delta = fSmoothedRoundTripTime - roundTripTime;
@@ -2642,7 +2642,7 @@ TCPEndpoint::_UpdateRoundTripTime(int32 roundTripTime, int32 expectedSamples)
 			delta = -delta;
 		fRoundTripVariation += (delta - fRoundTripVariation) / (expectedSamples * 4);
 		fSmoothedRoundTripTime += (roundTripTime - fSmoothedRoundTripTime) / (expectedSamples * 8);
-		fRetransmitTimeout = (fSmoothedRoundTripTime + max_c(100, fRoundTripVariation * 4))
+		fRetransmitTimeout = (bigtime_t)(fSmoothedRoundTripTime + max_c(100, fRoundTripVariation * 4))
 			* kTimestampFactor;
 	}
 

@@ -314,7 +314,7 @@ control(uint32 op, void *data, size_t length)
 					if (position + strlen(current->name) + 1 > length)
 						return B_NO_MEMORY;
 
-					strcpy(names + position, current->name);
+					strlcpy(names + position, current->name, length - position);
 					position += strlen(current->name);
 					names[position++] = 0;
 					++count;

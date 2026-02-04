@@ -53,7 +53,7 @@ dump_packet(net_buffer *packet, const char *direction)
 	uint8 buffer[128];
 	uint8 bufferIndex = 0;
 
-	sprintf((char*) buffer, "Dumping %s packet;len=%ld;pkthdr.len=%d\n", direction,
+	snprintf((char*) buffer, sizeof(buffer), "Dumping %s packet;len=%ld;pkthdr.len=%d\n", direction,
 		packet->m_len, packet->m_flags & M_PKTHDR ? packet->m_pkthdr.len : -1);
 	write(sFD, buffer, strlen((char*) buffer));
 
@@ -554,7 +554,7 @@ IPCP::UpdateAddresses()
 		primary_dns = ntohl(fLocalConfiguration.primaryDNS);
 		secondary_dns = ntohl(fLocalConfiguration.secondaryDNS);
 
-		sprintf(buf, "%s\t%d.%d.%d.%d\n%s\t%d.%d.%d.%d\n",
+		snprintf(buf, sizeof(buf), "%s\t%d.%d.%d.%d\n%s\t%d.%d.%d.%d\n",
 				"nameserver",
 				(primary_dns & 0xff000000) >> 24,
 				(primary_dns & 0x00ff0000) >> 16,
@@ -937,7 +937,8 @@ IPCP::RCAEvent(net_buffer *packet)
 	if (fRequestID != lcpHeader.id) {
 		// this packet is not a reply to our request
 
-		// TODO: log this event
+		dprintf("IPCP: Received Configure-Ack with wrong ID (expected %d, got %d)\n",
+			fRequestID, lcpHeader.id);
 		gBufferModule->free(packet);
 		return;
 	}
@@ -1045,7 +1046,8 @@ IPCP::RCNEvent(net_buffer *packet)
 	if (fRequestID != lcpHeader.id) {
 		// this packet is not a reply to our request
 
-		// TODO: log this event
+		dprintf("IPCP: Received Configure-Nak/Reject with wrong ID (expected %d, got %d)\n",
+			fRequestID, lcpHeader.id);
 		gBufferModule->free(packet);
 		return;
 	}
