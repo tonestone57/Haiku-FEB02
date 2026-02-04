@@ -504,7 +504,8 @@ DWindowHWInterface::_OpenAccelerant(int device)
 //
 //			getCloneInfo(cloneInfoData);
 // TODO: this is what works for the ATI Radeon driver...
-sprintf((char*)cloneInfoData, "graphics/%s", fCardNameInDevFS.String());
+snprintf((char*)cloneInfoData, cloneSize, "graphics/%s",
+	fCardNameInDevFS.String());
 
 			clone_accelerant cloneAccelerant;
 			cloneAccelerant = (clone_accelerant)fAccelerantHook(B_CLONE_ACCELERANT, NULL);
