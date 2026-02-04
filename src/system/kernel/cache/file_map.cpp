@@ -370,17 +370,35 @@ FileMap::Invalidate(off_t offset, off_t size)
 	file_extent* startExtent = _FindExtent(offset, &startIndex);
 	if (startExtent == NULL) {
 		// We didn't find the extent at the offset, so we'll just have to
-		// search for the first extent after the offset
-		// TODO: this could be optimized (binary search)
-		for (startIndex = 0; startIndex < fCount; startIndex++) {
-			startExtent = ExtentAt(startIndex);
-			if (startExtent->offset > offset)
-				break;
+		// search for the first extent after the offset.
+		// _FindExtent returns the extent *before* the offset if not found,
+		// unless the offset is before the first extent.
+		// Since we don't have a direct "find next" method, we rely on
+		// binary search logic or linear scan. Given _FindExtent semantics
+		// which are slightly different (it returns exact match), let's implement
+		// a binary search for the first extent > offset.
+
+		int32 left = 0;
+		int32 right = fCount - 1;
+		startIndex = fCount;
+
+		while (left <= right) {
+			int32 mid = (left + right) / 2;
+			file_extent* extent = ExtentAt(mid);
+
+			if (extent->offset > offset) {
+				startIndex = mid;
+				right = mid - 1;
+			} else {
+				left = mid + 1;
+			}
 		}
+
 		if (startIndex == fCount) {
 			// No extent after offset
 			return;
 		}
+		startExtent = ExtentAt(startIndex);
 	} else {
 		// We found an extent at offset, check if we need to split it
 		if (offset > startExtent->offset) {
