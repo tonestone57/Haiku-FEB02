@@ -1369,6 +1369,14 @@ status_t
 _user_start_watching(dev_t device, ino_t node, uint32 flags, port_id port,
 	uint32 token)
 {
+	port_info info;
+	status_t error = get_port_info(port, &info);
+	if (error != B_OK)
+		return error;
+
+	if (info.team != team_get_current_team_id())
+		return B_ACCESS_DENIED;
+
 	io_context *context = get_current_io_context(false);
 
 	UserNodeListener listener(port, token);
