@@ -8,6 +8,8 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "TermConst.h"
 
@@ -62,9 +64,19 @@ HyperLink::Open()
 		return B_BAD_VALUE;
 
 	// open with the "open" program
-	BString address(fAddress);
-	address.CharacterEscape(kShellEscapeCharacters, '\\');
-	BString commandLine;
-	commandLine.SetToFormat("/bin/open %s", address.String());
-	return system(commandLine) == 0 ? B_OK : errno;
+	const char* args[] = { "/bin/open", fAddress.String(), NULL };
+
+	int status = 0;
+	pid_t pid = fork();
+	if (pid == 0) {
+		execv(args[0], (char* const*)args);
+		exit(1);
+	} else if (pid > 0) {
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+			return B_OK;
+		return B_ERROR;
+	}
+
+	return errno;
 }

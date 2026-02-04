@@ -537,18 +537,29 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 
 		sleep(1);
 
-		BString alertCommand = "alert --stop '";
-		alertCommand += B_TRANSLATE("Cannot execute \"%command\":\n\t%error");
-		alertCommand += "' '";
-		alertCommand += B_TRANSLATE("Use default shell");
-		alertCommand += "' '";
-		alertCommand += B_TRANSLATE("Abort");
-		alertCommand += "'";
-		alertCommand.ReplaceFirst("%command", argv[0]);
-		alertCommand.ReplaceFirst("%error", strerror(errno));
+		BString message = B_TRANSLATE("Cannot execute \"%command\":\n\t%error");
+		message.ReplaceFirst("%command", argv[0]);
+		message.ReplaceFirst("%error", strerror(errno));
 
-		int returnValue = system(alertCommand.String());
-		if (returnValue == 0) {
+		const char* alertArgs[] = {
+			"/bin/alert",
+			"--stop",
+			message.String(),
+			B_TRANSLATE("Use default shell"),
+			B_TRANSLATE("Abort"),
+			NULL
+		};
+
+		int status = 0;
+		pid_t alertPid = fork();
+		if (alertPid == 0) {
+			execv(alertArgs[0], (char* const*)alertArgs);
+			exit(1);
+		} else if (alertPid > 0) {
+			waitpid(alertPid, &status, 0);
+		}
+
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 			execl(kDefaultShell, kDefaultShell,
 				"-l", NULL);
 		}
