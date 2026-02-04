@@ -44,7 +44,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 
 			[ MultiArchDefaultGristFiles libicon.a ]
 			[ MultiArchDefaultGristFiles libagg.a ]
-			<$(architecture)>liblocalestub.a
+			localestub
 
 			[ TargetLibstdc++ ]
 			[ BuildFeatureAttribute icu : libraries ]
