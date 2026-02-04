@@ -476,7 +476,7 @@ MediaConverterApp::_ConvertFile(BMediaFile* inFile, BMediaFile* outFile,
 					= inFormat.u.raw_video.pixel_height_aspect;
 			}
 
-			videoBuffer = new (std::nothrow) uint8[height
+			videoBuffer = new (std::nothrow) uint8[rvf->display.line_count
 				* rvf->display.bytes_per_row];
 			if (videoBuffer == NULL) {
 				ret = B_NO_MEMORY;
