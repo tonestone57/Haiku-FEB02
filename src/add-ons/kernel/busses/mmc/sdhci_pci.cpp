@@ -52,6 +52,8 @@
 #define SDHCI_PCI_RICOH_MODE_SD20						0x10
 
 
+
+
 struct PciIdMatch {
 	uint16 vendor;
 	uint16 device;
