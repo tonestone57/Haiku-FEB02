@@ -1356,7 +1356,6 @@ devfs_read_dir(fs_volume* _volume, fs_vnode* _vnode, void* _cookie,
 	struct devfs_vnode* vnode = (devfs_vnode*)_vnode->private_node;
 	struct devfs_dir_cookie* cookie = (devfs_dir_cookie*)_cookie;
 	struct devfs* fs = (struct devfs*)_volume->private_volume;
-	status_t status = B_OK;
 	struct devfs_vnode* childNode = NULL;
 	const char* name = NULL;
 	struct devfs_vnode* nextChildNode = NULL;

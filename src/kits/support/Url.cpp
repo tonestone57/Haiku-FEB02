@@ -20,11 +20,7 @@
 
 #if defined(HAIKU_TARGET_PLATFORM_HAIKU) || defined(HAIKU_TARGET_PLATFORM_LIBBE_TEST)
 	#include <Alert.h>
-	#include <Catalog.h>
 	#include <ICUWrapper.h>
-
-	#undef B_TRANSLATION_CONTEXT
-	#define B_TRANSLATION_CONTEXT "Url"
 #endif
 
 #if defined(HAIKU_TARGET_PLATFORM_HAIKU) || defined(HAIKU_TARGET_PLATFORM_LIBBE_TEST)
@@ -710,9 +706,9 @@ BUrl::OpenWithPreferredApplication(bool onProblemAskUser) const
 	BString urlString = UrlString();
 	if (urlString.Length() > B_PATH_NAME_LENGTH) {
 		if (onProblemAskUser) {
-			BAlert* alert = new BAlert(B_TRANSLATE("URL too long"),
-				B_TRANSLATE("The URL is too long to be opened."),
-				B_TRANSLATE("OK"), NULL, NULL,
+			BAlert* alert = new BAlert("URL too long",
+				"The URL is too long to be opened.",
+				"OK", NULL, NULL,
 				B_WIDTH_AS_USUAL, B_STOP_ALERT);
 			alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 			alert->Go();

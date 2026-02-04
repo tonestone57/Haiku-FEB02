@@ -34,6 +34,12 @@
 #include <vm/VMArea.h>
 #include <vm/VMCacheTracing.h>
 
+#include "VMAnonymousCache.h"
+#include "VMAnonymousNoSwapCache.h"
+#include "VMDeviceCache.h"
+#include "VMNullCache.h"
+#include "../cache/vnode_store.h"
+
 
 //#define TRACE_VM_CACHE
 #ifdef TRACE_VM_CACHE

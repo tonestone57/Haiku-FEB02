@@ -13,6 +13,7 @@
 #include <stdlib.h>
 
 #include <AppDefs.h>
+#include <Errors.h>
 #include <NodeMonitor.h>
 
 #include <fd.h>
@@ -1394,4 +1395,3 @@ _user_stop_watching(dev_t device, ino_t node, port_id port, uint32 token)
 	return sNodeMonitorService.RemoveListener(context, device, node,
 		listener);
 }
-
