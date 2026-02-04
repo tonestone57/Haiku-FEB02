@@ -16,6 +16,7 @@
 
 #include "efi_platform.h"
 #include <efi/protocol/block-io.h>
+#include <efi/protocol/device-path.h>
 
 #include "gpt.h"
 #include "gpt_known_guids.h"
@@ -30,6 +31,24 @@
 
 
 static efi_guid BlockIoGUID = EFI_BLOCK_IO_PROTOCOL_GUID;
+static efi_guid DevicePathGUID = EFI_DEVICE_PATH_PROTOCOL_GUID;
+
+
+static bool
+IsSoftwarePartition(efi_device_path_protocol *path)
+{
+	while (path != NULL && path->Type != DEVICE_PATH_END) {
+		if (path->Type == DEVICE_PATH_MEDIA
+			&& path->SubType == MEDIA_HARDDRIVE_DP) {
+			return true;
+		}
+		uint16_t length = path->Length;
+		if (length < 4)
+			break;
+		path = (efi_device_path_protocol*)((uint8_t*)path + length);
+	}
+	return false;
+}
 
 
 class EfiDevice : public Node
@@ -228,8 +247,21 @@ platform_add_boot_device(struct stage2_args *args, NodeList *devicesList)
 			blockIo->Media->RemovableMedia ? "true" : "false",
 			blockIo->Media->BlockSize, blockIo->Media->LastBlock);
 
+		bool isPartition = blockIo->Media->LogicalPartition;
+		if (isPartition) {
+			// Some firmware (e.g. eMMC controllers) mark hardware partitions
+			// (boot0/boot1/user) as logical partitions. We want to see those
+			// as disks. Only skip if it looks like a software (GPT/MBR) partition.
+			efi_device_path_protocol *path;
+			if (kBootServices->HandleProtocol(handles[n], &DevicePathGUID,
+					(void**)&path) == EFI_SUCCESS) {
+				if (!IsSoftwarePartition(path))
+					isPartition = false;
+			}
+		}
+
 		if (!blockIo->Media->MediaPresent
-			|| blockIo->Media->LogicalPartition
+			|| isPartition
 			|| blockIo->Media->BlockSize == 0)
 			continue;
 
