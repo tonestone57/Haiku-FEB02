@@ -172,6 +172,7 @@ static bool sInitialized;
 
 family::family(int _type)
 	:
+	next(NULL),
 	type(_type),
 	ref_count(0)
 {
@@ -229,6 +230,7 @@ family::Add(int type)
 
 chain::chain(int _family, int _type, int _protocol)
 	:
+	next(NULL),
 	family(_family),
 	type(_type),
 	protocol(_protocol),
@@ -727,7 +729,7 @@ register_domain_receiving_protocol(int family, int type, const char* moduleName)
 		return B_OK;
 
 	chain = chain::Add(sReceivingProtocolChains, family, type, 0, moduleName,
-		NULL);
+		(const char*)NULL);
 	if (chain == NULL)
 		return B_NO_MEMORY;
 
