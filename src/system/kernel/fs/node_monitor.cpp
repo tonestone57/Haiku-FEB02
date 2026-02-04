@@ -1365,6 +1365,14 @@ notify_query_attribute_changed(port_id port, int32 token, dev_t device,
 status_t
 _user_stop_notifying(port_id port, uint32 token)
 {
+	port_info info;
+	status_t error = get_port_info(port, &info);
+	if (error != B_OK)
+		return error;
+
+	if (info.team != team_get_current_team_id())
+		return B_PERMISSION_DENIED;
+
 	io_context *context = get_current_io_context(false);
 
 	return sNodeMonitorService.RemoveUserListeners(context, port, token);

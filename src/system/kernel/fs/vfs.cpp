@@ -5317,19 +5317,21 @@ vfs_setrlimit(int resource, const struct rlimit* rlp)
 
 	switch (resource) {
 		case RLIMIT_NOFILE:
-			/* TODO: check getuid() */
 			if (rlp->rlim_max != RLIM_SAVED_MAX
-				&& rlp->rlim_max != MAX_FD_TABLE_SIZE)
-				return B_NOT_ALLOWED;
+				&& rlp->rlim_max != MAX_FD_TABLE_SIZE) {
+				if (geteuid() != 0)
+					return B_PERMISSION_DENIED;
+			}
 
 			return vfs_resize_fd_table(get_current_io_context(false),
 				rlp->rlim_cur);
 
 		case RLIMIT_NOVMON:
-			/* TODO: check getuid() */
 			if (rlp->rlim_max != RLIM_SAVED_MAX
-				&& rlp->rlim_max != MAX_NODE_MONITORS)
-				return B_NOT_ALLOWED;
+				&& rlp->rlim_max != MAX_NODE_MONITORS) {
+				if (geteuid() != 0)
+					return B_PERMISSION_DENIED;
+			}
 
 			return resize_monitor_table(get_current_io_context(false),
 				rlp->rlim_cur);
