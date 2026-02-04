@@ -583,7 +583,7 @@ reassemble_fragments(const IPv6Header &header, net_buffer** _buffer,
 
 	// Remove header unless this is the first fragment
 	if (start != 0)
-		gBufferModule->remove_header(buffer, offset);
+		gBufferModule->remove_header(buffer, offset + sizeof(struct ip6_frag));
 
 	status = packet->AddFragment(start, end, buffer, lastFragment);
 	if (status != B_OK)
@@ -1538,11 +1538,11 @@ ipv6_receive_data(net_buffer* buffer)
 	// tell the buffer to preserve removed ipv6 header - may need it later
 	gBufferModule->store_header(buffer);
 
-	// remove ipv6 headers for now
-	gBufferModule->remove_header(buffer, transportHeaderOffset);
-
 	// deliver the data to raw sockets
 	raw_receive_data(buffer);
+
+	// remove ipv6 headers for now
+	gBufferModule->remove_header(buffer, transportHeaderOffset);
 
 	net_protocol_module_info* module = receiving_protocol(protocol);
 	if (module == NULL) {
