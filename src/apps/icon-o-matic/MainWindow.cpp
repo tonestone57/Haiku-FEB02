@@ -196,7 +196,7 @@ MainWindow::MessageReceived(BMessage* message)
 			if (length != sizeof(rgb_color))
 				continue;
 			char name[30];
-			sprintf(name, 
+			snprintf(name, sizeof(name),
 				B_TRANSLATE_COMMENT("Color (#%02x%02x%02x)", 
 					"Style name after dropping a color"), 
 				color->red, color->green, color->blue);

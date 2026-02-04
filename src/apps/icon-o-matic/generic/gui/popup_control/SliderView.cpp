@@ -320,7 +320,7 @@ SliderView::GetSliderButtonDimensions(int32 max, const char* formatString,
 {
 	if (font) {
 		char label[256];
-		sprintf(label, formatString, max);
+		snprintf(label, sizeof(label), formatString, max);
 		font_height fh;
 		font->GetHeight(&fh);
 		// 4 pixels room on each side,
@@ -365,7 +365,7 @@ SliderView::DrawSliderButton(BView* v, BRect r, int32 value,
 	// background & label
 	r.InsetBy(1.0, 1.0);
 	char label[256];
-	sprintf(label, formatString, value);
+	snprintf(label, sizeof(label), formatString, value);
 	float width = v->StringWidth(label);
 	font_height fh;
 	v->GetFontHeight(&fh);
