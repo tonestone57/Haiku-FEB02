@@ -6,6 +6,8 @@
 
 #include "Keyring.h"
 
+#include <OS.h>
+
 #ifdef HAVE_OPENSSL
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
@@ -475,6 +477,22 @@ Keyring::Compare(const BString* name, const Keyring* keyring)
 
 
 #ifdef HAVE_OPENSSL
+static bool
+HasHardwareAES()
+{
+#if defined(__i386__) || defined(__x86_64__)
+	cpuid_info info;
+	if (get_cpuid(&info, 1, 0) == B_OK) {
+		// AES-NI is bit 25 of ECX (extended_features)
+		if ((info.eax_1.extended_features & (1 << 25)) != 0)
+			return true;
+	}
+#endif
+	// TODO: Add ARMv8 Crypto Extensions check
+	return false;
+}
+
+
 static status_t
 DeriveKey(const BMessage& keyMessage, const uint8* salt, size_t saltSize,
 	uint8* key, size_t keySize)
@@ -561,10 +579,14 @@ Keyring::_EncryptToFlatBuffer()
 
 #ifdef HAVE_OPENSSL
 	if (fHasUnlockKey) {
-		// Use AES-256-GCM
+		// Determine algorithm based on hardware support
+		bool useAES = HasHardwareAES();
+		const EVP_CIPHER* cipher = useAES ? EVP_aes_256_gcm()
+			: EVP_chacha20_poly1305();
+
 		const size_t kKeySize = 32;
 		const size_t kSaltSize = 16;
-		const size_t kIVSize = 12; // GCM standard IV size
+		const size_t kIVSize = 12; // GCM and ChaCha20-Poly1305 standard IV
 		const size_t kTagSize = 16;
 
 		uint8 salt[kSaltSize];
@@ -585,7 +607,7 @@ Keyring::_EncryptToFlatBuffer()
 			return B_NO_MEMORY;
 
 		status_t status = B_OK;
-		if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1
+		if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1
 			|| EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv) != 1) {
 			status = B_ERROR;
 		}
@@ -595,8 +617,10 @@ Keyring::_EncryptToFlatBuffer()
 		int ciphertextLen = 0;
 
 		if (status == B_OK) {
-			// Write metadata: Salt + IV
-			if (fFlatBuffer.Write(salt, sizeof(salt)) != (ssize_t)sizeof(salt)
+			// Write metadata: Algo ID + Salt + IV
+			uint8 algoID = useAES ? 0 : 1;
+			if (fFlatBuffer.Write(&algoID, sizeof(algoID)) != sizeof(algoID)
+				|| fFlatBuffer.Write(salt, sizeof(salt)) != (ssize_t)sizeof(salt)
 				|| fFlatBuffer.Write(iv, sizeof(iv)) != (ssize_t)sizeof(iv)) {
 				status = B_ERROR;
 			}
@@ -604,7 +628,7 @@ Keyring::_EncryptToFlatBuffer()
 
 		if (status == B_OK) {
 			ciphertext = (uint8*)malloc(plainBuffer.BufferLength()
-				+ EVP_CIPHER_block_size(EVP_aes_256_gcm()));
+				+ EVP_CIPHER_block_size(cipher));
 			if (ciphertext == NULL)
 				status = B_NO_MEMORY;
 		}
@@ -625,9 +649,9 @@ Keyring::_EncryptToFlatBuffer()
 		}
 
 		if (status == B_OK) {
-			// Get the tag
+			// Get the tag (EVP_CTRL_GCM_GET_TAG works for ChaCha20-Poly1305 too)
 			uint8 tag[kTagSize];
-			if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, kTagSize, tag)
+			if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, kTagSize, tag)
 					!= 1) {
 				status = B_ERROR;
 			} else {
@@ -678,11 +702,24 @@ Keyring::_DecryptFromFlatBuffer()
 		const size_t kSaltSize = 16;
 		const size_t kIVSize = 12;
 		const size_t kTagSize = 16;
+		const size_t kHeaderSize = sizeof(uint8) + kSaltSize + kIVSize;
 
-		if (fFlatBuffer.BufferLength() < kSaltSize + kIVSize + kTagSize)
+		if (fFlatBuffer.BufferLength() < kHeaderSize + kTagSize)
 			return B_ERROR;
 
 		fFlatBuffer.Seek(0, SEEK_SET);
+
+		uint8 algoID;
+		if (fFlatBuffer.Read(&algoID, sizeof(algoID)) != sizeof(algoID))
+			return B_ERROR;
+
+		const EVP_CIPHER* cipher = NULL;
+		if (algoID == 0)
+			cipher = EVP_aes_256_gcm();
+		else if (algoID == 1)
+			cipher = EVP_chacha20_poly1305();
+		else
+			return B_BAD_VALUE; // Unknown algorithm
 
 		uint8 salt[kSaltSize];
 		if (fFlatBuffer.Read(salt, sizeof(salt)) != (ssize_t)sizeof(salt))
@@ -698,9 +735,8 @@ Keyring::_DecryptFromFlatBuffer()
 		if (result != B_OK)
 			return result;
 
-		size_t dataSize = fFlatBuffer.BufferLength() - kSaltSize - kIVSize
-			- kTagSize;
-		uint8* buffer = (uint8*)fFlatBuffer.Buffer() + kSaltSize + kIVSize;
+		size_t dataSize = fFlatBuffer.BufferLength() - kHeaderSize - kTagSize;
+		uint8* buffer = (uint8*)fFlatBuffer.Buffer() + kHeaderSize;
 		uint8* tag = buffer + dataSize;
 
 		EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
@@ -708,7 +744,7 @@ Keyring::_DecryptFromFlatBuffer()
 			return B_NO_MEMORY;
 
 		status_t status = B_OK;
-		if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1
+		if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1
 			|| EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv) != 1) {
 			status = B_ERROR;
 		}
@@ -719,7 +755,7 @@ Keyring::_DecryptFromFlatBuffer()
 
 		if (status == B_OK) {
 			plaintext = (uint8*)malloc(dataSize
-				+ EVP_CIPHER_block_size(EVP_aes_256_gcm()));
+				+ EVP_CIPHER_block_size(cipher));
 			if (plaintext == NULL)
 				status = B_NO_MEMORY;
 		}
@@ -734,7 +770,7 @@ Keyring::_DecryptFromFlatBuffer()
 
 		if (status == B_OK) {
 			// Set expected tag
-			if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, kTagSize, tag)
+			if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, kTagSize, tag)
 					!= 1) {
 				status = B_ERROR;
 			}
