@@ -328,7 +328,7 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 
 	if (fCommandResult & SDHCI_INT_ERROR) {
 		// TODO is it a good idea to clear interrupts here from outside the interrupt handler?
-		fRegisters->interrupt_status |= fCommandResult;
+		fRegisters->interrupt_status = fCommandResult;
 		if (fCommandResult & SDHCI_INT_COMMAND_TIMEOUT) {
 			ERROR("Command execution timed out\n");
 			if (fRegisters->present_state.CommandInhibit()) {
@@ -656,8 +656,8 @@ SdhciBus::RecoverError()
 	if (fRegisters->interrupt_status & 7)
 		fRegisters->software_reset.ResetCommandLine();
 
-	int16_t error_status = fRegisters->interrupt_status;
-	fRegisters->interrupt_status &= ~(error_status);
+	uint32_t error_status = fRegisters->interrupt_status;
+	fRegisters->interrupt_status = error_status;
 }
 
 
@@ -717,7 +717,7 @@ SdhciBus::HandleInterrupt()
 		fCommandResult |= intmask;
 			// Save the status before clearing so the thread can handle it
 
-		fRegisters->interrupt_status |= (intmask & SDHCI_INT_CMD_MASK);
+		fRegisters->interrupt_status = (intmask & SDHCI_INT_CMD_MASK);
 
 		// Notify the thread
 		fInterruptNotifier.NotifyAll();
@@ -726,7 +726,7 @@ SdhciBus::HandleInterrupt()
 
 	if (intmask & SDHCI_INT_TRANS_CMP) {
 		fCommandResult |= intmask;
-		fRegisters->interrupt_status |= SDHCI_INT_TRANS_CMP;
+		fRegisters->interrupt_status = SDHCI_INT_TRANS_CMP;
 		fInterruptNotifier.NotifyAll();
 		TRACE("Transfer complete interrupt handled\n");
 	}
@@ -754,13 +754,13 @@ SdhciBus::_WorkerThread(void* cookie) {
 	while (bus->fStatus != B_SHUTTING_DOWN) {
 		uint32_t intmask = bus->fRegisters->interrupt_status;
 		if (intmask & SDHCI_INT_CMD_CMP) {
-			bus->fCommandResult = intmask;
-			bus->fRegisters->interrupt_status |= (intmask & SDHCI_INT_CMD_MASK);
+			bus->fCommandResult |= intmask;
+			bus->fRegisters->interrupt_status = (intmask & SDHCI_INT_CMD_MASK);
 			bus->fInterruptNotifier.NotifyAll();
 		}
 		if (intmask & SDHCI_INT_TRANS_CMP) {
-			bus->fCommandResult = intmask;
-			bus->fRegisters->interrupt_status |= SDHCI_INT_TRANS_CMP;
+			bus->fCommandResult |= intmask;
+			bus->fRegisters->interrupt_status = SDHCI_INT_TRANS_CMP;
 			bus->fInterruptNotifier.NotifyAll();
 		}
 		snooze(100);
