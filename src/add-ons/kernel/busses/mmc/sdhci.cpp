@@ -246,6 +246,8 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 			transferMode = TransferMode::kRead | TransferMode::kMulti
 				| TransferMode::kAutoCmd12Enable | TransferMode::kBlockCountEnable
 				| TransferMode::kDmaEnable;
+			if (fQuirks & SDHCI_QUIRK_BROKEN_AUTO_STOP)
+				transferMode &= ~TransferMode::kAutoCmd12Enable;
 			replyType = Command::kR1Type | Command::kDataPresent;
 			break;
 		case SD_WRITE_SINGLE_BLOCK:
@@ -256,6 +258,8 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 			transferMode = TransferMode::kWrite | TransferMode::kMulti
 				| TransferMode::kAutoCmd12Enable | TransferMode::kBlockCountEnable
 				| TransferMode::kDmaEnable;
+			if (fQuirks & SDHCI_QUIRK_BROKEN_AUTO_STOP)
+				transferMode &= ~TransferMode::kAutoCmd12Enable;
 			replyType = Command::kR1Type | Command::kDataPresent;
 			break;
 		case SD_APP_CMD:
