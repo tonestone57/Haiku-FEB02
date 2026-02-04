@@ -1395,13 +1395,25 @@ arch_debug_snooze(bigtime_t duration)
 	if (delay == 0)
 		delay = 1;
 
-	if (sDebugSnooze != NULL) {
-		sDebugSnooze(delay);
-		return;
-	}
-
+	// Use a target TSC value to ensure we wait the full duration
+	// even if the optimized instruction wakes up early (e.g. due to interrupts).
 	memory_read_barrier();
 	uint64 target = __rdtsc() + delay;
+
+	if (sDebugSnooze != NULL) {
+		while (true) {
+			uint64 now = __rdtsc();
+			if (now >= target)
+				break;
+
+			uint64 remaining = target - now;
+			if (remaining > 0xffffffff)
+				remaining = 0xffffffff;
+
+			sDebugSnooze((uint32)remaining);
+		}
+		return;
+	}
 
 	while (__rdtsc() < target)
 		arch_cpu_pause();
