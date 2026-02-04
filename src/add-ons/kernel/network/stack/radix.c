@@ -341,7 +341,7 @@ rn_walktree_from(struct radix_node_head *h, void *a, void *m, walktree_f_t *f, v
 	struct radix_node *base, *next;
 	u_char *xa = (u_char *)a;
 	u_char *xm = (u_char *)m;
-	register struct radix_node *rn, *last = 0 /* shut up gcc */;
+	register struct radix_node *rn, *last = h->rnh_treetop;
 	int stopping = 0;
 	int lastb;
 
@@ -629,7 +629,8 @@ rn_addmask(void *n_arg, int search, int skip)
 		return mask_rnhead->rnh_nodes;
 	if (skip > 1)
 		memcpy(addmask_key + 1, rn_ones + 1, skip - 1);
-	if ((m0 = mlen) > skip)
+	m0 = mlen;
+	if (m0 > skip)
 		memcpy(addmask_key + skip, netmask + skip, mlen - skip);
 	/*
 	 * Trim trailing zeroes.

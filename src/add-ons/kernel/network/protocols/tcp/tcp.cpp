@@ -246,8 +246,10 @@ process_options(tcp_segment_header &segment, net_buffer *buffer, size_t size)
 		}
 
 		if (length < 0) {
+			if (size < 2)
+				break;
 			length = option->length;
-			if (length == 0 || length > (ssize_t)size)
+			if (length < 2 || length > (ssize_t)size)
 				break;
 		}
 

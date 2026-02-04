@@ -1167,8 +1167,13 @@ socket_receive(net_socket* socket, msghdr* header, void* data, size_t length,
 			|| data == header->msg_iov[0].iov_base);
 
 		// calculate the length considering all of the extra buffers
-		for (int i = 1; i < header->msg_iovlen; i++)
+		for (int i = 1; i < header->msg_iovlen; i++) {
+			if (header->msg_iov[i].iov_len > SSIZE_MAX
+				|| totalLength > SSIZE_MAX - header->msg_iov[i].iov_len)
+				return B_BAD_VALUE;
+
 			totalLength += header->msg_iov[i].iov_len;
+		}
 	}
 
 	net_buffer* buffer;
@@ -1349,8 +1354,13 @@ socket_send(net_socket* socket, msghdr* header, const void* data, size_t length,
 		if (header->msg_iovlen <= 1) {
 			header = NULL;
 		} else {
-			for (int i = 1; i < header->msg_iovlen; i++)
+			for (int i = 1; i < header->msg_iovlen; i++) {
+				if (header->msg_iov[i].iov_len > SSIZE_MAX
+					|| bytesLeft > SSIZE_MAX - header->msg_iov[i].iov_len)
+					return B_BAD_VALUE;
+
 				bytesLeft += header->msg_iov[i].iov_len;
+			}
 		}
 	}
 

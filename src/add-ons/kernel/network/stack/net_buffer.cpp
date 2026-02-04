@@ -1472,7 +1472,7 @@ write_data(net_buffer* _buffer, size_t offset, const void* data, size_t size)
 
 	ParanoiaChecker _(buffer);
 
-	if (offset + size > buffer->size)
+	if (offset > buffer->size || size > buffer->size - offset)
 		return B_BAD_VALUE;
 	if (size == 0)
 		return B_OK;
@@ -1519,7 +1519,7 @@ read_data(net_buffer* _buffer, size_t offset, void* data, size_t size)
 
 	ParanoiaChecker _(buffer);
 
-	if (offset + size > buffer->size)
+	if (offset > buffer->size || size > buffer->size - offset)
 		return B_BAD_VALUE;
 	if (size == 0)
 		return B_OK;
@@ -2193,7 +2193,7 @@ direct_access(net_buffer* _buffer, uint32 offset, size_t size,
 	//TRACE(("direct_access(buffer %p, offset %ld, size %ld)\n", buffer, offset,
 	//	size));
 
-	if (offset + size > buffer->size)
+	if (offset > buffer->size || size > buffer->size - offset)
 		return B_BAD_VALUE;
 
 	// find node to access
@@ -2216,7 +2216,7 @@ checksum_data(net_buffer* _buffer, uint32 offset, size_t size, bool finalize)
 {
 	net_buffer_private* buffer = (net_buffer_private*)_buffer;
 
-	if (offset + size > buffer->size || size == 0)
+	if (offset > buffer->size || size > buffer->size - offset || size == 0)
 		return B_BAD_VALUE;
 
 	// find first node to read from
