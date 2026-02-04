@@ -443,7 +443,9 @@ MessagingService::_AllocateCommand(int32 commandWhat, int32 size,
 
 	while (fFirstArea != fLastArea) {
 		area = fFirstArea;
-		area->Lock();
+		if (!area->Lock())
+			return B_ERROR;
+
 		if (!area->IsEmpty()) {
 			area->Unlock();
 			break;
@@ -460,7 +462,9 @@ MessagingService::_AllocateCommand(int32 commandWhat, int32 size,
 
 	// allocate space for the command in the last area
 	area = fLastArea;
-	area->Lock();
+	if (!area->Lock())
+		return B_ERROR;
+
 	data = area->AllocateCommand(commandWhat, size, wasEmpty);
 
 	if (!data) {

@@ -458,7 +458,15 @@ status_t
 KMessage::FindString(const char* name, int32 index, const char** value) const
 {
 	int32 size;
-	return FindData(name, B_STRING_TYPE, index, (const void**)value, &size);
+	status_t error = FindData(name, B_STRING_TYPE, index, (const void**)value,
+		&size);
+	if (error != B_OK)
+		return error;
+
+	if (size <= 0 || (*value)[size - 1] != '\0')
+		return B_BAD_DATA;
+
+	return B_OK;
 }
 
 
@@ -569,7 +577,8 @@ KMessage::GetString(const char* name, int32 index,
 	const char* value;
 	if (FindData(name, B_STRING_TYPE, index, (const void**)&value, &size)
 			== B_OK) {
-		return value;
+		if (size > 0 && value[size - 1] == '\0')
+			return value;
 	}
 	return defaultValue;
 }
