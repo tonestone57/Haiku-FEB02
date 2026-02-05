@@ -1743,7 +1743,8 @@ release_advisory_lock(struct vnode* vnode, struct io_context* context,
 	}
 
 	// free unused new locks
-	while ((struct advisory_lock* lock = newLocks.RemoveHead()) != NULL)
+	struct advisory_lock* lock;
+	while ((lock = newLocks.RemoveHead()) != NULL)
 		delete lock;
 
 	bool removeLocking = locking->locks.IsEmpty();

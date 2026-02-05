@@ -458,7 +458,7 @@ bfs_read_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 			pos += bytesZeroed;
 			bytesLeft -= bytesZeroed;
 			break;
-		} else if (pos + bytes > physicalSize) {
+		} else if (pos + (off_t)bytes > physicalSize) {
 			bytes = physicalSize - pos;
 		}
 
@@ -513,7 +513,7 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 		bool needsAllocation = false;
 
 		rw_lock_read_lock(&inode->Lock());
-		if (pos + bytesLeft > inode->PhysicalSize())
+		if (pos + (off_t)bytesLeft > inode->PhysicalSize())
 			needsAllocation = true;
 		rw_lock_read_unlock(&inode->Lock());
 
