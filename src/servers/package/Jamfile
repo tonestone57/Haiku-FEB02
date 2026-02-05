@@ -5,6 +5,7 @@ UsePrivateHeaders app interface kernel shared storage ;
 
 Application package_daemon
 	:
+	AttributeCache.cpp
 	CommitTransactionHandler.cpp
 	Constants.cpp
 	DebugSupport.cpp

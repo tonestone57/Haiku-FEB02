@@ -12,9 +12,11 @@
 #include <fcntl.h>
 
 #include <File.h>
+#include <Path.h>
 
 #include <AutoDeleter.h>
 
+#include "AttributeCache.h"
 #include "DebugSupport.h"
 #include "PackageFileManager.h"
 
@@ -60,14 +62,31 @@ PackageFile::Init(const entry_ref& entryRef, PackageFileManager* owner)
 	if (error != B_OK)
 		RETURN_ERROR(error);
 
-	// get the package info
-	FileDescriptorCloser fd(file.Dup());
-	if (!fd.IsSet())
-		RETURN_ERROR(error);
+	// try to load from cache
+	bool loadedFromCache = false;
+	off_t size;
+	time_t mtime;
+	BPath path;
+	if (file.GetSize(&size) == B_OK && file.GetModificationTime(&mtime) == B_OK
+		&& path.SetTo(&entryRef) == B_OK) {
+		if (AttributeCache::Load(fInfo, path.Path(), mtime, size) == B_OK)
+			loadedFromCache = true;
+	}
 
-	error = fInfo.ReadFromPackageFile(fd.Get());
-	if (error != B_OK)
-		RETURN_ERROR(error);
+	if (!loadedFromCache) {
+		// get the package info
+		FileDescriptorCloser fd(file.Dup());
+		if (!fd.IsSet())
+			RETURN_ERROR(error);
+
+		error = fInfo.ReadFromPackageFile(fd.Get());
+		if (error != B_OK)
+			RETURN_ERROR(error);
+
+		// save to cache
+		if (path.InitCheck() == B_OK)
+			AttributeCache::Save(fInfo, path.Path(), mtime, size);
+	}
 
 	if (fFileName != fInfo.CanonicalFileName())
 		fInfo.SetFileName(fFileName);
