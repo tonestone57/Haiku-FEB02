@@ -205,14 +205,19 @@ compat_send(void *cookie, net_buffer *buffer)
 	if (vecCount > 0) {
 		if (vecCount <= 8)
 			iovecs = stackIovecs;
-		else
+		else {
 			iovecs = malloc(sizeof(struct iovec) * vecCount);
+			if (iovecs == NULL)
+				dprintf("compat_send: malloc failed\n");
+		}
 
 		if (iovecs != NULL
 			&& gBufferModule->get_iovecs(buffer, iovecs, vecCount) == vecCount) {
 			net_buffer *clone = gBufferModule->clone(buffer, false);
 			if (clone != NULL) {
 				int32 *ref = malloc(sizeof(int32));
+				if (ref == NULL)
+					dprintf("compat_send: malloc failed\n");
 				if (ref != NULL) {
 					*ref = 1;
 
@@ -262,8 +267,11 @@ compat_send(void *cookie, net_buffer *buffer)
 						int result = ifp->if_output(ifp, head, NULL, NULL);
 						IFF_UNLOCKGIANT(ifp);
 
-						if (result == 0)
+						if (result == 0) {
+							// Free the original buffer as the caller expects.
+							// The clone is managed by the mbuf callback.
 							gBufferModule->free(buffer);
+						}
 						return result;
 					}
 
