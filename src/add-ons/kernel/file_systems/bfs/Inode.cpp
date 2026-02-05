@@ -358,6 +358,7 @@ Inode::Inode(Volume* volume, ino_t id)
 	}
 
 	// these two will help to maintain the indices
+	fLogicalSize = fNode.data.Size();
 	fOldSize = Size();
 	fOldLastModified = LastModified();
 
@@ -411,6 +412,7 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 	Node().inode_size = HOST_ENDIAN_TO_BFS_INT32(volume->InodeSize());
 
 	// these two will help to maintain the indices
+	fLogicalSize = fNode.data.Size();
 	fOldSize = Size();
 	fOldLastModified = LastModified();
 }
@@ -517,6 +519,7 @@ Inode::UpdateNodeFromDisk()
 
 	memcpy(&fNode, node.Node(), sizeof(bfs_inode));
 	fNode.flags &= HOST_ENDIAN_TO_BFS_INT32(INODE_PERMANENT_FLAGS);
+	fLogicalSize = fNode.data.Size();
 	return B_OK;
 }
 
@@ -1620,7 +1623,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	if ((uint64)pos + (uint64)length > (uint64)oldSize) {
 		// let's grow the data stream to the size needed
-		status_t status = SetFileSize(transaction, pos + length);
+		status_t status = SetFileSize(transaction, pos + length, true);
 		if (status != B_OK) {
 			*_length = 0;
 			WriteLockInTransaction(transaction);
@@ -2316,7 +2319,7 @@ Inode::_ShrinkStream(Transaction& transaction, off_t size)
 
 
 status_t
-Inode::SetFileSize(Transaction& transaction, off_t size)
+Inode::SetFileSize(Transaction& transaction, off_t size, bool lazy)
 {
 	if (size < 0)
 		return B_BAD_VALUE;
@@ -2326,27 +2329,54 @@ Inode::SetFileSize(Transaction& transaction, off_t size)
 	if (size == oldSize)
 		return B_OK;
 
+	if (size < oldSize)
+		lazy = false;
+
 	T(Resize(this, oldSize, size, false));
 
-	// should the data stream grow or shrink?
-	status_t status;
-	if (size > oldSize) {
-		status = _GrowStream(transaction, size);
-		if (status < B_OK) {
-			// if the growing of the stream fails, the whole operation
-			// fails, so we should shrink the stream to its former size
-			_ShrinkStream(transaction, oldSize);
-		}
-	} else
-		status = _ShrinkStream(transaction, size);
+	status_t status = B_OK;
+	fLogicalSize = size;
 
-	if (status < B_OK)
+	// should the data stream grow or shrink?
+	if (!lazy) {
+		if (size > oldSize) {
+			status = _GrowStream(transaction, size);
+			if (status < B_OK) {
+				// if the growing of the stream fails, the whole operation
+				// fails, so we should shrink the stream to its former size
+				fLogicalSize = oldSize;
+				_ShrinkStream(transaction, oldSize);
+			}
+		} else
+			status = _ShrinkStream(transaction, size);
+	}
+
+	if (status < B_OK) {
+		fLogicalSize = oldSize;
 		return status;
+	}
 
 	file_cache_set_size(FileCache(), size);
 	file_map_set_size(Map(), size);
 
+	if (lazy)
+		return B_OK;
+
 	return WriteBack(transaction);
+}
+
+
+status_t
+Inode::AllocateForRange(off_t start, off_t size, Transaction& transaction)
+{
+	if (start + size <= PhysicalSize())
+		return B_OK;
+
+	off_t end = start + size;
+	if (end > Size())
+		end = Size();
+
+	return _GrowStream(transaction, end);
 }
 
 

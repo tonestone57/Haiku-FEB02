@@ -91,7 +91,8 @@ public:
 			uint32				Type() const { return fNode.Type(); }
 			int32				Flags() const { return fNode.Flags(); }
 
-			off_t				Size() const { return fNode.data.Size(); }
+			off_t				Size() const { return fLogicalSize; }
+			off_t				PhysicalSize() const { return fNode.data.Size(); }
 			off_t				AllocatedSize() const;
 			off_t				LastModified() const
 									{ return fNode.LastModifiedTime(); }
@@ -151,7 +152,9 @@ public:
 			status_t			FillGapWithZeros(off_t oldSize, off_t newSize);
 
 			status_t			SetFileSize(Transaction& transaction,
-									off_t size);
+									off_t size, bool lazy = false);
+			status_t			AllocateForRange(off_t start, off_t size,
+									Transaction& transaction);
 			status_t			Append(Transaction& transaction, off_t bytes);
 			status_t			TrimPreallocation(Transaction& transaction);
 			bool				NeedsTrimming() const;
@@ -273,6 +276,7 @@ private:
 
 			off_t				fOldSize;
 			off_t				fOldLastModified;
+			off_t				fLogicalSize;
 				// we need those values to ensure we will remove
 				// the correct keys from the indices
 

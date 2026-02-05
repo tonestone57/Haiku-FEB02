@@ -423,20 +423,55 @@ bfs_read_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 	uint32 vecIndex = 0;
 	size_t vecOffset = 0;
 	size_t bytesLeft = *_numBytes;
-	status_t status;
+	status_t status = B_OK;
 
 	while (true) {
+		off_t physicalSize = inode->PhysicalSize();
+		size_t bytes = bytesLeft;
+
+		// Handle unwritten ranges (delayed allocation holes)
+		if (pos >= physicalSize) {
+			size_t zeroBytes = bytes;
+			size_t bytesZeroed = 0;
+
+			for (; vecIndex < count && bytesZeroed < zeroBytes; vecIndex++) {
+				uint8* base = (uint8*)vecs[vecIndex].iov_base;
+				size_t len = vecs[vecIndex].iov_len;
+
+				if (vecOffset > 0) {
+					if (vecOffset >= len) {
+						vecOffset -= len;
+						continue;
+					}
+					base += vecOffset;
+					len -= vecOffset;
+					vecOffset = 0;
+				}
+
+				if (len > zeroBytes - bytesZeroed)
+					len = zeroBytes - bytesZeroed;
+
+				memset(base, 0, len);
+				bytesZeroed += len;
+			}
+
+			pos += bytesZeroed;
+			bytesLeft -= bytesZeroed;
+			break;
+		} else if (pos + bytes > physicalSize) {
+			bytes = physicalSize - pos;
+		}
+
 		file_io_vec fileVecs[8];
 		size_t fileVecCount = 8;
 
-		status = file_map_translate(inode->Map(), pos, bytesLeft, fileVecs,
+		status = file_map_translate(inode->Map(), pos, bytes, fileVecs,
 			&fileVecCount, 0);
 		if (status != B_OK && status != B_BUFFER_OVERFLOW)
 			break;
 
 		bool bufferOverflow = status == B_BUFFER_OVERFLOW;
 
-		size_t bytes = bytesLeft;
 		status = read_file_io_vec_pages(volume->Device(), fileVecs,
 			fileVecCount, vecs, count, &vecIndex, &vecOffset, &bytes);
 		if (status != B_OK || !bufferOverflow)
@@ -444,6 +479,12 @@ bfs_read_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 
 		pos += bytes;
 		bytesLeft -= bytes;
+
+		if (bytesLeft > 0 && pos >= physicalSize)
+			continue;
+
+		if (bytesLeft == 0)
+			break;
 	}
 
 	return status;
@@ -463,27 +504,48 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 	if (inode->FileCache() == NULL)
 		RETURN_ERROR(B_BAD_VALUE);
 
-	InodeReadLocker _(inode);
-
 	uint32 vecIndex = 0;
 	size_t vecOffset = 0;
 	size_t bytesLeft = *_numBytes;
-	status_t status;
+	status_t status = B_OK;
 
 	while (true) {
+		bool needsAllocation = false;
+
+		rw_lock_read_lock(&inode->Lock());
+		if (pos + bytesLeft > inode->PhysicalSize())
+			needsAllocation = true;
+		rw_lock_read_unlock(&inode->Lock());
+
+		if (needsAllocation) {
+			Transaction transaction(volume, inode->BlockNumber());
+			status = inode->AllocateForRange(pos, bytesLeft, transaction);
+			if (status == B_OK)
+				status = transaction.Done();
+			else
+				return status;
+		}
+
+		rw_lock_read_lock(&inode->Lock());
+
 		file_io_vec fileVecs[8];
 		size_t fileVecCount = 8;
 
 		status = file_map_translate(inode->Map(), pos, bytesLeft, fileVecs,
 			&fileVecCount, 0);
-		if (status != B_OK && status != B_BUFFER_OVERFLOW)
+		if (status != B_OK && status != B_BUFFER_OVERFLOW) {
+			rw_lock_read_unlock(&inode->Lock());
 			break;
+		}
 
 		bool bufferOverflow = status == B_BUFFER_OVERFLOW;
 
 		size_t bytes = bytesLeft;
 		status = write_file_io_vec_pages(volume->Device(), fileVecs,
 			fileVecCount, vecs, count, &vecIndex, &vecOffset, &bytes);
+
+		rw_lock_read_unlock(&inode->Lock());
+
 		if (status != B_OK || !bufferOverflow)
 			break;
 
