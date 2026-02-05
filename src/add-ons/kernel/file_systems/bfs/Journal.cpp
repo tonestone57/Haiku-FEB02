@@ -722,9 +722,10 @@ Journal::_LogFlusher(void* _journal)
 		}
 
 		bigtime_t elapsed = system_time() - journal->fTransactionStartTime;
-		if (journal->fUnwrittenTransactions < 50 && elapsed < 5000) {
+		if (journal->fUnwrittenTransactions < kMaxBatchedTransactions
+			&& elapsed < kMaxTransactionLatency) {
 			recursive_lock_unlock(&journal->fLock);
-			snooze(5000 - elapsed);
+			snooze(kMaxTransactionLatency - elapsed);
 		} else
 			recursive_lock_unlock(&journal->fLock);
 
@@ -1120,7 +1121,8 @@ Journal::_TransactionDone(bool success)
 	// Up to a maximum size, we will just batch several
 	// transactions together to improve speed
 	uint32 size = _TransactionSize();
-	if (size < fMaxTransactionSize && fUnwrittenTransactions < 50) {
+	if (size < fMaxTransactionSize
+		&& fUnwrittenTransactions < kMaxBatchedTransactions) {
 		// Flush the log from time to time, so that we have enough space
 		// for this transaction
 		if (size > FreeLogBlocks())
