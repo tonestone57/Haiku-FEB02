@@ -1038,6 +1038,12 @@ object_cache_low_memory(void* dummy, uint32 resources, int32 level)
 		if (cache->reclaimer)
 			cache->reclaimer(cache->cookie, level);
 
+		if ((cache->flags & CACHE_NO_DEPOT) == 0)
+			object_depot_make_empty(&cache->depot, 0);
+
+		MutexLocker cacheLocker(cache->lock);
+		size_t minimumAllowed;
+
 		if ((cache->flags & CACHE_NO_DEPOT) == 0) {
 			if (level >= B_LOW_RESOURCE_WARNING) {
 				size_t newCapacity = cache->depot.magazine_capacity / 2;
@@ -1045,11 +1051,7 @@ object_cache_low_memory(void* dummy, uint32 resources, int32 level)
 					newCapacity = 2;
 				cache->depot.magazine_capacity = newCapacity;
 			}
-			object_depot_make_empty(&cache->depot, 0);
 		}
-
-		MutexLocker cacheLocker(cache->lock);
-		size_t minimumAllowed;
 
 		switch (level) {
 			case B_LOW_RESOURCE_NOTE:
