@@ -307,6 +307,8 @@ get_symbol_type_string(elf_sym *symbol)
 	switch (symbol->Type()) {
 		case STT_FUNC:
 			return "func";
+		case STT_GNU_IFUNC:
+			return "ifnc";
 		case STT_OBJECT:
 			return " obj";
 		case STT_FILE:
@@ -1060,7 +1062,8 @@ elf_resolve_symbol(struct elf_image_info *image, elf_sym *symbol,
 	}
 
 	// make sure they're the same type
-	if (symbol->Type() != foundSymbol->Type()) {
+	if (symbol->Type() != foundSymbol->Type()
+		&& (symbol->Type() != STT_FUNC || foundSymbol->Type() != STT_GNU_IFUNC)) {
 		dprintf("elf_resolve_symbol: found symbol '%s' in image '%s' "
 			"(requested by image '%s') but wrong type (%d vs. %d)\n",
 			symbolName, foundImage->name, image->name,
@@ -1069,6 +1072,10 @@ elf_resolve_symbol(struct elf_image_info *image, elf_sym *symbol,
 	}
 
 	*_symbolAddress = foundSymbol->st_value + foundImage->text_region.delta;
+
+	if (foundSymbol->Type() == STT_GNU_IFUNC)
+		*_symbolAddress = ((addr_t (*)(void))*_symbolAddress)();
+
 	return B_OK;
 }
 

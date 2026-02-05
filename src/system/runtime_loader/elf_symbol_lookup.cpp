@@ -92,9 +92,10 @@ match_symbol(const image_t* image, const SymbolLookupInfo& lookupInfo, uint32 sy
 
 	// check if the type matches
 	uint32 type = symbol->Type();
-	if ((lookupInfo.type == B_SYMBOL_TYPE_TEXT && type != STT_FUNC)
+	if ((lookupInfo.type == B_SYMBOL_TYPE_TEXT && type != STT_FUNC
+			&& type != STT_GNU_IFUNC)
 		|| (lookupInfo.type == B_SYMBOL_TYPE_DATA
-			&& type != STT_OBJECT && type != STT_FUNC)) {
+			&& type != STT_OBJECT && type != STT_FUNC && type != STT_GNU_IFUNC)) {
 		return false;
 	}
 
@@ -308,6 +309,10 @@ find_symbol(image_t* image, const SymbolLookupInfo& lookupInfo,
 		return B_ENTRY_NOT_FOUND;
 
 	void* location = (void*)(symbol->st_value + image->regions[0].delta);
+
+	if (symbol->Type() == STT_GNU_IFUNC)
+		location = ((void* (*)(void))location)();
+
 	int32 symbolType = lookupInfo.type;
 	patch_defined_symbol(image, lookupInfo.name, &location, &symbolType);
 
@@ -367,6 +372,10 @@ find_symbol_breadth_first(image_t* image, const SymbolLookupInfo& lookupInfo,
 	// compute the symbol location
 	*_location = (void*)(candidateSymbol->st_value
 		+ candidateImage->regions[0].delta);
+
+	if (candidateSymbol->Type() == STT_GNU_IFUNC)
+		*_location = ((void* (*)(void))*_location)();
+
 	int32 symbolType = lookupInfo.type;
 	patch_defined_symbol(candidateImage, lookupInfo.name, _location,
 		&symbolType);
@@ -616,7 +625,8 @@ resolve_symbol(image_t* rootImage, image_t* image, elf_sym* sym,
 		}
 	} else if (sym->Type() != STT_NOTYPE
 		&& sym->Type() != sharedSym->Type()
-		&& (sym->Type() != STT_OBJECT || sharedSym->Type() != STT_FUNC)) {
+		&& (sym->Type() != STT_OBJECT || sharedSym->Type() != STT_FUNC)
+		&& (sym->Type() != STT_FUNC || sharedSym->Type() != STT_GNU_IFUNC)) {
 		// symbol not of the requested type, except object which can match function
 		lookupError = ERROR_WRONG_TYPE;
 		sharedImage = NULL;
@@ -631,6 +641,10 @@ resolve_symbol(image_t* rootImage, image_t* image, elf_sym* sym,
 		if (!tlsSymbol) {
 			location
 				= (void*)((addr_t)location + sharedImage->regions[0].delta);
+
+			if (sharedSym->Type() == STT_GNU_IFUNC) {
+				location = ((void* (*)(void))location)();
+			}
 		} else
 			lookupError = SUCCESS;
 	}

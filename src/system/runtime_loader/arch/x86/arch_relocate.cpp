@@ -76,6 +76,9 @@ relocate_rel(image_t *rootImage, image_t *image, Elf32_Rel *rel, int rel_len,
 			case R_386_RELATIVE:
 				final_val = B + A;
 				break;
+			case R_386_IRELATIVE:
+				final_val = ((Elf32_Addr (*)(void))(B + A))();
+				break;
 #if 0
 			case R_386_GOTOFF:
 				final_val = S + A - GOT;
