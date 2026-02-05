@@ -85,7 +85,6 @@ hpet_set_hardware_timer(bigtime_t relativeTimeout)
 	// enable timer interrupt
 	sTimer->config |= HPET_CONF_TIMER_INT_ENABLE;
 
-	// TODO:
 	if (relativeTimeout < MIN_TIMEOUT)
 		relativeTimeout = MIN_TIMEOUT;
 
