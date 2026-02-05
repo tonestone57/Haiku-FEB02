@@ -1021,7 +1021,7 @@ Journal::CommitTransaction(Transaction* owner, bool success)
 
 	// Move listeners from info to the owner transaction so they can be notified
 	while (TransactionListener* listener = info->listeners.RemoveHead()) {
-		owner->AddListener(listener);
+		owner->fListeners.Add(listener);
 	}
 
 	delete info;

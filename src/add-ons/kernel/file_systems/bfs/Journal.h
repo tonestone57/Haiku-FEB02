@@ -146,6 +146,8 @@ typedef DoublyLinkedList<TransactionListener> TransactionListeners;
 
 class Transaction {
 public:
+	friend class Journal;
+
 	Transaction(Volume* volume, off_t refBlock)
 		:
 		fJournal(NULL),
