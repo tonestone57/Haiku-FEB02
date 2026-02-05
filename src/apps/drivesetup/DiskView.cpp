@@ -595,9 +595,6 @@ DiskView::ForceUpdate()
 		// we need to prepare the disk for modifications, otherwise
 		// we cannot get information about available spaces on the
 		// device or any of its child partitions
-		// TODO: cancelling modifications here is of course undesired
-		// once we hold off the real modifications until an explicit
-		// command to write them to disk...
 		bool prepared = fDisk->PrepareModifications() == B_OK;
 		fDisk->VisitEachDescendant(fPartitionLayout);
 		if (prepared)

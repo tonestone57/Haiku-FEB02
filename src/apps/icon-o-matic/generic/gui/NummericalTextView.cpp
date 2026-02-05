@@ -44,6 +44,7 @@ NummericalTextView::Invoke(BMessage* message)
 	if (message) {
 		BMessage copy(*message);
 		copy.AddInt32("be:value", IntValue());
+		copy.AddInt64("int64 value", Int64Value());
 		copy.AddFloat("float value", FloatValue());
 		return InputTextView::Invoke(&copy);
 	}
@@ -57,18 +58,18 @@ NummericalTextView::RevertChanges()
 	if (fFloatMode)
 		SetValue(fFloatValueCache);
 	else
-		SetValue(fIntValueCache);
+		SetValue(fInt64ValueCache);
 }
 
 // ApplyChanges
 void
 NummericalTextView::ApplyChanges()
 {
-	int32 i = atoi(Text());
+	int64 i = atoll(Text());
 	float f = atof(Text());
 
 	if ((fFloatMode && f != fFloatValueCache) ||
-		(!fFloatMode && i != fIntValueCache)) {
+		(!fFloatMode && i != fInt64ValueCache)) {
 		Invoke();
 	}
 }
@@ -88,12 +89,19 @@ NummericalTextView::SetFloatMode(bool floatingPoint)
 void
 NummericalTextView::SetValue(int32 value)
 {
+	SetValue((int64)value);
+}
+
+// SetValue
+void
+NummericalTextView::SetValue(int64 value)
+{
 	BString helper;
 	helper << value;
 	SetText(helper.String());
 
 	// update caches
-	IntValue();
+	Int64Value();
 	FloatValue();
 
 	if (IsFocus())
@@ -109,7 +117,7 @@ NummericalTextView::SetValue(float value)
 	SetText(helper.String());
 
 	// update caches
-	IntValue();
+	Int64Value();
 	FloatValue();
 
 	if (IsFocus())
@@ -120,8 +128,15 @@ NummericalTextView::SetValue(float value)
 int32
 NummericalTextView::IntValue() const
 {
-	fIntValueCache = atoi(Text());
-	return fIntValueCache;
+	return (int32)Int64Value();
+}
+
+// Int64Value
+int64
+NummericalTextView::Int64Value() const
+{
+	fInt64ValueCache = atoll(Text());
+	return fInt64ValueCache;
 }
 
 // FloatValue

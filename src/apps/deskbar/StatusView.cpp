@@ -149,7 +149,6 @@ TReplicantTray::TReplicantTray(TBarView* barView)
 	fMaxReplicantHeight
 		= std::max(gMinReplicantHeight, (float)static_cast<TBarApp*>(be_app)->TeamIconSize());
 	// but not bigger than TabHeight which depends on be_bold_font
-	// TODO this should only apply to mini-mode but we set it once here for all
 	fMaxReplicantHeight = std::min(fMaxReplicantHeight, fBarView->TabHeight() - 1);
 
 	// Use bold font because it depends on the window tab height.
@@ -987,7 +986,6 @@ TReplicantTray::AddIcon(BMessage* archive, int32* id, const entry_ref* addOn)
 		// this is a work-around for buggy replicants that change their size in
 		// AttachedToWindow() (such as "SVM")
 
-	// TODO: check for name collisions?
 	status = fShelf->AddReplicant(archive, BPoint(1, 1));
 	if (status != B_OK)
 		return status;
@@ -1701,8 +1699,6 @@ TDragRegion::MouseMoved(BPoint where, uint32 transit,
 
 	fPreviousPosition = where;
 
-	// TODO: can't trust the passed in where param, get screen_where from
-	// Window()->CurrentMessage() instead, why is this necessary?
 	BPoint whereScreen;
 	BMessage* currentMessage = Window()->CurrentMessage();
 	if (currentMessage == NULL || currentMessage->FindPoint("screen_where",

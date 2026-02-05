@@ -207,7 +207,6 @@ CliContext::Cleanup()
 }
 
 
-// TODO: Use the lifecycle methods of BLooper instead
 void
 CliContext::Terminating()
 {
@@ -217,8 +216,6 @@ CliContext::Terminating()
 
 	BMessage message(MSG_QUIT);
 	PostMessage(&message);
-
-	// TODO: Signal the input loop, should it be in PromptUser()!
 }
 
 

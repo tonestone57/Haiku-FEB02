@@ -50,7 +50,6 @@
 static const int32 kLeftTextMargin = 3;
 static const float kMinViewHeight = 80.0f;
 static const int32 kSpacesPerTab = 4;
-	// TODO: Should be settable!
 
 static const int32 kMaxHighlightsPerLine = 64;
 

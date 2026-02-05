@@ -1422,10 +1422,8 @@ TMailWindow::MessageReceived(BMessage* msg)
 			BEntry entry;
 			bool foundEntry = false;
 
-			char* arg = (char*)malloc(strlen("META:email=")
-				+ strlen(address) + 1);
-			if (arg != NULL)
-				sprintf(arg, "META:email=%s", address);
+			BString arg("META:email=");
+			arg << address;
 
 			// Search a Person file with this email address
 			while (volumeRoster.GetNextVolume(&volume) == B_NO_ERROR) {
@@ -1433,7 +1431,7 @@ TMailWindow::MessageReceived(BMessage* msg)
 					continue;
 
 				query.SetVolume(&volume);
-				query.SetPredicate(arg);
+				query.SetPredicate(arg.String());
 				query.Fetch();
 
 				if (query.GetNextEntry(&entry) == B_NO_ERROR) {
@@ -1458,7 +1456,6 @@ TMailWindow::MessageReceived(BMessage* msg)
 				// Ask to open a new Person file with this address + name pre-filled
 				_CreateNewPerson(address, name);
 			}
-			free(arg);
 			break;
 		}
 
@@ -2688,7 +2685,7 @@ TMailWindow::SaveAsDraft()
 					snprintf(appendix, sizeof(appendix), " %" B_PRId32, i++);
 					int32 pos = min_c(sizeof(fileName) - strlen(appendix) - 1,
 						originalLength);
-					sprintf(fileName + pos, "%s", appendix);
+					strcpy(fileName + pos, appendix);
 				} while (status == B_FILE_EXISTS);
 				if (status != B_OK)
 					return status;

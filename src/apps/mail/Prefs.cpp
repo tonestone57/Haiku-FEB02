@@ -118,7 +118,7 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	fNewPreamble(preamble),
 
 	fNewSignature(sig),
-	fSignature((char*)malloc(strlen(*fNewSignature) + 1)),
+	fSignature(strdup(*fNewSignature)),
 
 	fNewFont(font),
 	fFont(*fNewFont),
@@ -138,8 +138,6 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	BString title(B_TRANSLATE("%appname% settings"));
 	title.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("Mail"));
 	SetTitle(title);
-
-	strcpy(fSignature, *fNewSignature);
 
 	BMenuField* menu;
 
@@ -302,9 +300,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 		case P_OK:
 			if (strcmp(fReplyPreamble->Text(), *fNewPreamble)) {
 				free(*fNewPreamble);
-				*fNewPreamble
-					= (char *)malloc(strlen(fReplyPreamble->Text()) + 1);
-				strcpy(*fNewPreamble, fReplyPreamble->Text());
+				*fNewPreamble = strdup(fReplyPreamble->Text());
 			}
 			be_app->PostMessage(PREFS_CHANGED);
 			Quit();
@@ -343,8 +339,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 
 			if (strcmp(fSignature, *fNewSignature)) {
 				free(*fNewSignature);
-				*fNewSignature = (char*)malloc(strlen(fSignature) + 1);
-				strcpy(*fNewSignature, fSignature);
+				*fNewSignature = strdup(fSignature);
 			}
 
 			*fNewEncoding = fEncoding;
@@ -481,12 +476,9 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 		case P_SIG:
 			free(*fNewSignature);
 			if (msg->FindString("signature", &signature) == B_NO_ERROR) {
-				*fNewSignature = (char*)malloc(strlen(signature) + 1);
-				strcpy(*fNewSignature, signature);
+				*fNewSignature = strdup(signature);
 			} else {
-				*fNewSignature = (char*)malloc(
-					strlen(B_TRANSLATE("None")) + 1);
-				strcpy(*fNewSignature, B_TRANSLATE("None"));
+				*fNewSignature = strdup(B_TRANSLATE("None"));
 			}
 			break;
 		case P_ENC:

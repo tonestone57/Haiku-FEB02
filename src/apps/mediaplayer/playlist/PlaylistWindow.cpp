@@ -423,7 +423,26 @@ PlaylistWindow::_SavePlaylist(BEntry& origEntry, BEntry& tempEntry,
 	lock.Unlock();
 
 	if (origEntry.Exists()) {
-		// TODO: copy attributes
+		BNode origNode(&origEntry);
+		if (origNode.InitCheck() == B_OK) {
+			origNode.RewindAttrs();
+			char attrName[B_ATTR_NAME_LENGTH];
+			while (origNode.GetNextAttrName(attrName) == B_OK) {
+				attr_info info;
+				if (origNode.GetAttrInfo(attrName, &info) != B_OK)
+					continue;
+
+				char* buffer = new (std::nothrow) char[info.size];
+				if (buffer == NULL)
+					continue;
+
+				if (origNode.ReadAttr(attrName, info.type, 0, buffer,
+						info.size) == info.size) {
+					file.WriteAttr(attrName, info.type, 0, buffer, info.size);
+				}
+				delete[] buffer;
+			}
+		}
 	}
 
 	// clobber original entry, if it exists

@@ -538,15 +538,15 @@ ShowImageWindow::_AddDelayItem(BMenu* menu, const char* label, bigtime_t delay)
 void
 ShowImageWindow::_ResizeWindowToImage()
 {
-	BBitmap* bitmap = fImageView->Bitmap();
 	BScreen screen;
-	if (bitmap == NULL || !screen.IsValid())
+	if (!screen.IsValid())
 		return;
 
-	// TODO: use View::GetPreferredSize() instead?
-	BRect r(bitmap->Bounds());
-	float width = r.Width() + be_control_look->GetScrollBarWidth(B_VERTICAL);
-	float height = r.Height() + 1 + fBar->Frame().Height()
+	float width, height;
+	fImageView->GetPreferredSize(&width, &height);
+
+	width += be_control_look->GetScrollBarWidth(B_VERTICAL);
+	height += 1 + fBar->Frame().Height()
 		+ be_control_look->GetScrollBarWidth(B_HORIZONTAL);
 
 	BRect frame = screen.Frame();

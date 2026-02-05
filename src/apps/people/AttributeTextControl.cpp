@@ -110,8 +110,11 @@ AttributeTextControl::_HandleLabelClicked(const char *text)
 		if (argument.IFindFirst("mailto:") != 0 && argument != "")
 			argument.Prepend("mailto:");
 
-		// TODO: Could check for possible e-mail patterns.
-		if (argument != "") {
+		// Check for possible e-mail patterns.
+		// We are checking that there is an @ symbol, and that it is not the
+		// first or last character.
+		int32 atIndex = argument.FindFirst('@');
+		if (atIndex > 0 && atIndex < argument.Length() - 1) {
 			const char *args[] = {argument.String(), 0};
 			be_roster->Launch("text/x-email", 1, const_cast<char**>(args));
 		}

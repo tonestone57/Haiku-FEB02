@@ -4,6 +4,7 @@
  */
 #include "SignalsConfigView.h"
 
+#include <Alert.h>
 #include <Box.h>
 #include <Button.h>
 #include <LayoutBuilder.h>
@@ -278,7 +279,11 @@ SignalsConfigView::MessageReceived(BMessage* message)
 					if (fEditWindow != NULL)
 						fEditWindow->Show();
 	           	} catch (...) {
-	           		// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Edit Signal Error",
+						"Insufficient memory to edit signal disposition.",
+						"Close");
+					if (alert != NULL)
+						alert->Go();
 	           	}
 			}
 			break;

@@ -141,8 +141,6 @@ CreateParametersPanel::_CreateCreateControls(BPartition* parent, off_t offset,
 	off_t size)
 {
 	// Setup the controls
-	// TODO: use a lower granularity for smaller disks -- but this would
-	// require being able to parse arbitrary size strings with unit
 	fSizeSlider = new SizeSlider("Slider", B_TRANSLATE("Partition size"), NULL,
 		offset, size, kMegaByte);
 	fSizeSlider->SetPosition(1.0);

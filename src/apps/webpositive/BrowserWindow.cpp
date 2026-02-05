@@ -502,11 +502,16 @@ BrowserWindow::BrowserWindow(BRect frame, SettingsMessage* appSettings, const BS
 		BDirectory barDir(&bookmarkRef);
 		BEntry bookmarkBar(&barDir, kBookmarkBarSubdir);
 		entry_ref bookmarkBarRef;
-		// TODO we could also check if the folder is empty here.
 		if (bookmarkBar.Exists() && bookmarkBar.GetRef(&bookmarkBarRef)
 				== B_OK) {
-			fBookmarkBar = new BookmarkBar("Bookmarks", this, &bookmarkBarRef);
-			fBookmarkBarMenuItem->SetEnabled(true);
+			// Check if the folder is empty
+			BDirectory bookmarkBarDir(&bookmarkBarRef);
+			if (bookmarkBarDir.CountEntries() > 0) {
+				fBookmarkBar = new BookmarkBar("Bookmarks", this,
+					&bookmarkBarRef);
+				fBookmarkBarMenuItem->SetEnabled(true);
+			} else
+				fBookmarkBarMenuItem->SetEnabled(false);
 		} else
 			fBookmarkBarMenuItem->SetEnabled(false);
 	} else
@@ -1654,7 +1659,7 @@ BrowserWindow::MainDocumentError(const BString& failingURL,
 
 	BWebWindow::MainDocumentError(failingURL, localizedDescription, view);
 
-	// TODO: Remove the failing URL from the BrowsingHistory!
+	BrowsingHistory::DefaultInstance()->RemoveItem(failingURL);
 }
 
 
