@@ -108,6 +108,10 @@ struct net_buffer_module_info {
 	void			(*swap_addresses)(net_buffer* buffer);
 
 	void			(*dump)(net_buffer* buffer);
+
+	status_t		(*append_external)(net_buffer* buffer, const void* data,
+						size_t size, void (*free_func)(void*, void*),
+						void* free_cookie);
 };
 
 
