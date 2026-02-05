@@ -25,6 +25,7 @@
 
 #include <PortLink.h>
 #include <TokenSpace.h>
+#include <ObjectList.h>
 
 #include "EventDispatcher.h"
 #include "MessageLooper.h"
@@ -178,6 +179,7 @@ private:
 			ObjectDeleter<DirectWindowInfo>
 								fDirectWindowInfo;
 			bool				fIsDirectlyAccessing;
+			BObjectList<area_id> fSharedBuffers;
 };
 
 #endif	// SERVER_WINDOW_H

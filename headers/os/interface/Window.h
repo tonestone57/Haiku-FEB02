@@ -199,6 +199,11 @@ public:
 									// in BeBook
 			bool				InViewTransaction() const;
 
+			// Shared Memory Buffer
+			status_t			CreateSharedBuffer(int32 size);
+			void				DeleteSharedBuffer();
+			uint8*				GetSharedBuffer() const;
+
 			BRect				Bounds() const;
 			BRect				Frame() const;
 			BRect				DecoratorFrame() const;
@@ -406,8 +411,11 @@ private:
 			::BPrivate::PortLink* fLink;
 			BMessageRunner*		fPulseRunner;
 			BRect				fPreviousFrame;
+			area_id				fSharedBufferArea;
+			uint8*				fSharedBuffer;
+			area_id				fServerSharedBufferArea;
 
-			uint32				_reserved[9];
+			uint32				_reserved[6];
 };
 
 

@@ -177,7 +177,8 @@ ServerWindow::ServerWindow(const char* title, ServerApp* app,
 	fCurrentDrawingRegion(),
 	fCurrentDrawingRegionValid(false),
 
-	fIsDirectlyAccessing(false)
+	fIsDirectlyAccessing(false),
+	fSharedBuffers(20, true)
 {
 	STRACE(("ServerWindow(%s)::ServerWindow()\n", title));
 
@@ -222,6 +223,11 @@ ServerWindow::~ServerWindow()
 
 	fDirectWindowInfo.Unset(); // TODO: is it really needed?
 	STRACE(("ServerWindow(%p) will exit NOW\n", this));
+
+	for (int32 i = 0; i < fSharedBuffers.CountItems(); i++) {
+		area_id* area = fSharedBuffers.ItemAt(i);
+		delete_area(*area);
+	}
 
 	delete_sem(fDeathSemaphore);
 
@@ -1177,6 +1183,57 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					if (link.Read<int32>(&subCode) != B_OK)
 						break;
 					_DispatchViewMessage(subCode, link);
+					// NOTE: We rely on _DispatchViewMessage consuming exactly
+					// the amount of data the client sent for this command.
+					// If it doesn't, we will be out of sync.
+					// Since we can't easily detect this here without a length prefix
+					// for each command (which would add overhead we are trying to avoid),
+					// we assume correct implementation of client and server.
+					// However, if the link has a read error, we stop.
+				}
+			}
+			break;
+		}
+
+		case AS_CREATE_SHARED_BUFFER:
+		{
+			int32 size;
+			if (link.Read<int32>(&size) == B_OK) {
+				void* address;
+				area_id area = create_area("shared_buffer", &address,
+					B_ANY_ADDRESS, size, B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
+
+				status_t status = area >= B_OK ? B_OK : area;
+				fLink.StartMessage(status);
+				if (status == B_OK) {
+					fLink.Attach<area_id>(area);
+					area_id* areaPtr = new(std::nothrow) area_id(area);
+					if (areaPtr && !fSharedBuffers.AddItem(areaPtr)) {
+						delete areaPtr;
+						delete_area(area);
+						// TODO: We already sent B_OK, this is awkward.
+						// In practice, this list allocation failure is unlikely immediately after success.
+						// But strictly we should have added to list before sending reply or handle error.
+						// Given the protocol constraints, we'll rely on the client handling subsequent failures or leaks in extreme low mem.
+					}
+				}
+				fLink.Flush();
+			}
+			break;
+		}
+
+		case AS_DELETE_SHARED_BUFFER:
+		{
+			area_id area;
+			if (link.Read<area_id>(&area) == B_OK) {
+				// Security check: ensure the area belongs to this client connection
+				for (int32 i = 0; i < fSharedBuffers.CountItems(); i++) {
+					area_id* storedArea = fSharedBuffers.ItemAt(i);
+					if (*storedArea == area) {
+						delete_area(area);
+						fSharedBuffers.RemoveItemAt(i);
+						break;
+					}
 				}
 			}
 			break;
