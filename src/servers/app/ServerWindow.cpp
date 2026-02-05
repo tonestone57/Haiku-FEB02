@@ -1168,6 +1168,20 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 			break;
 		}
 
+		case AS_BATCH_DRAWING_COMMANDS:
+		{
+			int32 count;
+			if (link.Read<int32>(&count) == B_OK) {
+				for (int32 i = 0; i < count; i++) {
+					int32 subCode;
+					if (link.Read<int32>(&subCode) != B_OK)
+						break;
+					_DispatchViewMessage(subCode, link);
+				}
+			}
+			break;
+		}
+
 		case AS_TALK_TO_DESKTOP_LISTENER:
 		{
 			if (fDesktop->MessageForListener(fWindow.Get(), fLink.Receiver(),

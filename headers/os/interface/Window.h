@@ -369,7 +369,7 @@ private:
 
 private:
 			char*				fTitle;
-			int32				_unused0;
+			int32				fTransactionCount;
 			bool				fInTransaction;
 			bool				fActive;
 			short				fShowLevel;

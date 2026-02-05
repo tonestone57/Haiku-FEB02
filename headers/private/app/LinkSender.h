@@ -34,6 +34,8 @@ class LinkSender {
 		void SetTargetTeam(team_id team);
 
 		status_t StartMessage(int32 code, size_t minSize = 0);
+		status_t BeginBatch(int32 code);
+		status_t EndBatch();
 		void CancelMessage(void);
 		status_t EndMessage(bool needsReply = false);
 
@@ -71,6 +73,9 @@ class LinkSender {
 		uint32	fCurrentStart;		// start of current message
 
 		status_t fCurrentStatus;
+
+		bool	fBatchMode;
+		uint32	fBatchCountOffset;
 };
 
 

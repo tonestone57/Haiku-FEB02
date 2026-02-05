@@ -689,7 +689,11 @@ void
 BWindow::BeginViewTransaction()
 {
 	if (Lock()) {
-		fInTransaction = true;
+		if (fTransactionCount == 0) {
+			fLink->Sender().BeginBatch(AS_BATCH_DRAWING_COMMANDS);
+			fInTransaction = true;
+		}
+		fTransactionCount++;
 		Unlock();
 	}
 }
@@ -699,9 +703,12 @@ void
 BWindow::EndViewTransaction()
 {
 	if (Lock()) {
-		if (fInTransaction)
+		fTransactionCount--;
+		if (fTransactionCount == 0 && fInTransaction) {
+			fLink->Sender().EndBatch();
 			fLink->Flush();
-		fInTransaction = false;
+			fInTransaction = false;
+		}
 		Unlock();
 	}
 }
@@ -2760,6 +2767,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fLook = look;
 	fFlags = flags | B_ASYNCHRONOUS_CONTROLS;
 
+	fTransactionCount = 0;
 	fInTransaction = bitmapToken >= 0;
 	fUpdateRequested = false;
 	fActive = false;
