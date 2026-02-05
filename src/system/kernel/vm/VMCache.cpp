@@ -818,6 +818,8 @@ VMCache::_FreePageRange(VMCachePagesTree::Iterator it,
 			// unmap it!
 			// For now we just keep the page. It will be orphaned, but that
 			// is better than corrupting memory.
+			// Note: This prevents a panic here, but if the page remains wired
+			// when the cache is destroyed, VMCache::Delete() will still panic.
 			dprintf("VMCache::_FreePageRange(): page %p wired, not freeing!\n", page);
 			DEBUG_PAGE_ACCESS_END(page);
 			continue;
