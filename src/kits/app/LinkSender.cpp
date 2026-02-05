@@ -472,9 +472,17 @@ LinkSender::Flush(bigtime_t timeout, bool needsReply)
 	if (fCurrentStatus < B_OK)
 		return fCurrentStatus;
 
-	EndMessage(needsReply);
-	if (fCurrentStart == 0)
+	bool wasBatch = fBatchMode;
+	if (wasBatch)
+		EndBatch();
+	else
+		EndMessage(needsReply);
+
+	if (fCurrentStart == 0) {
+		if (wasBatch)
+			BeginBatch(AS_BATCH_DRAWING_COMMANDS);
 		return B_OK;
+	}
 
 	STRACE(("info: LinkSender Flush() waiting to send messages of %ld bytes on port %ld.\n",
 		fCurrentEnd, fPort));
@@ -502,6 +510,9 @@ LinkSender::Flush(bigtime_t timeout, bool needsReply)
 
 	fCurrentEnd = 0;
 	fCurrentStart = 0;
+
+	if (wasBatch)
+		BeginBatch(AS_BATCH_DRAWING_COMMANDS);
 
 	return B_OK;
 }
