@@ -178,7 +178,7 @@ ServerWindow::ServerWindow(const char* title, ServerApp* app,
 	fCurrentDrawingRegionValid(false),
 
 	fIsDirectlyAccessing(false),
-	fSharedBuffers(20, true)
+	fSharedBuffers(20)
 {
 	STRACE(("ServerWindow(%s)::ServerWindow()\n", title));
 

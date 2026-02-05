@@ -21,6 +21,7 @@
 #include <Entry.h>
 #include <File.h>
 #include <FilePanel.h>
+#include <fs_attr.h>
 #include <Locale.h>
 #include <Menu.h>
 #include <MenuBar.h>
