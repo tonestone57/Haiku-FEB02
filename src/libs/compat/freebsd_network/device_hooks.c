@@ -14,6 +14,7 @@
 #include <Drivers.h>
 #include <ether_driver.h>
 #include <kernel.h>
+#include <KernelExport.h>
 #include <net_buffer.h>
 
 #include <compat/sys/haiku-module.h>
