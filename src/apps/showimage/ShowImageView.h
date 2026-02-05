@@ -20,6 +20,7 @@
 
 #include <View.h>
 #include <Bitmap.h>
+#include <Entry.h>
 #include <Messenger.h>
 #include <Point.h>
 
@@ -63,9 +64,9 @@ public:
 	status_t SetImage(const entry_ref* ref, BBitmap* bitmap, BitmapOwner* owner);
 
 	BBitmap* Bitmap();
-	const entry_ref& Image() const
+	const entry_ref* Image() const
 	{
-		return fCurrentRef;
+		return &fCurrentRef;
 	}
 
 	void SetZoom(float zoom, BPoint where = BPoint(-1, -1));

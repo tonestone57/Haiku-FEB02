@@ -361,8 +361,9 @@ FilePlaylistItem::_CreateTrackSupplier() const
 	}
 
 	// Search for subtitle files in the same folder
-	// TODO: Error checking
 	BEntry entry(&fRefs[0], true);
+	if (entry.InitCheck() != B_OK || !entry.Exists())
+		return supplier;
 
 	char originalName[B_FILE_NAME_LENGTH];
 	entry.GetName(originalName);

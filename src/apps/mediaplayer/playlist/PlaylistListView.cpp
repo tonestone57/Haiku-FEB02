@@ -66,7 +66,8 @@ text_offset(const font_height& fh)
 class PlaylistListView::Item : public SimpleItem,
 	public PlaylistItem::Listener {
 public:
-								Item(PlaylistItem* item);
+								Item(PlaylistItem* item,
+									PlaylistListView* listView);
 	virtual						~Item();
 
 			void				Draw(BView* owner, BRect frame,
@@ -85,17 +86,18 @@ public:
 
 private:
 			PlaylistItemRef		fItem;
-
+			PlaylistListView*	fListView;
 };
 
 
 // #pragma mark -
 
 
-PlaylistListView::Item::Item(PlaylistItem* item)
+PlaylistListView::Item::Item(PlaylistItem* item, PlaylistListView* listView)
 	:
 	SimpleItem(item->Name().String()),
-	fItem(item)
+	fItem(item),
+	fListView(listView)
 {
 	fItem->AddListener(this);
 }
@@ -205,7 +207,7 @@ PlaylistListView::Item::Draw(BView* owner, BRect frame, const font_height& fh,
 void
 PlaylistListView::Item::ItemChanged(const PlaylistItem* item)
 {
-	// TODO: Invalidate
+	fListView->InvalidateItem(fListView->IndexOf(this));
 }
 
 
@@ -618,7 +620,7 @@ PlaylistListView::_AddItem(PlaylistItem* _item, int32 index)
 	if (_item == NULL)
 		return;
 
-	Item* item = new (nothrow) Item(_item);
+	Item* item = new (nothrow) Item(_item, this);
 	if (item != NULL)
 		AddItem(item, index);
 }

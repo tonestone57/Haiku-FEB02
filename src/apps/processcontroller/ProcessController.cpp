@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 #include <AboutWindow.h>
 #include <Alert.h>
@@ -268,7 +269,13 @@ ProcessController::_HandleDebugRequest(team_id team, thread_id thread)
 	const char* argv[] = {paramString, idString, NULL};
 	status_t error = be_roster->Launch(kDebuggerSignature, 2, argv);
 	if (error != B_OK) {
-		// TODO: notify user
+		BString message(B_TRANSLATE("Failed to launch the debugger.\n\n"
+			"Error: "));
+		message << strerror(error);
+		BAlert* alert = new BAlert(B_TRANSLATE("Error"), message.String(),
+			B_TRANSLATE("OK"), NULL, NULL, B_WIDTH_AS_USUAL, B_STOP_ALERT);
+		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+		alert->Go(NULL);
 	}
 }
 
@@ -773,38 +780,41 @@ thread_popup(void *arg)
 
 	system_info systemInfo;
 	get_system_info(&systemInfo);
-	info_pack* infos = new info_pack[systemInfo.used_teams];
-	// TODO: this doesn't necessarily get all teams
-	for (m = 0, mcookie = 0; m < systemInfo.used_teams; m++) {
-		infos[m].team_icon = NULL;
-		infos[m].team_name[0] = 0;
-		infos[m].thread_info = NULL;
-		if (get_next_team_info(&mcookie, &infos[m].team_info) == B_OK) {
-			infos[m].thread_info = new thread_info[infos[m].team_info.thread_count];
-			for (h = 0, hcookie = 0; h < infos[m].team_info.thread_count; h++) {
-				if (get_next_thread_info(infos[m].team_info.team, &hcookie,
-						&infos[m].thread_info[h]) != B_OK)
-					infos[m].thread_info[h].thread = -1;
+
+	std::vector<info_pack> infos;
+	team_info teamInfo;
+	mcookie = 0;
+	while (get_next_team_info(&mcookie, &teamInfo) == B_OK) {
+		info_pack pack;
+		pack.team_info = teamInfo;
+		pack.team_icon = NULL;
+		pack.team_name[0] = 0;
+		pack.thread_info = new (std::nothrow) thread_info[teamInfo.thread_count];
+		if (pack.thread_info != NULL) {
+			hcookie = 0;
+			for (h = 0; h < teamInfo.thread_count; h++) {
+				if (get_next_thread_info(teamInfo.team, &hcookie,
+						&pack.thread_info[h]) != B_OK)
+					pack.thread_info[h].thread = -1;
 			}
-			get_team_name_and_icon(infos[m], true);
-		} else {
-			systemInfo.used_teams = m;
-			infos[m].team_info.team = -1;
 		}
+		get_team_name_and_icon(pack, true);
+		infos.push_back(pack);
 	}
+	systemInfo.used_teams = infos.size();
 
 	BPopUpMenu* popup = new BPopUpMenu("Global Popup", false, false);
 	popup->SetFont(be_plain_font);
 
 	// Quit section
 	BMenu* QuitPopup = new QuitMenu(B_TRANSLATE("Quit an application"),
-	infos, systemInfo.used_teams);
+	&infos[0], systemInfo.used_teams);
 	QuitPopup->SetFont(be_plain_font);
 	popup->AddItem(QuitPopup);
 
 	// Memory Usage section
 	MemoryBarMenu* MemoryPopup = new MemoryBarMenu(B_TRANSLATE("Memory usage"),
-	infos, systemInfo);
+	&infos[0], systemInfo);
 	int64 committedMemory = (int64)systemInfo.used_pages * B_PAGE_SIZE / 1024;
 	for (m = 0; m < systemInfo.used_teams; m++) {
 		if (infos[m].team_info.team >= 0) {
@@ -820,7 +830,7 @@ thread_popup(void *arg)
 
 	// CPU Load section
 	TeamBarMenu* CPUPopup = new TeamBarMenu(B_TRANSLATE("Threads and CPU "
-	"usage"), infos, systemInfo.used_teams);
+	"usage"), &infos[0], systemInfo.used_teams);
 	for (m = 0; m < systemInfo.used_teams; m++) {
 		if (infos[m].team_info.team >= 0) {
 			ThreadBarMenu* TeamPopup = new ThreadBarMenu(infos[m].team_name,
@@ -932,7 +942,6 @@ thread_popup(void *arg)
 			delete infos[m].team_icon;
 		}
 	}
-	delete[] infos;
 	delete param;
 	atomic_add (&gPopupFlag, -1);
 	gPopupThreadID = 0;
