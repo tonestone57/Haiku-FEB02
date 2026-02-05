@@ -317,6 +317,21 @@ BWindow::Shortcut::PrepareKey(uint32 key)
 //	#pragma mark - BWindow
 
 
+struct BWindow::SharedBufferData {
+	area_id				clientArea;
+	area_id				serverArea;
+	uint8*				buffer;
+
+	SharedBufferData()
+		:
+		clientArea(-1),
+		serverArea(-1),
+		buffer(NULL)
+	{
+	}
+};
+
+
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
 	:
@@ -682,7 +697,7 @@ BWindow::CreateSharedBuffer(int32 size)
 	if (!Lock())
 		return B_ERROR;
 
-	if (fSharedBufferArea >= B_OK) {
+	if (fSharedBufferData != NULL) {
 		Unlock();
 		return B_BAD_VALUE; // Already exists
 	}
@@ -694,15 +709,27 @@ BWindow::CreateSharedBuffer(int32 size)
 	if (fLink->FlushWithReply(code) == B_OK && code == B_OK) {
 		area_id area;
 		if (fLink->Read<area_id>(&area) == B_OK) {
-			fServerSharedBufferArea = area;
-			fSharedBufferArea = clone_area("client_shared_buffer", (void**)&fSharedBuffer,
-				B_ANY_ADDRESS, B_READ_AREA | B_WRITE_AREA, area);
-			if (fSharedBufferArea < B_OK) {
-				code = fSharedBufferArea;
+			SharedBufferData* data = new(std::nothrow) SharedBufferData();
+			if (data == NULL) {
 				fLink->StartMessage(AS_DELETE_SHARED_BUFFER);
 				fLink->Attach<area_id>(area);
 				fLink->Flush();
-				fServerSharedBufferArea = -1;
+				Unlock();
+				return B_NO_MEMORY;
+			}
+
+			data->serverArea = area;
+			data->clientArea = clone_area("client_shared_buffer", (void**)&data->buffer,
+				B_ANY_ADDRESS, B_READ_AREA | B_WRITE_AREA, area);
+
+			if (data->clientArea < B_OK) {
+				code = data->clientArea;
+				fLink->StartMessage(AS_DELETE_SHARED_BUFFER);
+				fLink->Attach<area_id>(area);
+				fLink->Flush();
+				delete data;
+			} else {
+				fSharedBufferData = data;
 			}
 		} else {
 			code = B_ERROR;
@@ -720,15 +747,16 @@ BWindow::DeleteSharedBuffer()
 	if (!Lock())
 		return;
 
-	if (fSharedBufferArea >= B_OK) {
-		delete_area(fSharedBufferArea);
-		fSharedBufferArea = -1;
-		fSharedBuffer = NULL;
+	if (fSharedBufferData != NULL) {
+		if (fSharedBufferData->clientArea >= B_OK)
+			delete_area(fSharedBufferData->clientArea);
 
 		fLink->StartMessage(AS_DELETE_SHARED_BUFFER);
-		fLink->Attach<area_id>(fServerSharedBufferArea);
+		fLink->Attach<area_id>(fSharedBufferData->serverArea);
 		fLink->Flush();
-		fServerSharedBufferArea = -1;
+
+		delete fSharedBufferData;
+		fSharedBufferData = NULL;
 	}
 	Unlock();
 }
@@ -737,7 +765,7 @@ BWindow::DeleteSharedBuffer()
 uint8*
 BWindow::GetSharedBuffer() const
 {
-	return fSharedBuffer;
+	return fSharedBufferData ? fSharedBufferData->buffer : NULL;
 }
 
 
@@ -2837,9 +2865,7 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fTransactionCount = 0;
 	fInTransaction = bitmapToken >= 0;
 	fUpdateRequested = false;
-	fSharedBufferArea = -1;
-	fSharedBuffer = NULL;
-	fServerSharedBufferArea = -1;
+	fSharedBufferData = NULL;
 	fActive = false;
 	fShowLevel = 1;
 

@@ -411,11 +411,14 @@ private:
 			::BPrivate::PortLink* fLink;
 			BMessageRunner*		fPulseRunner;
 			BRect				fPreviousFrame;
-			area_id				fSharedBufferArea;
-			uint8*				fSharedBuffer;
-			area_id				fServerSharedBufferArea;
+			struct SharedBufferData;
+			SharedBufferData*	fSharedBufferData;
 
-			uint32				_reserved[6];
+#if __LP64__
+			uint32				_reserved[7];
+#else
+			uint32				_reserved[8];
+#endif
 };
 
 

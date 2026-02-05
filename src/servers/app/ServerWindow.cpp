@@ -1204,19 +1204,19 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					B_ANY_ADDRESS, size, B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
 
 				status_t status = area >= B_OK ? B_OK : area;
-				fLink.StartMessage(status);
 				if (status == B_OK) {
-					fLink.Attach<area_id>(area);
 					area_id* areaPtr = new(std::nothrow) area_id(area);
-					if (areaPtr && !fSharedBuffers.AddItem(areaPtr)) {
+					if (areaPtr == NULL || !fSharedBuffers.AddItem(areaPtr)) {
 						delete areaPtr;
 						delete_area(area);
-						// TODO: We already sent B_OK, this is awkward.
-						// In practice, this list allocation failure is unlikely immediately after success.
-						// But strictly we should have added to list before sending reply or handle error.
-						// Given the protocol constraints, we'll rely on the client handling subsequent failures or leaks in extreme low mem.
+						status = B_NO_MEMORY;
 					}
 				}
+
+				fLink.StartMessage(status);
+				if (status == B_OK)
+					fLink.Attach<area_id>(area);
+
 				fLink.Flush();
 			}
 			break;
@@ -1231,7 +1231,7 @@ ServerWindow::_DispatchMessage(int32 code, BPrivate::LinkReceiver& link)
 					area_id* storedArea = fSharedBuffers.ItemAt(i);
 					if (*storedArea == area) {
 						delete_area(area);
-						fSharedBuffers.RemoveItemAt(i);
+						delete (area_id*)fSharedBuffers.RemoveItemAt(i);
 						break;
 					}
 				}
