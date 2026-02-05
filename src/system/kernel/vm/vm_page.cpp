@@ -1064,9 +1064,7 @@ dump_page_queue(int argc, char **argv)
 		return 0;
 	}
 
-	if (strlen(argv[1]) >= 2 && argv[1][0] == '0' && argv[1][1] == 'x')
-		queue = (VMPageQueue*)strtoul(argv[1], NULL, 16);
-	else if (!strcmp(argv[1], "free"))
+	if (!strcmp(argv[1], "free"))
 		queue = &sFreePageQueue;
 	else if (!strcmp(argv[1], "clear"))
 		queue = &sClearPageQueue;
@@ -1079,8 +1077,10 @@ dump_page_queue(int argc, char **argv)
 	else if (!strcmp(argv[1], "cached"))
 		queue = &sCachedPageQueue;
 	else {
-		kprintf("page_queue: unknown queue \"%s\".\n", argv[1]);
-		return 0;
+		uint64 value;
+		if (!evaluate_debug_expression(argv[1], &value, false))
+			return 0;
+		queue = (VMPageQueue *)(addr_t)value;
 	}
 
 	kprintf("queue = %p, queue->head = %p, queue->tail = %p, queue->count = %"
@@ -2007,7 +2007,7 @@ private:
 	int32				fMaxPages;
 	status_t			fStatus;
 	uint32				fVecCount;
-	generic_io_vec		fVecs[32]; // TODO: make dynamic/configurable
+	generic_io_vec		fVecs[64]; // TODO: make dynamic/configurable
 };
 
 
@@ -4135,13 +4135,8 @@ vm_page_requeue(struct vm_page *page, bool tail)
 {
 	PAGE_ASSERT(page, page->Cache() != NULL);
 	page->Cache()->AssertLocked();
-	// DEBUG_PAGE_ACCESS_CHECK(page);
-		// TODO: This assertion cannot be satisfied by idle_scan_active_pages()
-		// when it requeues busy pages. The reason is that vm_soft_fault()
-		// (respectively fault_get_page()) and the file cache keep newly
-		// allocated pages accessed while they are reading them from disk. It
-		// would probably be better to change that code and reenable this
-		// check.
+	if (!page->busy)
+		DEBUG_PAGE_ACCESS_CHECK(page);
 
 	VMPageQueue *queue = NULL;
 

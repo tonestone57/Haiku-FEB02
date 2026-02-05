@@ -4928,6 +4928,10 @@ vm_resize_area(area_id areaID, size_t newSize, bool kernel)
 					current = cache->areas.GetNext(current)) {
 				if (!current->address_space->CanResizeArea(current, newSize))
 					return B_ERROR;
+
+				if (current->wiring != B_NO_LOCK && current->wiring != B_LAZY_LOCK)
+					return B_BAD_VALUE;
+
 				anyKernelArea
 					|= current->address_space == VMAddressSpace::Kernel();
 			}
@@ -5029,7 +5033,6 @@ vm_resize_area(area_id areaID, size_t newSize, bool kernel)
 		cache->Resize(cache->virtual_base + oldSize, priority);
 	}
 
-	// TODO: we must honour the lock restrictions of this area
 	return status;
 }
 

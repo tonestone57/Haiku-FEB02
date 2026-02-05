@@ -545,15 +545,18 @@ VMAnonymousCache::_FreeSwapPageRange(off_t fromOffset, off_t toOffset,
 		if (skipBusyPages) {
 			vm_page* page = LookupPage(pageIndex * B_PAGE_SIZE);
 			if (page != NULL && page->busy) {
-				// TODO: We skip (i.e. leak) swap space of busy pages, since
+				// We skip (i.e. leak) swap space of busy pages, since
 				// there could be I/O going on (paging in/out). Waiting is
 				// not an option as 1. unlocking the cache means that new
 				// swap pages could be added in a range we've already
 				// cleared (since the cache still has the old size) and 2.
 				// we'd risk a deadlock in case we come from the file cache
-				// and the FS holds the node's write-lock. We should mark
-				// the page invalid and let the one responsible clean up.
-				// There's just no such mechanism yet.
+				// and the FS holds the node's write-lock.
+				// Note that Resize(), Rebase() and Discard() call this method
+				// after calling the VMCache implementation which waits for and
+				// removes all pages in the range. Thus this case should only
+				// occur for the destructor, where the pages have already been
+				// removed.
 				continue;
 			}
 		}
@@ -585,9 +588,16 @@ VMAnonymousCache::Resize(off_t newSize, int priority)
 			return B_NO_MEMORY;
 	}
 
+	off_t oldVirtualEnd = virtual_end;
+
+	status_t status = VMCache::Resize(newSize, priority);
+	if (status != B_OK)
+		return status;
+
 	_FreeSwapPageRange(newSize + B_PAGE_SIZE - 1,
-		virtual_end + B_PAGE_SIZE - 1);
-	return VMCache::Resize(newSize, priority);
+		oldVirtualEnd + B_PAGE_SIZE - 1);
+
+	return B_OK;
 }
 
 
@@ -599,16 +609,24 @@ VMAnonymousCache::Rebase(off_t newBase, int priority)
 		fNoSwapPages->Shift(sizeDifference);
 	}
 
-	_FreeSwapPageRange(virtual_base, newBase);
-	return VMCache::Rebase(newBase, priority);
+	off_t oldVirtualBase = virtual_base;
+
+	status_t status = VMCache::Rebase(newBase, priority);
+	if (status != B_OK)
+		return status;
+
+	_FreeSwapPageRange(oldVirtualBase, newBase);
+
+	return B_OK;
 }
 
 
 ssize_t
 VMAnonymousCache::Discard(off_t offset, off_t size)
 {
-	_FreeSwapPageRange(offset, offset + size);
 	const ssize_t discarded = VMCache::Discard(offset, size);
+	_FreeSwapPageRange(offset, offset + size);
+
 	if (discarded > 0 && fCanOvercommit)
 		Commit(committed_size - discarded, VM_PRIORITY_USER);
 	return discarded;
@@ -1495,7 +1513,18 @@ swap_file_add(const char* path)
 
 	// set slot index and add this file to swap file list
 	mutex_lock(&sSwapFileListLock);
-	// TODO: Also check whether the swap file is already registered!
+
+	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
+			swap_file* existingSwap = it.Next();) {
+		if (existingSwap->vnode == node) {
+			mutex_unlock(&sSwapFileListLock);
+			radix_bitmap_destroy(swap->bmp);
+			delete swap;
+			close(fd);
+			return B_FILE_EXISTS;
+		}
+	}
+
 	if (sSwapFileList.IsEmpty()) {
 		swap->first_slot = 0;
 		swap->last_slot = pageCount;

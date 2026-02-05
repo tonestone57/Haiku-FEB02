@@ -1,4 +1,5 @@
 #include <posix/stdlib.h>
+#include <stdio.h>
 
 #include "nfs_add_on.h"
 #include <sys/socket.h>
