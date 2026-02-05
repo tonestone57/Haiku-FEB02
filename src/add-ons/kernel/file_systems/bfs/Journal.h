@@ -8,6 +8,8 @@
 
 #include "system_dependencies.h"
 
+#include <util/OpenHashTable.h>
+
 #include "Volume.h"
 #include "Utility.h"
 
@@ -16,6 +18,40 @@ struct run_array;
 class Inode;
 class LogEntry;
 typedef DoublyLinkedList<LogEntry> LogEntryList;
+
+
+struct TransactionInfo {
+	thread_id		thread;
+	int32			transactionID;
+	int32			nesting;
+	TransactionInfo* next;
+};
+
+
+struct TransactionMapHash {
+	typedef thread_id		KeyType;
+	typedef	TransactionInfo	ValueType;
+
+	size_t HashKey(KeyType key) const
+	{
+		return key;
+	}
+
+	size_t Hash(ValueType* value) const
+	{
+		return HashKey(value->thread);
+	}
+
+	bool Compare(KeyType key, ValueType* value) const
+	{
+		return value->thread == key;
+	}
+
+	ValueType*& GetLink(ValueType* value) const
+	{
+		return value->next;
+	}
+};
 
 
 class Journal {
@@ -73,6 +109,12 @@ private:
 
 			thread_id		fLogFlusher;
 			sem_id			fLogFlusherSem;
+
+			mutex			fTransactionMapLock;
+			BOpenHashTable<TransactionMapHash> fTransactionMap;
+
+			int32			fPendingTransactions[64];
+			int32			fPendingTransactionCount;
 };
 
 
