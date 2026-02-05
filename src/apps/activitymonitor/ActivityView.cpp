@@ -264,13 +264,13 @@ ViewHistory::Update(DataHistory* history, int32 width, int32 resolution,
 		int64 value = history->ValueAt(fLastTime += step);
 
 		if (step > refresh) {
+			double sum = value;
 			uint32 count = 1;
 			for (bigtime_t offset = refresh; offset < step; offset += refresh) {
-				// TODO: handle int64 overflow correctly!
-				value += history->ValueAt(fLastTime + offset);
+				sum += history->ValueAt(fLastTime + offset);
 				count++;
 			}
-			value /= count;
+			value = int64(sum / count);
 		}
 
 		fValues.AddItem(value);

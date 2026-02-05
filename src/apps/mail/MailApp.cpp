@@ -123,8 +123,7 @@ TMailApp::TMailApp()
 {
 	// set default values
 	fAutoMarkRead = true;
-	fSignature = (char*)malloc(strlen(B_TRANSLATE("None")) + 1);
-	strcpy(fSignature, B_TRANSLATE("None"));
+	fSignature = strdup(B_TRANSLATE("None"));
 	fReplyPreamble = strdup(B_TRANSLATE("%e wrote:\\n"));
 
 	fMailWindowFrame.Set(0, 0, 0, 0);
