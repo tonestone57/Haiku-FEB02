@@ -24,6 +24,27 @@
 #include <compat/net/if_media.h>
 
 
+static void
+free_mbuf_ext(void *cookie, void *data)
+{
+	struct mbuf *m = (struct mbuf *)cookie;
+	m_freem(m);
+}
+
+
+static void
+free_net_buffer_ext(struct mbuf *m, void *arg1, void *arg2)
+{
+	int32 *ref = (int32 *)arg1;
+	net_buffer *buffer = (net_buffer *)arg2;
+
+	if (atomic_add(ref, -1) == 1) {
+		gBufferModule->free(buffer);
+		free(ref);
+	}
+}
+
+
 static status_t
 compat_open(const char *name, uint32 flags, void **cookie)
 {
@@ -141,15 +162,21 @@ compat_receive(void *cookie, net_buffer **_buffer)
 		return B_NO_MEMORY;
 	}
 
-	for (struct mbuf *m = mb; m != NULL; m = m->m_next) {
-		status = gBufferModule->append(buffer, mtod(m, void *), m->m_len);
-		if (status != B_OK)
-			break;
-	}
-	if (status != B_OK) {
-		gBufferModule->free(buffer);
-		m_freem(mb);
-		return status;
+	struct mbuf *m = mb;
+	while (m != NULL) {
+		struct mbuf *next = m->m_next;
+		m->m_next = NULL;
+
+		status = gBufferModule->append_external(buffer, mtod(m, void *),
+			m->m_len, free_mbuf_ext, m);
+		if (status != B_OK) {
+			m->m_next = next;
+			m_freem(m);
+			gBufferModule->free(buffer);
+			return status;
+		}
+
+		m = next;
 	}
 
 	if ((mb->m_pkthdr.csum_flags & CSUM_L3_VALID) != 0)
@@ -158,7 +185,6 @@ compat_receive(void *cookie, net_buffer **_buffer)
 		buffer->buffer_flags |= NET_BUFFER_L4_CHECKSUM_VALID;
 
 	*_buffer = buffer;
-	m_freem(mb);
 	return B_OK;
 }
 
@@ -171,6 +197,86 @@ compat_send(void *cookie, net_buffer *buffer)
 	int length = buffer->size;
 
 	//if_printf(ifp, "compat_send(%p, [%lu])\n", buffer, length);
+
+	uint32 vecCount = gBufferModule->count_iovecs(buffer);
+	struct iovec *iovecs = NULL;
+	struct iovec stackIovecs[8];
+
+	if (vecCount > 0) {
+		if (vecCount <= 8)
+			iovecs = stackIovecs;
+		else
+			iovecs = malloc(sizeof(struct iovec) * vecCount);
+
+		if (iovecs != NULL
+			&& gBufferModule->get_iovecs(buffer, iovecs, vecCount) == vecCount) {
+			int32 *ref = malloc(sizeof(int32));
+			if (ref != NULL) {
+				*ref = 1;
+
+				struct mbuf *head = NULL, *tail = NULL;
+				status_t status = B_OK;
+
+				for (uint32 i = 0; i < vecCount; i++) {
+					struct mbuf *m;
+					if (i == 0)
+						m = m_gethdr(M_DONTWAIT, MT_DATA);
+					else
+						m = m_get(M_DONTWAIT, MT_DATA);
+
+					if (m == NULL) {
+						status = ENOBUFS;
+						break;
+					}
+
+					atomic_add(ref, 1);
+					MEXTADD(m, iovecs[i].iov_base, iovecs[i].iov_len,
+						free_net_buffer_ext, ref, buffer, 0, EXT_NET_DRV);
+
+					m->m_len = iovecs[i].iov_len;
+					if (head == NULL) {
+						head = m;
+						m->m_pkthdr.len = buffer->size;
+					} else
+						tail->m_next = m;
+					tail = m;
+				}
+
+				if (status == B_OK) {
+					if (vecCount > 8)
+						free(iovecs);
+
+					if (atomic_add(ref, -1) == 1) {
+						gBufferModule->free(buffer);
+						free(ref);
+					}
+
+					if ((ifp->flags & DEVICE_CLOSED) != 0) {
+						m_freem(head);
+						return B_INTERRUPTED;
+					}
+
+					IFF_LOCKGIANT(ifp);
+					int result = ifp->if_output(ifp, head, NULL, NULL);
+					IFF_UNLOCKGIANT(ifp);
+
+					return result;
+				}
+
+				if (head)
+					m_freem(head);
+
+				if (atomic_add(ref, -1) == 1) {
+					gBufferModule->free(buffer);
+					free(ref);
+				}
+				return status;
+			}
+		}
+
+		if (vecCount > 8 && iovecs != NULL)
+			free(iovecs);
+	}
 
 	if (length <= MHLEN) {
 		mb = m_gethdr(0, MT_DATA);
@@ -185,12 +291,16 @@ compat_send(void *cookie, net_buffer *buffer)
 	}
 
 	status_t status = gBufferModule->read(buffer, 0, mtod(mb, void *), length);
-	if (status != B_OK)
+	if (status != B_OK) {
+		m_freem(mb);
 		return status;
+	}
 	mb->m_pkthdr.len = mb->m_len = length;
 
-	if ((ifp->flags & DEVICE_CLOSED) != 0)
+	if ((ifp->flags & DEVICE_CLOSED) != 0) {
+		m_freem(mb);
 		return B_INTERRUPTED;
+	}
 
 	IFF_LOCKGIANT(ifp);
 	int result = ifp->if_output(ifp, mb, NULL, NULL);

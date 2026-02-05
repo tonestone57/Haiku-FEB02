@@ -52,6 +52,7 @@
 
 #define DATA_NODE_READ_ONLY		0x1
 #define DATA_NODE_STORED_HEADER	0x2
+#define DATA_NODE_EXTERNAL		0x4
 
 struct header_space {
 	uint16	size;
@@ -80,6 +81,8 @@ struct data_node {
 	uint8*			start;		// points to the start of the data
 	uint16			flags;
 	uint16			used;		// defines how much memory is used by this node
+	void			(*free_func)(void*, void*);
+	void*			free_cookie;
 
 	uint16 HeaderSpace() const
 	{
@@ -988,6 +991,9 @@ add_data_node(net_buffer_private* buffer, data_header* header)
 void
 remove_data_node(data_node* node)
 {
+	if ((node->flags & DATA_NODE_EXTERNAL) != 0 && node->free_func != NULL)
+		node->free_func(node->free_cookie, node->start);
+
 	data_header* located = node->located;
 
 	TRACE(("%d:   remove data node %p from header %p (located %p)\n",
@@ -2308,6 +2314,46 @@ swap_addresses(net_buffer* buffer)
 
 
 static status_t
+append_external(net_buffer* _buffer, const void* data, size_t size,
+	void (*free_func)(void*, void*), void* free_cookie)
+{
+	if (size == 0)
+		return B_OK;
+
+	net_buffer_private* buffer = (net_buffer_private*)_buffer;
+
+	data_header* located;
+	data_node* node = (data_node*)alloc_data_header_space(buffer,
+		sizeof(data_node), &located);
+	if (node == NULL)
+		return B_NO_MEMORY;
+
+	acquire_data_header(buffer->allocation_header);
+	if (located != buffer->allocation_header)
+		acquire_data_header(located);
+
+	memset(node, 0, sizeof(struct data_node));
+	node->located = located;
+	node->header = buffer->allocation_header;
+	node->flags = DATA_NODE_EXTERNAL | DATA_NODE_READ_ONLY;
+	node->start = (uint8*)data;
+	node->used = size;
+	node->offset = buffer->size;
+	node->free_func = free_func;
+	node->free_cookie = free_cookie;
+
+	list_add_item(&buffer->buffers, node);
+	buffer->size += size;
+
+	SET_PARANOIA_CHECK(PARANOIA_SUSPICIOUS, buffer, &buffer->size,
+		sizeof(buffer->size));
+	CHECK_BUFFER(buffer);
+
+	return B_OK;
+}
+
+
+static status_t
 std_ops(int32 op, ...)
 {
 	switch (op) {
@@ -2405,5 +2451,7 @@ net_buffer_module_info gNetBufferModule = {
 	swap_addresses,
 
 	dump_buffer,	// dump
+
+	append_external,
 };
 
