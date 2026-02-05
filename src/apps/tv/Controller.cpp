@@ -149,8 +149,7 @@ Controller::ConnectInterface(int i)
 		printf("  unit '%s'\n", parameter->Unit());
 		printf("  flags 0x%08" B_PRIx32 "\n", parameter->Flags());
 
-		// XXX TODO: matching on Name is weak
-		if (strcmp(parameter->Name(), "Channel") == 0 || strcmp(parameter->Kind(), B_TUNER_CHANNEL) == 0) {
+		if (strcmp(parameter->Kind(), B_TUNER_CHANNEL) == 0 || strcmp(parameter->Name(), "Channel") == 0) {
 			fChannelParam = dynamic_cast<BDiscreteParameter *>(parameter);
 			if (fChannelParam)
 				break;

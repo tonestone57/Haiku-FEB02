@@ -2013,7 +2013,11 @@ VariablesView::MessageReceived(BMessage* message)
 				fPendingTypecastInfo = new(std::nothrow)
 					VariablesExpressionInfo(typeExpression, node);
 				if (fPendingTypecastInfo == NULL) {
-					// TODO: notify user
+					BAlert* alert = new(std::nothrow) BAlert("Typecast error",
+						"Insufficient memory to create typecast info.",
+						"Close");
+					if (alert != NULL)
+						alert->Go();
 					break;
 				}
 

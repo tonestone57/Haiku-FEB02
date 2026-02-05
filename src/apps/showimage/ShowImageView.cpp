@@ -237,6 +237,19 @@ ShowImageView::_AnimateSelection(bool enabled)
 
 
 void
+ShowImageView::GetPreferredSize(float* width, float* height)
+{
+	if (fBitmap != NULL) {
+		if (width != NULL)
+			*width = fBitmap->Bounds().Width();
+		if (height != NULL)
+			*height = fBitmap->Bounds().Height();
+	} else
+		BView::GetPreferredSize(width, height);
+}
+
+
+void
 ShowImageView::Pulse()
 {
 	// animate marching ants

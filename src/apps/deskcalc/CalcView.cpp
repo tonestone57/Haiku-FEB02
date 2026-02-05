@@ -1207,7 +1207,24 @@ CalcView::_LoadSettings(BMessage* archive)
 void
 CalcView::_ParseCalcDesc(const char** keypadDescription)
 {
-	// TODO: should calculate dimensions from desc here!
+	// Calculate dimensions from description
+	fRows = 1;
+	fColumns = 0;
+	int currentColumns = 0;
+
+	for (int i = 0; const char* p = keypadDescription[i]; i++) {
+		if (strcmp(p, "\n") == 0) {
+			fRows++;
+			if (currentColumns > fColumns)
+				fColumns = currentColumns;
+			currentColumns = 0;
+		} else {
+			currentColumns++;
+		}
+	}
+	if (currentColumns > fColumns)
+		fColumns = currentColumns;
+
 	fKeypad = new CalcKey[fRows * fColumns];
 
 	// scan through calculator description and assemble keypad
