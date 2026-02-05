@@ -109,13 +109,14 @@ DepotMagazine::ContainsObject(void* object) const
 static DepotMagazine*
 alloc_magazine(object_depot* depot, uint32 flags)
 {
+	size_t capacity = depot->magazine_capacity;
 	DepotMagazine* magazine = (DepotMagazine*)slab_internal_alloc(
-		sizeof(DepotMagazine) + depot->magazine_capacity * sizeof(void*),
+		sizeof(DepotMagazine) + capacity * sizeof(void*),
 		flags);
 	if (magazine) {
 		magazine->next = NULL;
 		magazine->current_round = 0;
-		magazine->round_count = depot->magazine_capacity;
+		magazine->round_count = capacity;
 	}
 
 	return magazine;
@@ -223,6 +224,7 @@ object_depot_init(object_depot* depot, size_t capacity, size_t maxCount,
 	depot->full_count = depot->empty_count = 0;
 	depot->max_count = maxCount;
 	depot->magazine_capacity = capacity;
+	depot->original_magazine_capacity = capacity;
 
 	rw_lock_init(&depot->outer_lock, "object depot");
 	B_INITIALIZE_SPINLOCK(&depot->inner_lock);

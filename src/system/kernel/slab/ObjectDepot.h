@@ -24,6 +24,7 @@ typedef struct object_depot {
 	size_t					empty_count;
 	size_t					max_count;
 	size_t					magazine_capacity;
+	size_t					original_magazine_capacity;
 	struct depot_cpu_store*	stores;
 	void*					cookie;
 

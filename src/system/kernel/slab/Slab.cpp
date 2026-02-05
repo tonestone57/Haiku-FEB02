@@ -965,6 +965,16 @@ object_cache_reserve_internal(ObjectCache* cache, size_t objectCount,
 	resizeEntry->condition.Init(cache, "wait for slabs");
 	resizeEntry->thread = thread;
 
+	// if we are under pressure to allocate, we might as well restore the
+	// magazine capacity to its original value
+	if ((cache->flags & CACHE_NO_DEPOT) == 0) {
+		if (cache->depot.magazine_capacity
+				< cache->depot.original_magazine_capacity) {
+			cache->depot.magazine_capacity
+				= cache->depot.original_magazine_capacity;
+		}
+	}
+
 	// add new slabs until there are as many free ones as requested
 	while (objectCount > cache->total_objects - cache->used_count) {
 		slab* newSlab = cache->CreateSlab(flags);
@@ -1034,14 +1044,23 @@ object_cache_low_memory(void* dummy, uint32 resources, int32 level)
 		MutexLocker cacheLocker(cache->lock);
 		size_t minimumAllowed;
 
+		if ((cache->flags & CACHE_NO_DEPOT) == 0) {
+			if (level >= B_LOW_RESOURCE_WARNING) {
+				size_t newCapacity = cache->depot.magazine_capacity / 2;
+				if (newCapacity < 2)
+					newCapacity = 2;
+				cache->depot.magazine_capacity = newCapacity;
+			}
+		}
+
 		switch (level) {
 			case B_LOW_RESOURCE_NOTE:
-				minimumAllowed = cache->pressure / 2 + 1;
-				cache->pressure -= cache->pressure / 8;
+				minimumAllowed = cache->pressure / 4 + 1;
+				cache->pressure -= cache->pressure / 4;
 				break;
 
 			case B_LOW_RESOURCE_WARNING:
-				cache->pressure /= 2;
+				cache->pressure = 0;
 				minimumAllowed = 0;
 				break;
 
