@@ -753,6 +753,10 @@ Journal::_FlushPendingTransactions()
 				FATAL(("filling log entry failed!"));
 				// We can't recover easily from this, but we must clear pending count
 				// to avoid infinite loops or memory corruption.
+				for (int32 j = 0; j < fPendingTransactionCount; j++) {
+					cache_abort_transaction(fVolume->BlockCache(),
+						fPendingTransactions[j]);
+				}
 				fPendingTransactionCount = 0;
 				return status;
 			}
@@ -897,14 +901,6 @@ Journal::_FlushPendingTransactions()
 
 	fPendingTransactionCount = 0;
 	return status;
-}
-
-
-status_t
-Journal::_WriteTransactionToLog(int32 transactionID)
-{
-	fPendingTransactions[fPendingTransactionCount++] = transactionID;
-	return _FlushPendingTransactions();
 }
 
 
@@ -1093,14 +1089,18 @@ Journal::_TransactionDone(int32 transactionID, bool success)
 
 	if (fPendingTransactionCount >= 64) {
 		status_t status = _FlushPendingTransactions();
-		if (status != B_OK)
+		if (status != B_OK) {
+			cache_abort_transaction(fVolume->BlockCache(), transactionID);
 			return status;
+		}
 	}
 
 	fPendingTransactions[fPendingTransactionCount++] = transactionID;
 
 	if (_TransactionSize(transactionID) >= fMaxTransactionSize) {
-		return _FlushPendingTransactions();
+		status_t status = _FlushPendingTransactions();
+		if (status != B_OK)
+			return status;
 	}
 
 	return B_OK;

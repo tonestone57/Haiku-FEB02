@@ -89,8 +89,8 @@ public:
 private:
 			status_t		_FlushLog(bool canWait, bool flushBlocks,
 								bool alreadyLocked = false);
+			status_t		_FlushPendingTransactions();
 			uint32			_TransactionSize(int32 transactionID) const;
-			status_t		_WriteTransactionToLog(int32 transactionID);
 			status_t		_CheckRunArray(const run_array* array);
 			status_t		_ReplayRunArray(int32* start);
 			status_t		_TransactionDone(int32 transactionID, bool success);
