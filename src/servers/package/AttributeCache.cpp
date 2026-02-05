@@ -15,7 +15,7 @@
 #include <FindDirectory.h>
 #include <Message.h>
 #include <Path.h>
-#include <SHA256.h>
+#include <libroot/SHA256.h>
 #include <String.h>
 
 #include <package/PackageInfo.h>

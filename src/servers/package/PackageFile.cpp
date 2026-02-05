@@ -69,7 +69,7 @@ PackageFile::Init(const entry_ref& entryRef, PackageFileManager* owner)
 	BPath path;
 	if (file.GetSize(&size) == B_OK && file.GetModificationTime(&mtime) == B_OK
 		&& path.SetTo(&entryRef) == B_OK) {
-		if (AttributeCache::Load(fInfo, path.Path(), mtime, size) == B_OK)
+		if (BPrivate::AttributeCache::Load(fInfo, path.Path(), mtime, size) == B_OK)
 			loadedFromCache = true;
 	}
 
@@ -85,7 +85,7 @@ PackageFile::Init(const entry_ref& entryRef, PackageFileManager* owner)
 
 		// save to cache
 		if (path.InitCheck() == B_OK)
-			AttributeCache::Save(fInfo, path.Path(), mtime, size);
+			BPrivate::AttributeCache::Save(fInfo, path.Path(), mtime, size);
 	}
 
 	if (fFileName != fInfo.CanonicalFileName())

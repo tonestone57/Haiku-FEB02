@@ -18,12 +18,15 @@
 #define SHOW_IMAGE_VIEW_H
 
 
-#include <View.h>
 #include <Bitmap.h>
 #include <Entry.h>
+#include <Mime.h>
 #include <Messenger.h>
 #include <Point.h>
+#include <TranslationDefs.h>
+#include <View.h>
 
+#include "Filter.h"
 #include "SelectionBox.h"
 
 
