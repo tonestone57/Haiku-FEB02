@@ -1391,7 +1391,7 @@ debug_snooze_tpause(uint32 delay)
 void
 arch_debug_snooze(bigtime_t duration)
 {
-	uint32 delay = (duration * sDebugSnoozeConversionFactor) / 1000;
+	uint64 delay = (duration * sDebugSnoozeConversionFactor) / 1000;
 	if (delay == 0)
 		delay = 1;
 
