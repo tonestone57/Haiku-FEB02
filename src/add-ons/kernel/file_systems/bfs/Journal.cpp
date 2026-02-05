@@ -415,8 +415,7 @@ Journal::Journal(Volume* volume)
 	mutex_init(&fEntriesLock, "bfs journal entries");
 	mutex_init(&fTransactionMapLock, "bfs journal transactions");
 
-	if (fTransactionMap.Init() != B_OK)
-		panic("bfs: failed to initialize transaction map");
+	fInitStatus = fTransactionMap.Init();
 
 	fLogFlusherSem = create_sem(0, "bfs log flusher");
 	fLogFlusher = spawn_kernel_thread(&Journal::_LogFlusher, "bfs log flusher",
@@ -444,7 +443,7 @@ Journal::~Journal()
 status_t
 Journal::InitCheck()
 {
-	return B_OK;
+	return fInitStatus;
 }
 
 

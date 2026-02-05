@@ -113,6 +113,7 @@ private:
 
 			thread_id		fLogFlusher;
 			sem_id			fLogFlusherSem;
+			status_t		fInitStatus;
 
 			mutex			fTransactionMapLock;
 			BOpenHashTable<TransactionMapHash> fTransactionMap;
