@@ -451,7 +451,7 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 
-	DeleteSharedBuffer();
+	_DeleteSharedBuffer();
 
 	// tell app_server about our demise
 	fLink->StartMessage(AS_DELETE_WINDOW);
@@ -747,6 +747,14 @@ BWindow::DeleteSharedBuffer()
 	if (!Lock())
 		return;
 
+	_DeleteSharedBuffer();
+	Unlock();
+}
+
+
+void
+BWindow::_DeleteSharedBuffer()
+{
 	if (fSharedBufferData != NULL) {
 		if (fSharedBufferData->clientArea >= B_OK)
 			delete_area(fSharedBufferData->clientArea);
@@ -758,7 +766,6 @@ BWindow::DeleteSharedBuffer()
 		delete fSharedBufferData;
 		fSharedBufferData = NULL;
 	}
-	Unlock();
 }
 
 

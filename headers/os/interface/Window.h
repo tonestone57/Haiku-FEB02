@@ -204,6 +204,10 @@ public:
 			void				DeleteSharedBuffer();
 			uint8*				GetSharedBuffer() const;
 
+private:
+			void				_DeleteSharedBuffer();
+
+public:
 			BRect				Bounds() const;
 			BRect				Frame() const;
 			BRect				DecoratorFrame() const;
