@@ -806,15 +806,17 @@ thread_popup(void *arg)
 	BPopUpMenu* popup = new BPopUpMenu("Global Popup", false, false);
 	popup->SetFont(be_plain_font);
 
+	info_pack* infosArray = infos.empty() ? NULL : &infos[0];
+
 	// Quit section
 	BMenu* QuitPopup = new QuitMenu(B_TRANSLATE("Quit an application"),
-	&infos[0], systemInfo.used_teams);
+	infosArray, systemInfo.used_teams);
 	QuitPopup->SetFont(be_plain_font);
 	popup->AddItem(QuitPopup);
 
 	// Memory Usage section
 	MemoryBarMenu* MemoryPopup = new MemoryBarMenu(B_TRANSLATE("Memory usage"),
-	&infos[0], systemInfo);
+	infosArray, systemInfo);
 	int64 committedMemory = (int64)systemInfo.used_pages * B_PAGE_SIZE / 1024;
 	for (m = 0; m < systemInfo.used_teams; m++) {
 		if (infos[m].team_info.team >= 0) {
@@ -830,7 +832,7 @@ thread_popup(void *arg)
 
 	// CPU Load section
 	TeamBarMenu* CPUPopup = new TeamBarMenu(B_TRANSLATE("Threads and CPU "
-	"usage"), &infos[0], systemInfo.used_teams);
+	"usage"), infosArray, systemInfo.used_teams);
 	for (m = 0; m < systemInfo.used_teams; m++) {
 		if (infos[m].team_info.team >= 0) {
 			ThreadBarMenu* TeamPopup = new ThreadBarMenu(infos[m].team_name,
