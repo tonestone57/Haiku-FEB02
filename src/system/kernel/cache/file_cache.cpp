@@ -52,8 +52,10 @@ struct file_cache_ref {
 
 	inline void SetLastAccess(int32 index, off_t access, bool isWrite)
 	{
-		// we remember writes as bit 31
-		last_access[index] = (uint32)access | (isWrite ? 0x80000000 : 0);
+		// we remember writes as bit 31, and store the page index
+		uint32 pageIndex = (uint32)(access >> PAGE_SHIFT);
+		last_access[index] = (pageIndex & 0x7fffffff)
+			| (isWrite ? 0x80000000 : 0);
 	}
 
 	inline off_t LastAccess(int32 index, bool isWrite) const
@@ -61,12 +63,15 @@ struct file_cache_ref {
 		if (((last_access[index] & 0x80000000) != 0) != isWrite)
 			return 0;
 
-		return (off_t)(last_access[index] & 0x7fffffff);
+		return (off_t)(last_access[index] & 0x7fffffff) << PAGE_SHIFT;
 	}
 
 	inline uint32 LastAccessPageOffset(int32 index, bool isWrite)
 	{
-		return LastAccess(index, isWrite) >> PAGE_SHIFT;
+		if (((last_access[index] & 0x80000000) != 0) != isWrite)
+			return 0;
+
+		return last_access[index] & 0x7fffffff;
 	}
 };
 
