@@ -27,7 +27,6 @@
 
 #include "IORequest.h"
 #include <AutoDeleter.h>
-#include <util/AutoLock.h>
 
 
 #define TRACE_MMC_DISK
