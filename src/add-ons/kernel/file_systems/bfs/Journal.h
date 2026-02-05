@@ -20,6 +20,19 @@ class LogEntry;
 typedef DoublyLinkedList<LogEntry> LogEntryList;
 
 
+class TransactionListener
+	: public DoublyLinkedListLinkImpl<TransactionListener> {
+public:
+								TransactionListener();
+	virtual						~TransactionListener();
+
+	virtual void				TransactionDone(bool success) = 0;
+	virtual void				RemovedFromTransaction() = 0;
+};
+
+typedef DoublyLinkedList<TransactionListener> TransactionListeners;
+
+
 struct TransactionInfo {
 	thread_id		thread;
 	int32			transactionID;
@@ -130,19 +143,6 @@ Journal::FreeLogBlocks() const
 		? fLogSize - fVolume->LogEnd() + fVolume->LogStart()
 		: fVolume->LogStart() - fVolume->LogEnd();
 }
-
-
-class TransactionListener
-	: public DoublyLinkedListLinkImpl<TransactionListener> {
-public:
-								TransactionListener();
-	virtual						~TransactionListener();
-
-	virtual void				TransactionDone(bool success) = 0;
-	virtual void				RemovedFromTransaction() = 0;
-};
-
-typedef DoublyLinkedList<TransactionListener> TransactionListeners;
 
 
 class Transaction {

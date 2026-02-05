@@ -1083,6 +1083,7 @@ Journal::_TransactionDone(int32 transactionID, bool success)
 		// This transaction is too large to fit into the log
 		dprintf("transaction too large (%d blocks, log size %d)!\n",
 			(int)_TransactionSize(transactionID), (int)fLogSize);
+		cache_abort_transaction(fVolume->BlockCache(), transactionID);
 		return B_BUFFER_OVERFLOW;
 	}
 
