@@ -153,9 +153,6 @@ FindWindow::_SendFindMessage()
 		message.AddBool("findselection", true);
 
 	//Add the other parameters
-	// TODO: "usetext" is never checked for elsewhere and seems
-	// redundant with "findselection", why is it here?
-	message.AddBool("usetext", fTextRadio->Value() == B_CONTROL_ON);
 	message.AddBool("forwardsearch", fForwardSearchBox->Value() == B_CONTROL_ON);
 	message.AddBool("matchcase", fMatchCaseBox->Value() == B_CONTROL_ON);
 	message.AddBool("matchword", fMatchWordBox->Value() == B_CONTROL_ON);

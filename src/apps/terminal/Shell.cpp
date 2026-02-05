@@ -177,6 +177,7 @@ status_t
 Shell::UpdateWindowSize(int rows, int columns)
 {
 	struct winsize winSize;
+	memset(&winSize, 0, sizeof(winSize));
 	winSize.ws_row = rows;
 	winSize.ws_col = columns;
 	if (ioctl(fFd, TIOCSWINSZ, &winSize) != 0)
@@ -460,9 +461,6 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 		pthread_sigmask(SIG_UNBLOCK, &blockedSignals, NULL);
 
 		struct termios tio;
-		/* get tty termios (not necessary).
-		 * TODO: so why are we doing it ?
-		 */
 		tcgetattr(slave, &tio);
 
 		initialize_termios(tio);

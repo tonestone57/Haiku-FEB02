@@ -3076,8 +3076,6 @@ TermView::_HandleInputMethodChanged(BMessage *message)
 	fInline->SetString("");
 
 	Invalidate();
-	// TODO: Debug only
-	snooze(100000);
 
 	fInline->SetString(string);
 	fInline->ResetClauses();
