@@ -62,8 +62,6 @@ dump_partition_info(const BPartition* partition)
 bool
 is_valid_partitionable_space(size_t size)
 {
-	// TODO: remove this again, the DiskDeviceAPI should
-	// not even show these spaces to begin with
 	return size >= 8 * 1024 * 1024;
 }
 

@@ -514,8 +514,6 @@ TBarApp::MessageReceived(BMessage* message)
 		}
 
 		case B_ARCHIVED_OBJECT:
-			// TODO: what's this???
-			message->AddString("special", "Alex Osadzinski");
 			fStatusViewMessenger.SendMessage(message);
 			break;
 
@@ -689,6 +687,7 @@ TBarApp::MessageReceived(BMessage* message)
 
 		case kSuspendSystem:
 			// TODO: Call BRoster?
+			// The functionality is not exposed by BRoster::Private yet.
 			break;
 
 		case kRebootSystem:
