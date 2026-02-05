@@ -168,13 +168,15 @@ vnode_to_be_freed(Vnode* vnode)
 
 	if (vnode->IsHot()) {
 		// node is hot -- remove it from the array
-// TODO: Maybe better completely flush the array while at it?
 		int32 count = atomic_get(&sNextHotVnodeIndex);
-		count = std::min(count, kMaxHotVnodes);
-		for (int32 i = 0; i < count; i++) {
-			if (sHotVnodes[i] == vnode) {
-				sHotVnodes[i] = NULL;
-				break;
+		if (count > kMaxHotVnodes) {
+			flush_hot_vnodes_locked();
+		} else {
+			for (int32 i = 0; i < count; i++) {
+				if (sHotVnodes[i] == vnode) {
+					sHotVnodes[i] = NULL;
+					break;
+				}
 			}
 		}
 	} else if (vnode->IsUnused()) {

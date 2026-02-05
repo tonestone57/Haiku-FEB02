@@ -52,6 +52,7 @@ struct monitor_listener {
 	NotificationListener *listener;
 	uint32				flags;
 	node_monitor		*monitor;
+	io_context			*context;
 };
 
 typedef DoublyLinkedList<monitor_listener, DoublyLinkedListMemberGetLink<
@@ -281,6 +282,9 @@ NodeMonitorService::_RemoveListener(io_context *context, dev_t device,
 	if (listener == NULL)
 		return B_BAD_VALUE;
 
+	if (listener->context != context)
+		return B_BAD_VALUE;
+
 	_RemoveListener(listener);
 	context->num_monitors--;
 
@@ -417,6 +421,7 @@ NodeMonitorService::_AddMonitorListener(io_context *context,
 	listener->listener = &notificationListener;
 	listener->flags = flags;
 	listener->monitor = monitor;
+	listener->context = context;
 
 	monitor->listeners.Add(listener);
 	list_add_link_to_head(&context->node_monitors, listener);
@@ -1360,6 +1365,14 @@ notify_query_attribute_changed(port_id port, int32 token, dev_t device,
 status_t
 _user_stop_notifying(port_id port, uint32 token)
 {
+	port_info info;
+	status_t error = get_port_info(port, &info);
+	if (error != B_OK)
+		return error;
+
+	if (info.team != team_get_current_team_id())
+		return B_PERMISSION_DENIED;
+
 	io_context *context = get_current_io_context(false);
 
 	return sNodeMonitorService.RemoveUserListeners(context, port, token);
