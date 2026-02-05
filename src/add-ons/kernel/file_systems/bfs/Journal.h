@@ -134,7 +134,8 @@ private:
 			mutex			fTransactionMapLock;
 			BOpenHashTable<TransactionMapHash> fTransactionMap;
 
-			int32			fPendingTransactions[64];
+			static const int32 kMaxPendingTransactions = 64;
+			int32			fPendingTransactions[kMaxPendingTransactions];
 			int32			fPendingTransactionCount;
 			uint32			fPendingTransactionSize;
 };

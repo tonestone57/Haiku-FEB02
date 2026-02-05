@@ -1104,7 +1104,7 @@ Journal::_TransactionDone(int32 transactionID, bool success)
 		return B_BUFFER_OVERFLOW;
 	}
 
-	if (fPendingTransactionCount >= 64
+	if (fPendingTransactionCount >= kMaxPendingTransactions
 		|| fPendingTransactionSize + transactionSize > fMaxTransactionSize) {
 		status_t status = _FlushPendingTransactions();
 		if (status != B_OK) {
