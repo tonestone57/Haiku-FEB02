@@ -842,7 +842,7 @@ static int nvme_ctrlr_reserve_sq_in_cmb(struct nvme_ctrlr *ctrlr,
  */
 int nvme_qpair_construct(struct nvme_ctrlr *ctrlr, struct nvme_qpair *qpair,
 			 enum nvme_qprio qprio,
-			 uint16_t entries, uint16_t trackers)
+			 uint16_t entries, uint16_t trackers, uint16_t vector)
 {
 	volatile uint32_t *doorbell_base;
 	struct nvme_tracker *tr;
@@ -859,6 +859,7 @@ int nvme_qpair_construct(struct nvme_ctrlr *ctrlr, struct nvme_qpair *qpair,
 	qpair->entries = entries;
 	qpair->trackers = trackers;
 	qpair->qprio = qprio;
+	qpair->vector = vector;
 	qpair->sq_in_cmb = false;
 	qpair->ctrlr = ctrlr;
 
