@@ -75,6 +75,7 @@ private:
 			uint32			fMaxTransactionSize;
 			uint32			fUsed;
 			int32			fUnwrittenTransactions;
+			bigtime_t		fTransactionStartTime;
 			mutex			fEntriesLock;
 			LogEntryList	fEntries;
 			bigtime_t		fTimestamp;
