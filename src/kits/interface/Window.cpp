@@ -436,6 +436,8 @@ BWindow::~BWindow()
 	// disable pulsing
 	SetPulseRate(0);
 
+	DeleteSharedBuffer();
+
 	// tell app_server about our demise
 	fLink->StartMessage(AS_DELETE_WINDOW);
 	// sync with the server so that for example
