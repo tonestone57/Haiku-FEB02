@@ -130,9 +130,6 @@ x86_compat_initialize_syscall(void)
 		// syscalls (MSR_CSTAR). This is initialized in init_syscall_registers()
 		// for all CPUs, so no vendor-specific MSR setup is needed here.
 		// The kernel stack is handled via SWAPGS in the entry path.
-		extern void x86_user_syscall_syscall(void);
-		extern unsigned int x86_user_syscall_syscall_end;
-
 		syscallCode = (void*)&x86_user_syscall_syscall;
 		syscallCodeEnd = &x86_user_syscall_syscall_end;
 	} else {
