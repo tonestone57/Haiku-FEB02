@@ -339,6 +339,10 @@ remap_frame_buffer(vesa_info& info, addr_t physicalBase, uint32 width,
 
 			if (info.physical_frame_buffer_size != 0)
 				info.complete_frame_buffer_mapped = true;
+		} else {
+			// Turn on write combining for the area
+			vm_set_area_memory_type(sharedInfo.frame_buffer_area, base,
+				B_WRITE_COMBINING_MEMORY);
 		}
 	}
 
@@ -365,6 +369,7 @@ vesa_init(vesa_info& info)
 	if (bufferInfo == NULL)
 		return B_ERROR;
 
+	info.frame_buffer = bufferInfo->frame_buffer;
 	info.vbe_capabilities = bufferInfo->vesa_capabilities;
 	info.complete_frame_buffer_mapped = false;
 
