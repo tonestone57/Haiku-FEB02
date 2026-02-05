@@ -9,6 +9,8 @@
 
 #include <new>
 
+#include <limits.h>
+
 #include <AutoDeleter.h>
 #include <BytePointer.h>
 #include <KernelExport.h>
@@ -213,8 +215,7 @@ MessagingArea::AllocateCommand(uint32 commandWhat, int32 dataSize,
 void
 MessagingArea::CommitCommand()
 {
-	// TODO: If invoked while locked, we should supply B_DO_NOT_RESCHEDULE.
-	release_sem(fCounterSem);
+	release_sem_etc(fCounterSem, 1, B_DO_NOT_RESCHEDULE);
 }
 
 
@@ -382,8 +383,18 @@ messageSize, targets, targetCount));
 	if (!message || messageSize <= 0 || !targets || targetCount <= 0)
 		return B_BAD_VALUE;
 
-	int32 dataSize = sizeof(messaging_command_send_message)
-		+ targetCount * sizeof(messaging_target) + messageSize;
+	if (targetCount > INT_MAX / (int32)sizeof(messaging_target))
+		return B_BAD_VALUE;
+
+	int32 targetsSize = targetCount * sizeof(messaging_target);
+	int32 commandSize = sizeof(messaging_command_send_message);
+
+	if (targetsSize > INT_MAX - commandSize
+		|| messageSize > INT_MAX - commandSize - targetsSize) {
+		return B_BAD_VALUE;
+	}
+
+	int32 dataSize = commandSize + targetsSize + messageSize;
 
 	// allocate space for the command
 	MessagingArea *area;
@@ -432,7 +443,11 @@ MessagingService::_AllocateCommand(int32 commandWhat, int32 size,
 
 	while (fFirstArea != fLastArea) {
 		area = fFirstArea;
-		area->Lock();
+		if (!area->Lock()) {
+			data = NULL;
+			return B_ERROR;
+		}
+
 		if (!area->IsEmpty()) {
 			area->Unlock();
 			break;
@@ -449,7 +464,11 @@ MessagingService::_AllocateCommand(int32 commandWhat, int32 size,
 
 	// allocate space for the command in the last area
 	area = fLastArea;
-	area->Lock();
+	if (!area->Lock()) {
+		data = NULL;
+		return B_ERROR;
+	}
+
 	data = area->AllocateCommand(commandWhat, size, wasEmpty);
 
 	if (!data) {
@@ -563,6 +582,9 @@ init_messaging_service()
 area_id
 _user_register_messaging_service(sem_id lockSem, sem_id counterSem)
 {
+	if (geteuid() != 0)
+		return B_PERMISSION_DENIED;
+
 	// check, if init_messaging_service() has been called yet
 	if (!sMessagingService)
 		return B_NO_INIT;
@@ -583,6 +605,9 @@ _user_register_messaging_service(sem_id lockSem, sem_id counterSem)
 status_t
 _user_unregister_messaging_service()
 {
+	if (geteuid() != 0)
+		return B_PERMISSION_DENIED;
+
 	// check, if init_messaging_service() has been called yet
 	if (!sMessagingService)
 		return B_NO_INIT;
