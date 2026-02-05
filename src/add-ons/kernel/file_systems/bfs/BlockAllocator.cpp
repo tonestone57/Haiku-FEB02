@@ -195,6 +195,7 @@ private:
 class AllocationGroup {
 public:
 	AllocationGroup();
+	~AllocationGroup();
 
 	void AddFreeRange(int32 start, int32 blocks);
 	bool IsFull() const { return fFreeBits == 0; }
@@ -209,6 +210,7 @@ public:
 private:
 	friend class BlockAllocator;
 
+	recursive_lock fLock;
 	uint32	fNumBits;
 	uint32	fNumBitmapBlocks;
 	int32	fStart;
@@ -372,6 +374,13 @@ AllocationGroup::AllocationGroup()
 	fFreeBits(0),
 	fLargestValid(false)
 {
+	recursive_lock_init(&fLock, "bfs allocation group");
+}
+
+
+AllocationGroup::~AllocationGroup()
+{
+	recursive_lock_destroy(&fLock);
 }
 
 
@@ -403,6 +412,7 @@ AllocationGroup::AddFreeRange(int32 start, int32 blocks)
 status_t
 AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 {
+	RecursiveLocker lock(fLock);
 	ASSERT(start + length <= (int32)fNumBits);
 
 	// Update the allocation group info
@@ -472,6 +482,7 @@ AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 status_t
 AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 {
+	RecursiveLocker lock(fLock);
 	ASSERT(start + length <= (int32)fNumBits);
 
 	// Update the allocation group info
@@ -829,27 +840,30 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 		groupIndex, start, maximum, minimum));
 
 	AllocationBlock cached(fVolume);
-	RecursiveLocker lock(fLock);
 
+	recursive_lock_lock(&fLock);
 	uint32 bitsPerFullBlock = fVolume->BlockSize() << 3;
+	off_t allowedBeginBlock = fAllowedBeginBlock;
+	off_t allowedEndBlock = fAllowedEndBlock;
+	recursive_lock_unlock(&fLock);
 
 	// Express the allowed allocation range in terms of allocation groups and
 	// offsets.
-	int32 firstAllowedGroup = fAllowedBeginBlock / bitsPerFullBlock;
-	uint16 firstGroupBegin = fAllowedBeginBlock % bitsPerFullBlock;
+	int32 firstAllowedGroup = allowedBeginBlock / bitsPerFullBlock;
+	uint16 firstGroupBegin = allowedBeginBlock % bitsPerFullBlock;
 
 	int32 lastAllowedGroup;
 	int32 lastGroupEnd;
 
-	if (fAllowedEndBlock == 0) {
+	if (allowedEndBlock == 0) {
 		lastAllowedGroup = fNumGroups - 1;
 		lastGroupEnd = fGroups[lastAllowedGroup].NumBits();
 	} else {
 		// If fEndBlock is the first block of an allocation group, the last
 		// allowed group is the previous, and the end block offset is
 		// bitsPerFullBlock.
-		lastAllowedGroup = (fAllowedEndBlock - 1) / bitsPerFullBlock;
-		lastGroupEnd = fAllowedEndBlock % bitsPerFullBlock;
+		lastAllowedGroup = (allowedEndBlock - 1) / bitsPerFullBlock;
+		lastGroupEnd = allowedEndBlock % bitsPerFullBlock;
 		if (lastGroupEnd == 0)
 			lastGroupEnd = bitsPerFullBlock;
 	}
@@ -862,6 +876,8 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 	for (int32 i = 0; i < fNumGroups + 1; i++, groupIndex++, start = 0) {
 		groupIndex = groupIndex % fNumGroups;
 		AllocationGroup& group = fGroups[groupIndex];
+
+		RecursiveLocker groupLock(group.fLock);
 
 		CHECK_ALLOCATION_GROUP(groupIndex);
 
@@ -897,8 +913,13 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 					bestStart = group.fLargestStart;
 					bestLength = group.fLargestLength;
 
-					if (bestLength >= maximum)
-						break;
+					if (bestLength >= maximum) {
+						// Found a suitable range, allocate immediately
+						if (group.Allocate(transaction, bestStart, bestLength) == B_OK) {
+							groupLock.Unlock();
+							goto allocate_success;
+						}
+					}
 				}
 
 				// We know everything about this group we have to, let's skip
@@ -951,6 +972,11 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 						bestGroup = groupIndex;
 						bestStart = currentStart;
 						bestLength = currentLength;
+						// Found it!
+						if (group.Allocate(transaction, bestStart, bestLength) == B_OK) {
+							groupLock.Unlock();
+							goto allocate_success;
+						}
 						break;
 					}
 				} else {
@@ -987,11 +1013,6 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 			T(Block("alloc-out", block, cached.Block(),
 				fVolume->BlockSize(), groupIndex, currentStart));
 
-			if (bestLength >= maximum) {
-				canFindGroupLargest = false;
-				break;
-			}
-
 			// start from the beginning of the next block
 			start = 0;
 		}
@@ -1014,9 +1035,6 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 			group.fLargestLength = groupLargestLength;
 			group.fLargestValid = true;
 		}
-
-		if (bestLength >= maximum)
-			break;
 	}
 
 	// If we found a suitable range, mark the blocks as in use, and
@@ -1031,9 +1049,34 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 		bestLength = round_down(bestLength, minimum);
 	}
 
-	if (fGroups[bestGroup].Allocate(transaction, bestStart, bestLength) != B_OK)
-		RETURN_ERROR(B_IO_ERROR);
+	{
+		AllocationGroup& group = fGroups[bestGroup];
+		RecursiveLocker groupLock(group.fLock);
 
+		int32 end = bestStart + bestLength;
+		int32 block = bestStart / bitsPerFullBlock;
+		int32 lastBlock = (end - 1) / bitsPerFullBlock;
+		int32 checkStart = bestStart;
+
+		for (; block <= lastBlock; block++) {
+			if (cached.SetTo(group, block) < B_OK)
+				RETURN_ERROR(B_ERROR);
+
+			uint32 endBit = (block == lastBlock) ? (end % bitsPerFullBlock) : cached.NumBlockBits();
+			if (endBit == 0) endBit = bitsPerFullBlock;
+
+			for (uint32 bit = checkStart % bitsPerFullBlock; bit < endBit; bit++) {
+				if (cached.IsUsed(bit))
+					return B_DEVICE_FULL;
+			}
+			checkStart = 0;
+		}
+
+		if (group.Allocate(transaction, bestStart, bestLength) != B_OK)
+			RETURN_ERROR(B_IO_ERROR);
+	}
+
+allocate_success:
 	CHECK_ALLOCATION_GROUP(bestGroup);
 
 	run.allocation_group = HOST_ENDIAN_TO_BFS_INT32(bestGroup);
@@ -1043,8 +1086,10 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 	ASSERT(fVolume->ToBlock(run) >= fAllowedBeginBlock);
 	ASSERT(fAllowedEndBlock == 0 || fVolume->ToBlock(run) + run.Length() <= fAllowedEndBlock);
 
+	recursive_lock_lock(&fLock);
 	fVolume->SuperBlock().used_blocks
 		= HOST_ENDIAN_TO_BFS_INT64(fVolume->UsedBlocks() + bestLength);
+	recursive_lock_unlock(&fLock);
 		// We are not writing back the disk's superblock - it's
 		// either done by the journaling code, or when the disk
 		// is unmounted.
