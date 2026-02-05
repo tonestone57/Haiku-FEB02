@@ -126,9 +126,18 @@ x86_compat_initialize_syscall(void)
 
 	if (get_cpu_struct()->arch.vendor == VENDOR_AMD
 		|| get_cpu_struct()->arch.vendor == VENDOR_HYGON) {
+		// AMD/Hygon processors use the SYSCALL instruction for 32-bit compat
+		// syscalls (MSR_CSTAR). This is initialized in init_syscall_registers()
+		// for all CPUs, so no vendor-specific MSR setup is needed here.
+		// The kernel stack is handled via SWAPGS in the entry path.
+		extern void x86_user_syscall_syscall(void);
+		extern unsigned int x86_user_syscall_syscall_end;
+
 		syscallCode = (void*)&x86_user_syscall_syscall;
 		syscallCodeEnd = &x86_user_syscall_syscall_end;
 	} else {
+		// Intel processors use SYSENTER. This requires setting up specific
+		// MSRs (CS, ESP, EIP) and a stack switch helper.
 		call_all_cpus_sync(&init_intel_syscall_registers, NULL);
 		syscallCode = (void*)&x86_user_syscall_sysenter;
 		syscallCodeEnd = &x86_user_syscall_sysenter_end;
