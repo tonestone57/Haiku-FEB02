@@ -683,12 +683,11 @@ read_irq_routing_table_recursive(acpi_module_info* acpi, pci_module_info* pci,
 			dprintf("invalid secondary bus %u on primary bus %u,"
 				" can't configure irq routing of devices below\n",
 				secondaryBus, currentBus);
-			// TODO: Maybe we want to just return B_OK anyway so that we don't
-			// fail this step. We ensure that we matched all devices at the
-			// end of preparation, so we'd detect missing child devices anyway
-			// and it would not cause us to fail for empty misconfigured busses
-			// that we don't actually care about.
-			return B_ERROR;
+			// We ensure that we matched all devices at the end of preparation,
+			// so we'd detect missing child devices anyway and it would not
+			// cause us to fail for empty misconfigured busses that we don't
+			// actually care about.
+			return B_OK;
 		}
 
 		// Everything below is now on the secondary bus.
