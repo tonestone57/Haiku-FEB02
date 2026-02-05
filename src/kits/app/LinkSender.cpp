@@ -61,7 +61,9 @@ LinkSender::LinkSender(port_id port)
 
 	fCurrentEnd(0),
 	fCurrentStart(0),
-	fCurrentStatus(B_OK)
+	fCurrentStatus(B_OK),
+	fBatchMode(false),
+	fBatchCountOffset(0)
 {
 }
 
@@ -82,6 +84,23 @@ LinkSender::SetPort(port_id port)
 status_t
 LinkSender::StartMessage(int32 code, size_t minSize)
 {
+	if (fBatchMode) {
+		if (fCurrentStatus < B_OK)
+			return fCurrentStatus;
+
+		// Split batch if it exceeds max buffer size
+		if (CurrentMessageSize() + sizeof(int32) + minSize > kMaxBufferSize) {
+			EndBatch();
+			Flush();
+			BeginBatch(AS_BATCH_DRAWING_COMMANDS);
+		}
+
+		int32* countPtr = (int32*)(fBuffer + fBatchCountOffset);
+		(*countPtr)++;
+
+		return Attach<int32>(code);
+	}
+
 	// end previous message
 	if (EndMessage() < B_OK)
 		CancelMessage();
@@ -118,6 +137,33 @@ LinkSender::StartMessage(int32 code, size_t minSize)
 
 	fCurrentEnd += sizeof(message_header);
 	return B_OK;
+}
+
+
+status_t
+LinkSender::BeginBatch(int32 code)
+{
+	status_t status = StartMessage(code);
+	if (status != B_OK)
+		return status;
+
+	fBatchCountOffset = fCurrentEnd;
+
+	status = Attach<int32>(0);
+	if (status != B_OK)
+		return status;
+
+	fBatchMode = true;
+	return B_OK;
+}
+
+
+status_t
+LinkSender::EndBatch()
+{
+	fBatchMode = false;
+	fBatchCountOffset = 0;
+	return EndMessage();
 }
 
 
@@ -426,9 +472,17 @@ LinkSender::Flush(bigtime_t timeout, bool needsReply)
 	if (fCurrentStatus < B_OK)
 		return fCurrentStatus;
 
-	EndMessage(needsReply);
-	if (fCurrentStart == 0)
+	bool wasBatch = fBatchMode;
+	if (wasBatch)
+		EndBatch();
+	else
+		EndMessage(needsReply);
+
+	if (fCurrentStart == 0) {
+		if (wasBatch)
+			BeginBatch(AS_BATCH_DRAWING_COMMANDS);
 		return B_OK;
+	}
 
 	STRACE(("info: LinkSender Flush() waiting to send messages of %ld bytes on port %ld.\n",
 		fCurrentEnd, fPort));
@@ -456,6 +510,9 @@ LinkSender::Flush(bigtime_t timeout, bool needsReply)
 
 	fCurrentEnd = 0;
 	fCurrentStart = 0;
+
+	if (wasBatch)
+		BeginBatch(AS_BATCH_DRAWING_COMMANDS);
 
 	return B_OK;
 }

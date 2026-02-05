@@ -317,6 +317,21 @@ BWindow::Shortcut::PrepareKey(uint32 key)
 //	#pragma mark - BWindow
 
 
+struct BWindow::SharedBufferData {
+	area_id				clientArea;
+	area_id				serverArea;
+	uint8*				buffer;
+
+	SharedBufferData()
+		:
+		clientArea(-1),
+		serverArea(-1),
+		buffer(NULL)
+	{
+	}
+};
+
+
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
 	:
@@ -435,6 +450,8 @@ BWindow::~BWindow()
 
 	// disable pulsing
 	SetPulseRate(0);
+
+	_DeleteSharedBuffer();
 
 	// tell app_server about our demise
 	fLink->StartMessage(AS_DELETE_WINDOW);
@@ -674,6 +691,91 @@ BWindow::DisableUpdates()
 }
 
 
+status_t
+BWindow::CreateSharedBuffer(int32 size)
+{
+	if (!Lock())
+		return B_ERROR;
+
+	if (fSharedBufferData != NULL) {
+		Unlock();
+		return B_BAD_VALUE; // Already exists
+	}
+
+	fLink->StartMessage(AS_CREATE_SHARED_BUFFER);
+	fLink->Attach<int32>(size);
+
+	int32 code;
+	if (fLink->FlushWithReply(code) == B_OK && code == B_OK) {
+		area_id area;
+		if (fLink->Read<area_id>(&area) == B_OK) {
+			SharedBufferData* data = new(std::nothrow) SharedBufferData();
+			if (data == NULL) {
+				fLink->StartMessage(AS_DELETE_SHARED_BUFFER);
+				fLink->Attach<area_id>(area);
+				fLink->Flush();
+				Unlock();
+				return B_NO_MEMORY;
+			}
+
+			data->serverArea = area;
+			data->clientArea = clone_area("client_shared_buffer", (void**)&data->buffer,
+				B_ANY_ADDRESS, B_READ_AREA | B_WRITE_AREA, area);
+
+			if (data->clientArea < B_OK) {
+				code = data->clientArea;
+				fLink->StartMessage(AS_DELETE_SHARED_BUFFER);
+				fLink->Attach<area_id>(area);
+				fLink->Flush();
+				delete data;
+			} else {
+				fSharedBufferData = data;
+			}
+		} else {
+			code = B_ERROR;
+		}
+	}
+
+	Unlock();
+	return code;
+}
+
+
+void
+BWindow::DeleteSharedBuffer()
+{
+	if (!Lock())
+		return;
+
+	_DeleteSharedBuffer();
+	Unlock();
+}
+
+
+void
+BWindow::_DeleteSharedBuffer()
+{
+	if (fSharedBufferData != NULL) {
+		if (fSharedBufferData->clientArea >= B_OK)
+			delete_area(fSharedBufferData->clientArea);
+
+		fLink->StartMessage(AS_DELETE_SHARED_BUFFER);
+		fLink->Attach<area_id>(fSharedBufferData->serverArea);
+		fLink->Flush();
+
+		delete fSharedBufferData;
+		fSharedBufferData = NULL;
+	}
+}
+
+
+uint8*
+BWindow::GetSharedBuffer() const
+{
+	return fSharedBufferData ? fSharedBufferData->buffer : NULL;
+}
+
+
 void
 BWindow::EnableUpdates()
 {
@@ -689,7 +791,11 @@ void
 BWindow::BeginViewTransaction()
 {
 	if (Lock()) {
-		fInTransaction = true;
+		if (fTransactionCount == 0) {
+			fLink->Sender().BeginBatch(AS_BATCH_DRAWING_COMMANDS);
+			fInTransaction = true;
+		}
+		fTransactionCount++;
 		Unlock();
 	}
 }
@@ -699,9 +805,12 @@ void
 BWindow::EndViewTransaction()
 {
 	if (Lock()) {
-		if (fInTransaction)
+		fTransactionCount--;
+		if (fTransactionCount == 0 && fInTransaction) {
+			fLink->Sender().EndBatch();
 			fLink->Flush();
-		fInTransaction = false;
+			fInTransaction = false;
+		}
 		Unlock();
 	}
 }
@@ -2760,8 +2869,10 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 	fLook = look;
 	fFlags = flags | B_ASYNCHRONOUS_CONTROLS;
 
+	fTransactionCount = 0;
 	fInTransaction = bitmapToken >= 0;
 	fUpdateRequested = false;
+	fSharedBufferData = NULL;
 	fActive = false;
 	fShowLevel = 1;
 
