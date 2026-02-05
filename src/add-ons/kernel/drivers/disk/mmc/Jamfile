@@ -2,7 +2,7 @@ SubDir HAIKU_TOP src add-ons kernel drivers disk mmc ;
 
 UsePrivateKernelHeaders ;
 UsePrivateHeaders drivers ;
-SubDirHdrs $(HAIKU_TOP) src system kernel device_manager ;
+UseHeaders [ FDirName $(HAIKU_TOP) src system kernel device_manager ] : true ;
 
 KernelAddon mmc_disk :
 	mmc_disk.cpp
