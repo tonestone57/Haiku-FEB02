@@ -210,67 +210,76 @@ compat_send(void *cookie, net_buffer *buffer)
 
 		if (iovecs != NULL
 			&& gBufferModule->get_iovecs(buffer, iovecs, vecCount) == vecCount) {
-			int32 *ref = malloc(sizeof(int32));
-			if (ref != NULL) {
-				*ref = 1;
+			net_buffer *clone = gBufferModule->clone(buffer, false);
+			if (clone != NULL) {
+				int32 *ref = malloc(sizeof(int32));
+				if (ref != NULL) {
+					*ref = 1;
 
-				struct mbuf *head = NULL, *tail = NULL;
-				status_t status = B_OK;
+					struct mbuf *head = NULL, *tail = NULL;
+					status_t status = B_OK;
 
-				for (uint32 i = 0; i < vecCount; i++) {
-					struct mbuf *m;
-					if (i == 0)
-						m = m_gethdr(M_DONTWAIT, MT_DATA);
-					else
-						m = m_get(M_DONTWAIT, MT_DATA);
+					for (uint32 i = 0; i < vecCount; i++) {
+						struct mbuf *m;
+						if (i == 0)
+							m = m_gethdr(M_DONTWAIT, MT_DATA);
+						else
+							m = m_get(M_DONTWAIT, MT_DATA);
 
-					if (m == NULL) {
-						status = ENOBUFS;
-						break;
+						if (m == NULL) {
+							status = ENOBUFS;
+							break;
+						}
+
+						atomic_add(ref, 1);
+						MEXTADD(m, iovecs[i].iov_base, iovecs[i].iov_len,
+							free_net_buffer_ext, ref, clone, 0, EXT_NET_DRV);
+
+						m->m_len = iovecs[i].iov_len;
+						if (head == NULL) {
+							head = m;
+							m->m_pkthdr.len = clone->size;
+						} else
+							tail->m_next = m;
+						tail = m;
 					}
 
-					atomic_add(ref, 1);
-					MEXTADD(m, iovecs[i].iov_base, iovecs[i].iov_len,
-						free_net_buffer_ext, ref, buffer, 0, EXT_NET_DRV);
+					if (status == B_OK) {
+						if (vecCount > 8)
+							free(iovecs);
 
-					m->m_len = iovecs[i].iov_len;
-					if (head == NULL) {
-						head = m;
-						m->m_pkthdr.len = buffer->size;
-					} else
-						tail->m_next = m;
-					tail = m;
-				}
+						if (atomic_add(ref, -1) == 1) {
+							gBufferModule->free(clone);
+							free(ref);
+						}
 
-				if (status == B_OK) {
+						if ((ifp->flags & DEVICE_CLOSED) != 0) {
+							m_freem(head);
+							return B_INTERRUPTED;
+						}
+
+						IFF_LOCKGIANT(ifp);
+						int result = ifp->if_output(ifp, head, NULL, NULL);
+						IFF_UNLOCKGIANT(ifp);
+
+						if (result == 0)
+							gBufferModule->free(buffer);
+						return result;
+					}
+
 					if (vecCount > 8)
 						free(iovecs);
 
+					if (head)
+						m_freem(head);
+
 					if (atomic_add(ref, -1) == 1) {
-						gBufferModule->free(buffer);
+						gBufferModule->free(clone);
 						free(ref);
 					}
-
-					if ((ifp->flags & DEVICE_CLOSED) != 0) {
-						m_freem(head);
-						return B_INTERRUPTED;
-					}
-
-					IFF_LOCKGIANT(ifp);
-					int result = ifp->if_output(ifp, head, NULL, NULL);
-					IFF_UNLOCKGIANT(ifp);
-
-					return result;
+					return status;
 				}
-
-				if (head)
-					m_freem(head);
-
-				if (atomic_add(ref, -1) == 1) {
-					gBufferModule->free(buffer);
-					free(ref);
-				}
-				return status;
+				gBufferModule->free(clone);
 			}
 		}
 
