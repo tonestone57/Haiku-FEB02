@@ -70,7 +70,7 @@ public:
 	}
 
 	void SetZoom(float zoom, BPoint where = BPoint(-1, -1));
-	float Zoom()
+	float Zoom() const
 	{
 		return fZoom;
 	}
