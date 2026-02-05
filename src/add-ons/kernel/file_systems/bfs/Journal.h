@@ -61,6 +61,9 @@ private:
 			status_t		_ReplayRunArray(int32* start);
 			status_t		_TransactionDone(bool success);
 
+	static const int32		kMaxBatchedTransactions = 50;
+	static const bigtime_t	kMaxTransactionLatency = 5000;
+
 	static	void			_TransactionWritten(int32 transactionID,
 								int32 event, void* _logEntry);
 	static	void			_TransactionIdle(int32 transactionID, int32 event,
@@ -75,6 +78,7 @@ private:
 			uint32			fMaxTransactionSize;
 			uint32			fUsed;
 			int32			fUnwrittenTransactions;
+			bigtime_t		fTransactionStartTime;
 			mutex			fEntriesLock;
 			LogEntryList	fEntries;
 			bigtime_t		fTimestamp;

@@ -406,6 +406,7 @@ Journal::Journal(Volume* volume)
 	fMaxTransactionSize(fLogSize / 2 - 5),
 	fUsed(0),
 	fUnwrittenTransactions(0),
+	fTransactionStartTime(0),
 	fHasSubtransaction(false),
 	fSeparateSubTransactions(false)
 {
@@ -712,6 +713,21 @@ Journal::_LogFlusher(void* _journal)
 	while (journal->fLogFlusherSem >= 0) {
 		if (acquire_sem(journal->fLogFlusherSem) != B_OK)
 			continue;
+
+		recursive_lock_lock(&journal->fLock);
+
+		if (journal->fUnwrittenTransactions == 0) {
+			recursive_lock_unlock(&journal->fLock);
+			continue;
+		}
+
+		bigtime_t elapsed = system_time() - journal->fTransactionStartTime;
+		if (journal->fUnwrittenTransactions < kMaxBatchedTransactions
+			&& elapsed < kMaxTransactionLatency) {
+			recursive_lock_unlock(&journal->fLock);
+			snooze(kMaxTransactionLatency - elapsed);
+		} else
+			recursive_lock_unlock(&journal->fLock);
 
 		journal->_FlushLog(false, false);
 	}
@@ -1105,11 +1121,17 @@ Journal::_TransactionDone(bool success)
 	// Up to a maximum size, we will just batch several
 	// transactions together to improve speed
 	uint32 size = _TransactionSize();
-	if (size < fMaxTransactionSize) {
+	if (size < fMaxTransactionSize
+		&& fUnwrittenTransactions < kMaxBatchedTransactions) {
 		// Flush the log from time to time, so that we have enough space
 		// for this transaction
 		if (size > FreeLogBlocks())
 			cache_sync_transaction(fVolume->BlockCache(), fTransactionID);
+
+		if (fUnwrittenTransactions == 0) {
+			fTransactionStartTime = system_time();
+			release_sem(fLogFlusherSem);
+		}
 
 		fUnwrittenTransactions++;
 		return B_OK;
