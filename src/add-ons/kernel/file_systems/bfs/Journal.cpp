@@ -751,6 +751,9 @@ Journal::_FlushPendingTransactions()
 			status = runArrays.Insert(blockNumber);
 			if (status < B_OK) {
 				FATAL(("filling log entry failed!"));
+				// We can't recover easily from this, but we must clear pending count
+				// to avoid infinite loops or memory corruption.
+				fPendingTransactionCount = 0;
 				return status;
 			}
 		}
@@ -988,6 +991,7 @@ Journal::StartTransaction(Transaction* owner)
 	info->thread = find_thread(NULL);
 	info->transactionID = transactionID;
 	info->nesting = 1;
+	info->failed = false;
 	fTransactionMap.Insert(info);
 
 	cache_add_transaction_listener(fVolume->BlockCache(), transactionID,
@@ -1009,22 +1013,47 @@ Journal::CommitTransaction(Transaction* owner, bool success)
 		return B_BAD_VALUE;
 	}
 
+	if (!success)
+		info->failed = true;
+
 	if (--info->nesting > 0)
 		return B_OK;
 
 	fTransactionMap.Remove(info);
 	int32 transactionID = info->transactionID;
+	bool failed = info->failed;
+
+	// Move listeners from info to the owner transaction so they can be notified
+	while (TransactionListener* listener = info->listeners.RemoveHead()) {
+		owner->AddListener(listener);
+	}
+
 	delete info;
 
 	locker.Unlock();
 
-	status_t status = _TransactionDone(transactionID, success);
+	status_t status = _TransactionDone(transactionID, !failed);
 	if (status != B_OK)
 		return status;
 
-	owner->NotifyListeners(success);
+	owner->NotifyListeners(!failed);
 
 	return B_OK;
+}
+
+
+void
+Journal::AddTransactionListener(Transaction* owner, TransactionListener* listener)
+{
+	MutexLocker locker(fTransactionMapLock);
+
+	TransactionInfo* info = fTransactionMap.Lookup(find_thread(NULL));
+	if (info != NULL) {
+		info->listeners.Add(listener);
+	} else {
+		// Should not happen if StartTransaction was called
+		panic("AddTransactionListener: no transaction for thread");
+	}
 }
 
 
@@ -1062,10 +1091,15 @@ Journal::_TransactionDone(int32 transactionID, bool success)
 		return B_BUFFER_OVERFLOW;
 	}
 
+	if (fPendingTransactionCount >= 64) {
+		status_t status = _FlushPendingTransactions();
+		if (status != B_OK)
+			return status;
+	}
+
 	fPendingTransactions[fPendingTransactionCount++] = transactionID;
 
-	if (fPendingTransactionCount >= 64
-		|| _TransactionSize(transactionID) >= fMaxTransactionSize) {
+	if (_TransactionSize(transactionID) >= fMaxTransactionSize) {
 		return _FlushPendingTransactions();
 	}
 
@@ -1268,7 +1302,7 @@ Transaction::AddListener(TransactionListener* listener)
 	if (fJournal == NULL)
 		panic("Transaction is not running!");
 
-	fListeners.Add(listener);
+	fJournal->AddTransactionListener(this, listener);
 }
 
 

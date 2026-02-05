@@ -24,6 +24,8 @@ struct TransactionInfo {
 	thread_id		thread;
 	int32			transactionID;
 	int32			nesting;
+	bool			failed;
+	TransactionListeners listeners;
 	TransactionInfo* next;
 };
 
@@ -63,6 +65,8 @@ public:
 
 			int32			StartTransaction(Transaction* owner);
 			status_t		CommitTransaction(Transaction* owner, bool success);
+			void			AddTransactionListener(Transaction* owner,
+								TransactionListener* listener);
 
 			status_t		ReplayLog();
 
