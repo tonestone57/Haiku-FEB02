@@ -38,6 +38,7 @@ struct TransactionInfo {
 	int32			transactionID;
 	int32			nesting;
 	bool			failed;
+	Transaction*	owner;
 	TransactionListeners listeners;
 	TransactionInfo* next;
 };
@@ -80,6 +81,8 @@ public:
 			status_t		CommitTransaction(Transaction* owner, bool success);
 			void			AddTransactionListener(Transaction* owner,
 								TransactionListener* listener);
+
+			Transaction*	CurrentTransaction();
 
 			status_t		ReplayLog();
 
@@ -133,6 +136,7 @@ private:
 
 			int32			fPendingTransactions[64];
 			int32			fPendingTransactionCount;
+			uint32			fPendingTransactionSize;
 };
 
 

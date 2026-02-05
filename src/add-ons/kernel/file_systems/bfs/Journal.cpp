@@ -409,7 +409,8 @@ Journal::Journal(Volume* volume)
 	fLogSize(volume->Log().Length()),
 	fMaxTransactionSize(fLogSize / 2 - 5),
 	fUsed(0),
-	fPendingTransactionCount(0)
+	fPendingTransactionCount(0),
+	fPendingTransactionSize(0)
 {
 	recursive_lock_init(&fLock, "bfs journal");
 	mutex_init(&fEntriesLock, "bfs journal entries");
@@ -899,6 +900,7 @@ Journal::_FlushPendingTransactions()
 	}
 
 	fPendingTransactionCount = 0;
+	fPendingTransactionSize = 0;
 	return status;
 }
 
@@ -987,6 +989,7 @@ Journal::StartTransaction(Transaction* owner)
 	info->transactionID = transactionID;
 	info->nesting = 1;
 	info->failed = false;
+	info->owner = owner;
 	fTransactionMap.Insert(info);
 
 	cache_add_transaction_listener(fVolume->BlockCache(), transactionID,
@@ -1052,6 +1055,19 @@ Journal::AddTransactionListener(Transaction* owner, TransactionListener* listene
 }
 
 
+Transaction*
+Journal::CurrentTransaction()
+{
+	MutexLocker locker(fTransactionMapLock);
+
+	TransactionInfo* info = fTransactionMap.Lookup(find_thread(NULL));
+	if (info != NULL)
+		return info->owner;
+
+	return NULL;
+}
+
+
 uint32
 Journal::_TransactionSize(int32 transactionID) const
 {
@@ -1079,15 +1095,17 @@ Journal::_TransactionDone(int32 transactionID, bool success)
 
 	fTimestamp = system_time();
 
-	if (_TransactionSize(transactionID) > fLogSize) {
+	uint32 transactionSize = _TransactionSize(transactionID);
+	if (transactionSize > fLogSize) {
 		// This transaction is too large to fit into the log
 		dprintf("transaction too large (%d blocks, log size %d)!\n",
-			(int)_TransactionSize(transactionID), (int)fLogSize);
+			(int)transactionSize, (int)fLogSize);
 		cache_abort_transaction(fVolume->BlockCache(), transactionID);
 		return B_BUFFER_OVERFLOW;
 	}
 
-	if (fPendingTransactionCount >= 64) {
+	if (fPendingTransactionCount >= 64
+		|| fPendingTransactionSize + transactionSize > fMaxTransactionSize) {
 		status_t status = _FlushPendingTransactions();
 		if (status != B_OK) {
 			cache_abort_transaction(fVolume->BlockCache(), transactionID);
@@ -1096,8 +1114,9 @@ Journal::_TransactionDone(int32 transactionID, bool success)
 	}
 
 	fPendingTransactions[fPendingTransactionCount++] = transactionID;
+	fPendingTransactionSize += transactionSize;
 
-	if (_TransactionSize(transactionID) >= fMaxTransactionSize) {
+	if (transactionSize >= fMaxTransactionSize) {
 		status_t status = _FlushPendingTransactions();
 		if (status != B_OK)
 			return status;
