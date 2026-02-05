@@ -337,8 +337,11 @@ IOOperation::Finish()
 						? PHASE_READ_END : PHASE_DO_ALL;
 					_PrepareVecs();
 					ResetStatus();
-						// TODO: Is there a race condition, if the request is
-						// aborted at the same time?
+
+					// If the request was aborted, we stop here.
+					if (fParent->Status() <= B_ERROR)
+						return true;
+
 					return false;
 				}
 
@@ -357,8 +360,11 @@ IOOperation::Finish()
 					// Get ready for next phase...
 					fPhase = PHASE_DO_ALL;
 					ResetStatus();
-						// TODO: Is there a race condition, if the request is
-						// aborted at the same time?
+
+					// If the request was aborted, we stop here.
+					if (fParent->Status() <= B_ERROR)
+						return true;
+
 					return false;
 				}
 

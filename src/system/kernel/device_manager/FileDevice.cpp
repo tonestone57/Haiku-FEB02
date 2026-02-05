@@ -7,6 +7,7 @@
 #include "FileDevice.h"
 
 #include <errno.h>
+#include <poll.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -94,11 +95,11 @@ FileDevice::Init(const char* path)
 {
 	fFD = open(path, O_RDONLY | O_NOTRAVERSE);
 	if (fFD < 0)
-		return errno;
+		return -errno;
 
 	struct stat st;
 	if (fstat(fFD, &st) != 0)
-		return errno;
+		return -errno;
 
 	if (!S_ISREG(st.st_mode))
 		return B_BAD_TYPE;
@@ -201,7 +202,7 @@ FileDevice::Read(void* _cookie, off_t pos, void* buffer, size_t* _length)
 	ssize_t bytesRead = pread(cookie->fd, buffer, *_length, pos);
 	if (bytesRead < 0) {
 		*_length = 0;
-		return errno;
+		return -errno;
 	}
 
 	*_length = bytesRead;
@@ -217,7 +218,7 @@ FileDevice::Write(void* _cookie, off_t pos, const void* buffer, size_t* _length)
 	ssize_t bytesWritten = pwrite(cookie->fd, buffer, *_length, pos);
 	if (bytesWritten < 0) {
 		*_length = 0;
-		return errno;
+		return -errno;
 	}
 
 	*_length = bytesWritten;
@@ -274,13 +275,36 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 
 		case B_SET_BLOCKING_IO:
 		case B_SET_NONBLOCKING_IO:
-			// TODO: Translate to O_NONBLOCK and pass on!
+		{
+			int flags = fcntl(cookie->fd, F_GETFL);
+			if (flags < 0)
+				return -errno;
+
+			if (op == B_SET_NONBLOCKING_IO)
+				flags |= O_NONBLOCK;
+			else
+				flags &= ~O_NONBLOCK;
+
+			if (fcntl(cookie->fd, F_SETFL, flags) < 0)
+				return -errno;
+
 			return B_OK;
+		}
 
 		case B_GET_READ_STATUS:
 		case B_GET_WRITE_STATUS:
-			// TODO: poll() the FD!
-			return set_ioctl_result(true, buffer, length);
+		{
+			struct pollfd pollFD;
+			pollFD.fd = cookie->fd;
+			pollFD.events = op == B_GET_READ_STATUS ? POLLIN : POLLOUT;
+			pollFD.revents = 0;
+
+			if (poll(&pollFD, 1, 0) < 0)
+				return -errno;
+
+			return set_ioctl_result((pollFD.revents & pollFD.events) != 0,
+				buffer, length);
+		}
 
 		case B_GET_ICON:
 			return B_UNSUPPORTED;
@@ -345,7 +369,7 @@ FileDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 			return B_OK;
 
 		case B_FLUSH_DRIVE_CACHE:
-			return fsync(cookie->fd) == 0 ? B_OK : errno;
+			return fsync(cookie->fd) == 0 ? B_OK : -errno;
 
 		case B_GET_BIOS_DRIVE_ID:
 			return set_ioctl_result((uint8)0xf8, buffer, length);
@@ -382,11 +406,15 @@ FileDevice::Deselect(void* cookie, uint8 event, selectsync* sync)
 
 
 status_t
-FileDevice::Close(void* cookie)
+FileDevice::Close(void* _cookie)
 {
-	// TODO: This should probably really close the FD. Depending on the
-	// underlying FS operations could block and close() would be needed to
-	// unblock them.
+	Cookie* cookie = (Cookie*)_cookie;
+
+	if (cookie->fd >= 0) {
+		close(cookie->fd);
+		cookie->fd = -1;
+	}
+
 	return B_OK;
 }
 

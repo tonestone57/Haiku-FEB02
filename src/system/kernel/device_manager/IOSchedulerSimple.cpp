@@ -305,8 +305,14 @@ IOSchedulerSimple::ScheduleRequest(IORequest* request)
 void
 IOSchedulerSimple::AbortRequest(IORequest* request, status_t status)
 {
-	// TODO:...
-//B_CANCELED
+	if (status >= B_OK)
+		status = B_ERROR;
+
+	RequestOwner* owner = (RequestOwner*)request->Owner();
+	owner->requests.Remove(request);
+	request->SetOwner(NULL);
+
+	request->SetStatusAndNotify(status);
 }
 
 
@@ -679,6 +685,13 @@ panic("no more requests for owner %p (thread %" B_PRId32 ")", owner, owner->thre
 				off_t bandwidth = 0;
 				resourcesAvailable = _PrepareRequestOperations(request,
 					operations, operationCount, quantum, bandwidth);
+
+				if (owner->requests.Head() != request) {
+					// The request has been removed (e.g. aborted), so we must
+					// not touch it anymore.
+					continue;
+				}
+
 				quantum -= bandwidth;
 				iterationBandwidth -= bandwidth;
 				if (request->RemainingBytes() == 0 || request->Status() <= 0) {
