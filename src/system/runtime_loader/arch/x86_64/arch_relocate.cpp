@@ -57,6 +57,9 @@ relocate_rela(image_t* rootImage, image_t* image, Elf64_Rela* rel,
 			case R_X86_64_RELATIVE:
 				relocValue = image->regions[0].delta + rel[i].r_addend;
 				break;
+			case R_X86_64_IRELATIVE:
+				relocValue = ((Elf64_Addr (*)(void))(image->regions[0].delta + rel[i].r_addend))();
+				break;
 			case R_X86_64_DTPMOD64:
 				relocValue = symbolImage == NULL
 							? image->dso_tls_id : symbolImage->dso_tls_id;

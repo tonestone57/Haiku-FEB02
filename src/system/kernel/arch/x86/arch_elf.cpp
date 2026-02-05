@@ -147,6 +147,9 @@ arch_elf_relocate_rel(struct elf_image_info *image,
 				// B + A;
 				finalAddress = image->text_region.delta + A;
 				break;
+			case R_386_IRELATIVE:
+				finalAddress = ((Elf32_Addr (*)(void))(image->text_region.delta + A))();
+				break;
 			case R_386_JMP_SLOT:
 			case R_386_GLOB_DAT:
 				finalAddress = S;
@@ -264,6 +267,9 @@ arch_elf_relocate_rela(struct elf_image_info *image,
 				break;
 			case R_X86_64_RELATIVE:
 				relocValue = image->text_region.delta + rel[i].r_addend;
+				break;
+			case R_X86_64_IRELATIVE:
+				relocValue = ((Elf64_Addr (*)(void))(image->text_region.delta + rel[i].r_addend))();
 				break;
 			default:
 				dprintf("arch_elf_relocate_rela: unhandled relocation type %d\n",

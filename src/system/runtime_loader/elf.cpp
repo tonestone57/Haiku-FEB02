@@ -824,7 +824,7 @@ get_nth_symbol(image_id imageID, int32 num, char *nameBuffer,
 				void* location = (void*)(symbol->st_value
 					+ image->regions[0].delta);
 				int32 type;
-				if (symbol->Type() == STT_FUNC)
+				if (symbol->Type() == STT_FUNC || symbol->Type() == STT_GNU_IFUNC)
 					type = B_SYMBOL_TYPE_TEXT;
 				else if (symbol->Type() == STT_OBJECT)
 					type = B_SYMBOL_TYPE_DATA;
@@ -914,7 +914,7 @@ get_nearest_symbol_at_address(void* address, image_id* _imageID,
 		*_symbolName = SYMNAME(image, foundSymbol);
 
 		if (_type != NULL) {
-			if (foundSymbol->Type() == STT_FUNC)
+			if (foundSymbol->Type() == STT_FUNC || foundSymbol->Type() == STT_GNU_IFUNC)
 				*_type = B_SYMBOL_TYPE_TEXT;
 			else if (foundSymbol->Type() == STT_OBJECT)
 				*_type = B_SYMBOL_TYPE_DATA;
@@ -1006,7 +1006,11 @@ get_library_symbol(void* handle, void* caller, const char* symbolName,
 			&image);
 		if (symbol != NULL) {
 			*_location = (void*)(symbol->st_value + image->regions[0].delta);
-			int32 symbolType = symbol->Type() == STT_FUNC
+
+			if (symbol->Type() == STT_GNU_IFUNC)
+				*_location = ((void* (*)(void))*_location)();
+
+			int32 symbolType = (symbol->Type() == STT_FUNC || symbol->Type() == STT_GNU_IFUNC)
 				? B_SYMBOL_TYPE_TEXT : B_SYMBOL_TYPE_DATA;
 			patch_defined_symbol(image, symbolName, _location, &symbolType);
 			status = B_OK;
@@ -1065,6 +1069,10 @@ get_library_symbol(void* handle, void* caller, const char* symbolName,
 				// found the symbol
 				*_location = (void*)(candidateSymbol->st_value
 					+ candidateImage->regions[0].delta);
+
+				if (candidateSymbol->Type() == STT_GNU_IFUNC)
+					*_location = ((void* (*)(void))*_location)();
+
 				int32 symbolType = B_SYMBOL_TYPE_TEXT;
 				patch_defined_symbol(candidateImage, symbolName, _location,
 					&symbolType);
