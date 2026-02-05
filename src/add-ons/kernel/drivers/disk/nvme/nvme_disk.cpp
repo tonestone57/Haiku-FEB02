@@ -286,7 +286,7 @@ nvme_disk_init_device(void* _info, void** _cookie)
 		uint32 msixVector = 0;
 		if (pci->configure_msix(pcidev, try_qpairs + 1, &msixVector) == B_OK
 			&& pci->enable_msix(pcidev) == B_OK) {
-			TRACE_ALWAYS("using MSI-X (%ld vectors)\n", try_qpairs + 1);
+			TRACE_ALWAYS("using MSI-X (%" B_PRIu32 " vectors)\n", try_qpairs + 1);
 			info->irq_base = msixVector;
 			info->irq_count = try_qpairs + 1;
 		}

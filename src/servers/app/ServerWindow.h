@@ -179,7 +179,7 @@ private:
 			ObjectDeleter<DirectWindowInfo>
 								fDirectWindowInfo;
 			bool				fIsDirectlyAccessing;
-			BObjectList<area_id> fSharedBuffers;
+			BObjectList<area_id, true> fSharedBuffers;
 };
 
 #endif	// SERVER_WINDOW_H
