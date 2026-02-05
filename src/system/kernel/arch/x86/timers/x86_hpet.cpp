@@ -56,14 +56,13 @@ hpet_get_priority()
 
 	// HPET timers, being off-chip, are more expensive to setup
 	// than the LAPIC.
-	return 0;
+	return 2;
 }
 
 
 static int32
 hpet_timer_interrupt(void *arg)
 {
-	//dprintf_no_syslog("HPET timer_interrupt!!!!\n");
 	return timer_interrupt();
 }
 

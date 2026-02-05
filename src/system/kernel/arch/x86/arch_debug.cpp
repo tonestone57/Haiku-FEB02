@@ -1358,16 +1358,19 @@ arch_debug_gdb_get_registers(char* buffer, size_t bufferSize)
 }
 
 
-static void (*sDebugSnooze)(uint32) = NULL;
+static void (*sDebugSnooze)(uint64) = NULL;
 static uint64 sDebugSnoozeConversionFactor = 0;
 
 
 static void
-debug_snooze_mwaitx(uint32 delay)
+debug_snooze_mwaitx(uint64 delay)
 {
 	// monitorx (r/eax = pointer, ecx = extensions, edx = hints)
 	asm volatile(".byte 0x0f, 0x01, 0xfa;"
 		:: "a" (sDebugSnooze), "c" (0), "d" (0));
+
+	if (delay > UINT32_MAX)
+		delay = UINT32_MAX;
 
 	// mwaitx (eax = hints, ecx = extensions, ebx = timeout)
 	asm volatile(".byte 0x0f, 0x01, 0xfb;"
@@ -1376,7 +1379,7 @@ debug_snooze_mwaitx(uint32 delay)
 
 
 static void
-debug_snooze_tpause(uint32 delay)
+debug_snooze_tpause(uint64 delay)
 {
 	memory_read_barrier();
 	uint64 target = __rdtsc() + delay;
@@ -1391,7 +1394,7 @@ debug_snooze_tpause(uint32 delay)
 void
 arch_debug_snooze(bigtime_t duration)
 {
-	uint32 delay = (duration * sDebugSnoozeConversionFactor) / 1000;
+	uint64 delay = (duration * sDebugSnoozeConversionFactor) / 1000;
 	if (delay == 0)
 		delay = 1;
 

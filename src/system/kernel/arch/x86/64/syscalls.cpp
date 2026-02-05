@@ -121,12 +121,19 @@ void
 x86_compat_initialize_syscall(void)
 {
 	// for 32-bit syscalls, fill the commpage with the right mechanism
-	call_all_cpus_sync(&init_intel_syscall_registers, NULL);
+	void* syscallCode;
+	void* syscallCodeEnd;
 
-	void* syscallCode = (void *)&x86_user_syscall_sysenter;
-	void* syscallCodeEnd = &x86_user_syscall_sysenter_end;
-
-	// TODO check AMD for sysenter
+	// SYSENTER is illegal in long mode on AMD/Hygon, and SYSCALL is preferred
+	enum x86_vendors vendor = get_cpu_struct()->arch.vendor;
+	if (vendor == VENDOR_AMD || vendor == VENDOR_HYGON) {
+		syscallCode = (void *)&x86_user_syscall_syscall;
+		syscallCodeEnd = &x86_user_syscall_syscall_end;
+	} else {
+		call_all_cpus_sync(&init_intel_syscall_registers, NULL);
+		syscallCode = (void *)&x86_user_syscall_sysenter;
+		syscallCodeEnd = &x86_user_syscall_sysenter_end;
+	}
 
 	// fill in the table entry
 	size_t len = (size_t)((addr_t)syscallCodeEnd - (addr_t)syscallCode);
