@@ -1503,7 +1503,7 @@ MemoryManager::_MapChunk(VMArea* vmArea, addr_t address, size_t size,
 	int priority = (flags & CACHE_PRIORITY_VIP) != 0
 		? VM_PRIORITY_VIP : VM_PRIORITY_SYSTEM;
 	size_t reservedMemory = size + reserveAdditionalMemory;
-	status_t error = vm_try_reserve_memory(size, priority,
+	status_t error = vm_try_reserve_memory(reservedMemory, priority,
 		(flags & CACHE_DONT_WAIT_FOR_MEMORY) != 0 ? 0 : 1000000);
 	if (error != B_OK)
 		return error;
@@ -1536,10 +1536,32 @@ MemoryManager::_MapChunk(VMArea* vmArea, addr_t address, size_t size,
 		atomic_add(&gMappedPagesCount, 1);
 		DEBUG_PAGE_ACCESS_END(page);
 
-		translationMap->Map(vmArea->Base() + offset,
+		error = translationMap->Map(vmArea->Base() + offset,
 			page->physical_page_number * B_PAGE_SIZE,
 			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA,
 			vmArea->MemoryType(), &reservation);
+		if (error != B_OK) {
+			// clean up the page
+			DEBUG_PAGE_ACCESS_START(page);
+			page->DecrementWiredCount();
+			atomic_add(&gMappedPagesCount, -1);
+			cache->RemovePage(page);
+			vm_page_free_etc(cache, page, &reservation);
+
+			translationMap->Unlock();
+			cache->ReleaseRefAndUnlock();
+
+			// clean up what we've mapped so far
+			size_t unmappedSize = offset - areaOffset;
+			if (unmappedSize > 0)
+				_UnmapChunk(vmArea, address, unmappedSize, flags);
+
+			if (reservedMemory > unmappedSize)
+				vm_unreserve_memory(reservedMemory - unmappedSize);
+
+			vm_page_unreserve_pages(&reservation);
+			return error;
+		}
 	}
 
 	translationMap->Unlock();

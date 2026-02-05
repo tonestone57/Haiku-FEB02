@@ -86,7 +86,16 @@ SmallObjectCache::CreateSlab(uint32 flags)
 		return NULL;
 	}
 		
-	return InitSlab(newSlab, pages, byteCount, flags);
+	slab* slab = InitSlab(newSlab, pages, byteCount, flags);
+	if (slab == NULL) {
+		Unlock();
+		FreeTrackingInfos(newSlab, flags);
+		MemoryManager::Free(pages, flags);
+		Lock();
+		return NULL;
+	}
+
+	return slab;
 }
 
 
