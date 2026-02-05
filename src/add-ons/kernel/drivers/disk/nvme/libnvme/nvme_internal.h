@@ -378,6 +378,7 @@ struct nvme_qpair {
 	STAILQ_HEAD(, nvme_request)	queued_req;
 
 	uint16_t			id;
+	uint16_t			vector;
 
 	uint16_t			entries;
 	uint16_t			sq_tail;
@@ -687,7 +688,7 @@ extern void nvme_ctrlr_detach(struct nvme_ctrlr *ctrlr);
 
 extern int nvme_qpair_construct(struct nvme_ctrlr *ctrlr,
 				struct nvme_qpair *qpair, enum nvme_qprio qprio,
-				uint16_t entries, uint16_t trackers);
+				uint16_t entries, uint16_t trackers, uint16_t vector);
 
 extern void nvme_qpair_destroy(struct nvme_qpair *qpair);
 extern void nvme_qpair_enable(struct nvme_qpair *qpair);

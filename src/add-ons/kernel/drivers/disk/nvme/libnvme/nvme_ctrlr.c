@@ -1113,7 +1113,7 @@ nvme_ctrlr_attach(struct pci_device *pci_dev,
 
 	/* Create the admin queue pair */
 	ret = nvme_qpair_construct(ctrlr, &ctrlr->adminq, 0,
-				   NVME_ADMIN_ENTRIES, NVME_ADMIN_TRACKERS);
+				   NVME_ADMIN_ENTRIES, NVME_ADMIN_TRACKERS, 0);
 	if (ret != 0) {
 		nvme_err("Initialize admin queue pair failed\n");
 		goto err;
@@ -1401,7 +1401,7 @@ out:
  * Get an unused I/O queue pair.
  */
 struct nvme_qpair *nvme_ioqp_get(struct nvme_ctrlr *ctrlr,
-				 enum nvme_qprio qprio, unsigned int qd)
+				 enum nvme_qprio qprio, unsigned int qd, unsigned int vector)
 {
 	struct nvme_qpair *qpair = NULL;
 	union nvme_cc_register cc;
@@ -1451,7 +1451,7 @@ struct nvme_qpair *nvme_ioqp_get(struct nvme_ctrlr *ctrlr,
 	}
 
 	/* Construct the qpair */
-	ret = nvme_qpair_construct(ctrlr, qpair, qprio, qd, trackers);
+	ret = nvme_qpair_construct(ctrlr, qpair, qprio, qd, trackers, vector);
 	if (ret != 0) {
 		nvme_qpair_destroy(qpair);
 		qpair = NULL;

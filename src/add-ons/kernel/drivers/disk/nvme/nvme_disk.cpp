@@ -124,8 +124,13 @@ typedef struct {
 	ConditionVariable		interrupt;
 	int32					polling;
 
+	uint32					irq_base;
+	uint32					irq_count;
+
 	struct qpair_info {
 		struct nvme_qpair*	qpair;
+		ConditionVariable	interrupt;
+		int32				polling;
 	}						qpairs[NVME_MAX_QPAIRS];
 	uint32					qpair_count;
 } nvme_disk_driver_info;
@@ -176,6 +181,7 @@ nvme_disk_set_capacity(nvme_disk_driver_info* info, uint64 capacity,
 
 
 static int32 nvme_interrupt_handler(void* _info);
+static int32 nvme_queue_interrupt_handler(void* _info);
 
 
 static status_t
@@ -261,35 +267,80 @@ nvme_disk_init_device(void* _info, void** _cookie)
 	command &= ~(PCI_command_int_disable);
 	pci->write_pci_config(pcidev, PCI_command, 2, command);
 
-	uint32 irq = info->info.u.h0.interrupt_line;
-	if (irq == 0xFF)
-		irq = 0;
+	// determine how many qpairs to allocate
+	uint32 try_qpairs = cstat->io_qpairs;
+	try_qpairs = min_c(try_qpairs, NVME_MAX_QPAIRS);
+	if (try_qpairs >= (uint32)smp_get_num_cpus()) {
+		try_qpairs = smp_get_num_cpus();
+	} else {
+		// Find the highest number of qpairs that evenly divides the number of CPUs.
+		while ((smp_get_num_cpus() % try_qpairs) != 0)
+			try_qpairs--;
+	}
 
-	if (pci->get_msix_count(pcidev)) {
+	info->irq_count = 0;
+	info->irq_base = 0;
+
+	// Try MSI-X
+	if (pci->get_msix_count(pcidev) >= try_qpairs + 1) {
+		uint32 msixVector = 0;
+		if (pci->configure_msix(pcidev, try_qpairs + 1, &msixVector) == B_OK
+			&& pci->enable_msix(pcidev) == B_OK) {
+			TRACE_ALWAYS("using MSI-X (%ld vectors)\n", try_qpairs + 1);
+			info->irq_base = msixVector;
+			info->irq_count = try_qpairs + 1;
+		}
+	} else if (pci->get_msix_count(pcidev) >= 1) {
 		uint32 msixVector = 0;
 		if (pci->configure_msix(pcidev, 1, &msixVector) == B_OK
 			&& pci->enable_msix(pcidev) == B_OK) {
-			TRACE_ALWAYS("using MSI-X\n");
-			irq = msixVector;
+			TRACE_ALWAYS("using MSI-X (1 vector)\n");
+			info->irq_base = msixVector;
+			info->irq_count = 1;
 		}
-	} else if (pci->get_msi_count(pcidev) >= 1) {
+	}
+
+	// Try MSI
+	if (info->irq_count == 0 && pci->get_msi_count(pcidev) >= 1) {
 		uint32 msiVector = 0;
 		if (pci->configure_msi(pcidev, 1, &msiVector) == B_OK
 			&& pci->enable_msi(pcidev) == B_OK) {
 			TRACE_ALWAYS("using message signaled interrupts\n");
-			irq = msiVector;
+			info->irq_base = msiVector;
+			info->irq_count = 1;
 		}
 	}
 
-	if (irq == 0) {
-		TRACE_ERROR("device PCI:%d:%d:%d was assigned an invalid IRQ\n",
-			info->info.bus, info->info.device, info->info.function);
-		info->polling = 1;
-	} else {
+	// Fallback to legacy
+	if (info->irq_count == 0) {
+		uint32 irq = info->info.u.h0.interrupt_line;
+		if (irq != 0xFF && irq != 0) {
+			info->irq_base = irq;
+			info->irq_count = 1;
+		} else {
+			TRACE_ERROR("device PCI:%d:%d:%d was assigned an invalid IRQ\n",
+				info->info.bus, info->info.device, info->info.function);
+		}
+	}
+
+	if (info->irq_count > 0) {
 		info->polling = 0;
+		// Vector 0 (Admin) or Shared
+		install_io_interrupt_handler(info->irq_base, nvme_interrupt_handler,
+			(void*)info, B_NO_HANDLED_INFO);
+
+		if (info->irq_count > 1) {
+			for (uint32 i = 0; i < try_qpairs; i++) {
+				// Vector i+1 maps to Queue i+1.
+				install_io_interrupt_handler(info->irq_base + i + 1,
+					nvme_queue_interrupt_handler, (void*)&info->qpairs[i],
+					B_NO_HANDLED_INFO);
+			}
+		}
+	} else {
+		info->polling = 1;
 	}
 	info->interrupt.Init(info, "nvme_disk interrupt");
-	install_io_interrupt_handler(irq, nvme_interrupt_handler, (void*)info, B_NO_HANDLED_INFO);
 
 	if (info->ctrlr->feature_supported[NVME_FEAT_INTERRUPT_COALESCING]) {
 		uint32 microseconds = 16, threshold = 32;
@@ -367,26 +418,35 @@ nvme_disk_init_device(void* _info, void** _cookie)
 	}
 
 	// allocate qpairs
-	uint32 try_qpairs = cstat->io_qpairs;
-	try_qpairs = min_c(try_qpairs, NVME_MAX_QPAIRS);
-	if (try_qpairs >= (uint32)smp_get_num_cpus()) {
-		try_qpairs = smp_get_num_cpus();
-	} else {
-		// Find the highest number of qpairs that evenly divides the number of CPUs.
-		while ((smp_get_num_cpus() % try_qpairs) != 0)
-			try_qpairs--;
-	}
 	info->qpair_count = 0;
 	for (uint32 i = 0; i < try_qpairs; i++) {
+		unsigned int vector_id = 0;
+		if (info->irq_count > 1) {
+			vector_id = i + 1;
+		}
+
 		info->qpairs[i].qpair = nvme_ioqp_get(info->ctrlr,
-			(enum nvme_qprio)0, 0);
+			(enum nvme_qprio)0, 0, vector_id);
 		if (info->qpairs[i].qpair == NULL)
 			break;
+
+		info->qpairs[i].interrupt.Init(&info->qpairs[i], "nvme queue interrupt");
+		info->qpairs[i].polling = 0;
 
 		info->qpair_count++;
 	}
 	if (info->qpair_count == 0) {
 		TRACE_ERROR("failed to allocate qpairs!\n");
+		if (info->irq_count > 0) {
+			remove_io_interrupt_handler(info->irq_base, nvme_interrupt_handler,
+				(void*)info);
+			if (info->irq_count > 1) {
+				for (uint32 i = 0; i < info->irq_count - 1; i++) {
+					remove_io_interrupt_handler(info->irq_base + i + 1,
+						nvme_queue_interrupt_handler, (void*)&info->qpairs[i]);
+				}
+			}
+		}
 		nvme_ctrlr_close(info->ctrlr);
 		return B_NO_MEMORY;
 	}
@@ -439,8 +499,16 @@ nvme_disk_uninit_device(void* _cookie)
 	CALLED();
 	nvme_disk_driver_info* info = (nvme_disk_driver_info*)_cookie;
 
-	remove_io_interrupt_handler(info->info.u.h0.interrupt_line,
-		nvme_interrupt_handler, (void*)info);
+	if (info->irq_count > 0) {
+		remove_io_interrupt_handler(info->irq_base, nvme_interrupt_handler,
+			(void*)info);
+		if (info->irq_count > 1) {
+			for (uint32 i = 0; i < info->irq_count - 1; i++) {
+				remove_io_interrupt_handler(info->irq_base + i + 1,
+					nvme_queue_interrupt_handler, (void*)&info->qpairs[i]);
+			}
+		}
+	}
 
 	rw_lock_destroy(&info->rounded_write_lock);
 
@@ -500,7 +568,17 @@ nvme_interrupt_handler(void* _info)
 	nvme_disk_driver_info* info = (nvme_disk_driver_info*)_info;
 	info->interrupt.NotifyAll();
 	info->polling = -1;
-	return 0;
+	return B_INVOKE_SCHEDULER;
+}
+
+
+static int32
+nvme_queue_interrupt_handler(void* _info)
+{
+	qpair_info* info = (qpair_info*)_info;
+	info->interrupt.NotifyAll();
+	info->polling = -1;
+	return B_INVOKE_SCHEDULER;
 }
 
 
@@ -519,21 +597,39 @@ io_finished_callback(status_t* status, const struct nvme_cpl* cpl)
 
 
 static void
-await_status(nvme_disk_driver_info* info, struct nvme_qpair* qpair, status_t& status)
+await_status(nvme_disk_driver_info* info, qpair_info* qpairInfo, status_t& status)
 {
 	CALLED();
+
+	struct nvme_qpair* qpair = qpairInfo->qpair;
+
+	// Hybrid polling: busy wait for a short time
+	bigtime_t start = system_time();
+	while (status == EINPROGRESS && (system_time() - start) < 50) {
+		nvme_qpair_poll(qpair, 0);
+		if (status != EINPROGRESS)
+			return;
+	}
+
+	ConditionVariable* condition = &info->interrupt;
+	if (info->irq_count > 1)
+		condition = &qpairInfo->interrupt;
+
+	int32* polling = &info->polling;
+	if (info->irq_count > 1)
+		polling = &qpairInfo->polling;
 
 	ConditionVariableEntry entry;
 	int timeouts = 0;
 	while (status == EINPROGRESS) {
-		info->interrupt.Add(&entry);
+		condition->Add(&entry);
 
 		nvme_qpair_poll(qpair, 0);
 
 		if (status != EINPROGRESS)
 			return;
 
-		if (info->polling > 0) {
+		if (*polling > 0) {
 			entry.Wait(B_RELATIVE_TIMEOUT, min_c(5 * 1000 * 1000,
 				(1 << timeouts) * 1000));
 			timeouts++;
@@ -550,8 +646,8 @@ await_status(nvme_disk_driver_info* info, struct nvme_qpair* qpair, status_t& st
 				return;
 			}
 
-			info->polling++;
-			if (info->polling > 0) {
+			(*polling)++;
+			if (*polling > 0) {
 				TRACE_ALWAYS("switching to polling mode, performance will be affected!\n");
 			}
 		}
@@ -638,7 +734,7 @@ do_nvme_io_request(nvme_disk_driver_info* info, nvme_io_request* request)
 		return ret;
 	}
 
-	await_status(info, qpinfo->qpair, request->status);
+	await_status(info, qpinfo, request->status);
 
 	if (request->status != B_OK) {
 		TRACE_ERROR("%s at LBA %" B_PRIdOFF " of %" B_PRIuSIZE
@@ -988,7 +1084,7 @@ nvme_disk_flush(nvme_disk_driver_info* info)
 	if (ret != 0)
 		return ret;
 
-	await_status(info, qpinfo->qpair, status);
+	await_status(info, qpinfo, status);
 	return status;
 }
 
@@ -1055,7 +1151,7 @@ nvme_disk_trim(nvme_disk_driver_info* info, fs_trim_data* trimData)
 			(nvme_cmd_cb)io_finished_callback, &status) != 0)
 		return B_IO_ERROR;
 
-	await_status(info, qpair->qpair, status);
+	await_status(info, qpair, status);
 	if (status != B_OK)
 		return status;
 

@@ -715,7 +715,8 @@ extern int nvme_ctrlr_update_firmware(struct nvme_ctrlr *ctrlr,
  */
 extern struct nvme_qpair * nvme_ioqp_get(struct nvme_ctrlr *ctrlr,
 					 enum nvme_qprio qprio,
-					 unsigned int qd);
+					 unsigned int qd,
+					 unsigned int vector);
 
 /**
  * @brief Release an I/O queue pair
