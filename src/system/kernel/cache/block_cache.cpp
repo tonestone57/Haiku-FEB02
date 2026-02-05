@@ -3032,6 +3032,10 @@ block_cache_init(void)
 	new (&sCaches) DoublyLinkedList<block_cache>;
 		// manually call constructor
 
+	// verify that sMarkCache can be safely cast to block_cache
+	ASSERT((void*)&sMarkCache
+		== (void*)((block_cache*)&sMarkCache)->GetDoublyLinkedListLink());
+
 	sEventSemaphore = create_sem(0, "block cache event");
 	if (sEventSemaphore < B_OK)
 		return sEventSemaphore;
@@ -3839,8 +3843,11 @@ block_cache_discard(void* _cache, off_t blockNumber, size_t numBlocks)
 			writer.Add(block);
 	}
 
-	writer.Write();
-		// TODO: this can fail, too!
+	status_t status = writer.Write();
+	if (status != B_OK) {
+		TRACE_ALWAYS("block_cache_discard: failed to write back dirty blocks: %s\n",
+			strerror(status));
+	}
 
 	blockNumber -= numBlocks;
 		// reset blockNumber to its original value

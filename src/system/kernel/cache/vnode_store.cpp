@@ -28,9 +28,7 @@ VMVnodeCache::Init(struct vnode* vnode, uint32 allocationFlags)
 	fFileCacheRef = NULL;
 	fVnodeDeleted = false;
 
-	vfs_vnode_to_node_ref(fVnode, &fDevice, &fInode);
-
-	return B_OK;
+	return vfs_vnode_to_node_ref(fVnode, &fDevice, &fInode);
 }
 
 

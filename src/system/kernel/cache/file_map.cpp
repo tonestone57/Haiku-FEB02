@@ -92,6 +92,8 @@ private:
 			status_t		_Cache(off_t offset, off_t size);
 			void			_InvalidateAfter(off_t offset);
 			void			_Free();
+			void			_Delete(uint32 index, size_t count);
+			status_t		_Insert(uint32 index, size_t count);
 
 	union {
 		file_extent	fDirect[CACHED_FILE_EXTENTS];
@@ -307,6 +309,49 @@ FileMap::_InvalidateAfter(off_t offset)
 }
 
 
+void
+FileMap::_Delete(uint32 index, size_t count)
+{
+	if (index + count > fCount)
+		count = fCount - index;
+	if (count == 0)
+		return;
+
+	file_extent* extents = fCount > CACHED_FILE_EXTENTS
+		? fIndirect.array : fDirect;
+
+	if (index + count < fCount) {
+		memmove(&extents[index], &extents[index + count],
+			sizeof(file_extent) * (fCount - (index + count)));
+	}
+
+	_MakeSpace(fCount - count);
+}
+
+
+status_t
+FileMap::_Insert(uint32 index, size_t count)
+{
+	if (count == 0)
+		return B_OK;
+
+	status_t status = _MakeSpace(fCount + count);
+	if (status != B_OK)
+		return status;
+
+	file_extent* extents = fCount > CACHED_FILE_EXTENTS
+		? fIndirect.array : fDirect;
+
+	size_t moveCount = fCount - count - index;
+	if (moveCount > 0) {
+		memmove(&extents[index + count], &extents[index],
+			sizeof(file_extent) * moveCount);
+	}
+
+	return B_OK;
+}
+
+
 /*!	Invalidates or removes the specified part of the file map.
 */
 void
@@ -314,13 +359,103 @@ FileMap::Invalidate(off_t offset, off_t size)
 {
 	MutexLocker _(fLock);
 
-	// TODO: honour size, we currently always remove everything after "offset"
-	if (offset == 0) {
+	if (offset == 0 && (size < 0 || size >= fSize)) {
 		_Free();
 		return;
 	}
 
-	_InvalidateAfter(offset);
+	off_t end = offset + size;
+
+	uint32 startIndex;
+	file_extent* startExtent = _FindExtent(offset, &startIndex);
+	if (startExtent == NULL) {
+		// We didn't find the extent at the offset, so we'll just have to
+		// search for the first extent after the offset.
+		// _FindExtent returns the extent *before* the offset if not found,
+		// unless the offset is before the first extent.
+		// Since we don't have a direct "find next" method, we rely on
+		// binary search logic or linear scan. Given _FindExtent semantics
+		// which are slightly different (it returns exact match), let's implement
+		// a binary search for the first extent > offset.
+
+		int32 left = 0;
+		int32 right = fCount - 1;
+		startIndex = fCount;
+
+		while (left <= right) {
+			int32 mid = (left + right) / 2;
+			file_extent* extent = ExtentAt(mid);
+
+			if (extent->offset > offset) {
+				startIndex = mid;
+				right = mid - 1;
+			} else {
+				left = mid + 1;
+			}
+		}
+
+		if (startIndex == fCount) {
+			// No extent after offset
+			return;
+		}
+		startExtent = ExtentAt(startIndex);
+	} else {
+		// We found an extent at offset, check if we need to split it
+		if (offset > startExtent->offset) {
+			if (startExtent->offset + startExtent->disk.length > end) {
+				// The extent covers the whole invalidation range, we need to
+				// split it into two extents
+				if (_Insert(startIndex + 1, 1) != B_OK) {
+					// We can't split, so we just remove the rest of the extent
+					startExtent->disk.length = offset - startExtent->offset;
+					return;
+				}
+
+				// _Insert might have reallocated the array
+				startExtent = ExtentAt(startIndex);
+				file_extent* newExtent = ExtentAt(startIndex + 1);
+
+				newExtent->offset = end;
+				newExtent->disk.length = startExtent->offset
+					+ startExtent->disk.length - end;
+				if (startExtent->disk.offset != -1) {
+					newExtent->disk.offset = startExtent->disk.offset
+						+ (end - startExtent->offset);
+				} else
+					newExtent->disk.offset = -1;
+
+				startExtent->disk.length = offset - startExtent->offset;
+				return;
+			}
+
+			// We need to keep the left part
+			startExtent->disk.length = offset - startExtent->offset;
+			startIndex++;
+		}
+	}
+
+	// Remove all extents that are fully covered by the invalidation range
+	uint32 index = startIndex;
+	while (index < fCount) {
+		file_extent* extent = ExtentAt(index);
+		if (extent->offset >= end)
+			break;
+
+		if (extent->offset + extent->disk.length > end) {
+			// This extent is partially covered, we need to cut from the beginning
+			off_t diff = end - extent->offset;
+			extent->offset += diff;
+			extent->disk.length -= diff;
+			if (extent->disk.offset != -1)
+				extent->disk.offset += diff;
+			break;
+		}
+
+		index++;
+	}
+
+	if (index > startIndex)
+		_Delete(startIndex, index - startIndex);
 }
 
 
