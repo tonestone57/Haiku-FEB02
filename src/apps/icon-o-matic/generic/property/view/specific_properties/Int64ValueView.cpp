@@ -25,9 +25,8 @@ Int64ValueView::Int64ValueView(Int64Property* property)
 	AddChild(fTextView);
 	fTextView->SetFloatMode(false);
 
-// TODO: make NummericalTextView support int64?
 	if (fProperty)
-		fTextView->SetValue((int32)fProperty->Value());
+		fTextView->SetValue(fProperty->Value());
 }
 
 // destructor
@@ -47,9 +46,8 @@ void
 Int64ValueView::ValueChanged()
 {
 	if (fProperty) {
-		fProperty->SetValue(fTextView->IntValue());
-// TODO: make NummericalTextView support int64?
-		fTextView->SetValue((int32)fProperty->Value());
+		fProperty->SetValue(fTextView->Int64Value());
+		fTextView->SetValue(fProperty->Value());
 		TextInputValueView::ValueChanged();
 	}
 }
@@ -60,9 +58,8 @@ Int64ValueView::AdoptProperty(Property* property)
 {
 	Int64Property* p = dynamic_cast<Int64Property*>(property);
 	if (p) {
-// TODO: make NummericalTextView support int64?
-		if (fTextView->IntValue() != (int32)p->Value())
-			fTextView->SetValue((int32)p->Value());
+		if (fTextView->Int64Value() != p->Value())
+			fTextView->SetValue(p->Value());
 		fProperty = p;
 		return true;
 	}

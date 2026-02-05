@@ -31,8 +31,10 @@ class NummericalTextView : public InputTextView {
 			void				SetFloatMode(bool floatingPoint);
 
 			void				SetValue(int32 value);
+			void				SetValue(int64 value);
 			void				SetValue(float value);
 			int32				IntValue() const;
+			int64				Int64Value() const;
 			float				FloatValue() const;
 
 protected:
@@ -53,7 +55,7 @@ protected:
 
 			bool				fFloatMode;
 
-	mutable	int32				fIntValueCache;
+	mutable	int64				fInt64ValueCache;
 	mutable	float				fFloatValueCache;
 };
 
