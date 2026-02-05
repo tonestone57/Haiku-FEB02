@@ -117,6 +117,10 @@ init_intel_syscall_registers(void* dummy, int cpuNum)
 }
 
 
+extern "C" void x86_user_syscall_syscall(void);
+extern unsigned int x86_user_syscall_syscall_end;
+
+
 void
 x86_compat_initialize_syscall(void)
 {
