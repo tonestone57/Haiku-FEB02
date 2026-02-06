@@ -354,6 +354,7 @@ ProcessController::MessageReceived(BMessage *message)
 					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 					alert->Go();
 				}
+				delete infos.team_icon;
 			}
 			break;
 
