@@ -4,6 +4,7 @@
  * Distributed under the terms of the MIT License.
  */
 
+#include <algorithm>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -142,15 +143,24 @@ main(int argc, char *argv[])
 
 			off_t totalWritten = 0;
 			ssize_t written;
-			while ((written = write(fd, buffer, sizeof(buffer))) > 0)
+			while (totalWritten < imageSize) {
+				size_t toWrite = (size_t)std::min((off_t)sizeof(buffer),
+					imageSize - totalWritten);
+				written = write(fd, buffer, toWrite);
+				if (written <= 0)
+					break;
 				totalWritten += written;
+			}
 
-			// We expect ENOSPC when writing until the end of the device.
-			// TODO: We should probably first determine the size of the device
-			// and try to write only that much.
-			if (written < 0 && errno != ENOSPC) {
+			if (written < 0) {
 				fprintf(stderr, "Error: writing to device file %s failed "
 					"(%s)\n", file, strerror(errno));
+				exit(EXIT_FAILURE);
+			}
+
+			if (totalWritten < imageSize) {
+				fprintf(stderr, "Error: wrote only %lld of %lld bytes to device %s\n",
+					(long long)totalWritten, (long long)imageSize, file);
 				exit(EXIT_FAILURE);
 			}
 		}

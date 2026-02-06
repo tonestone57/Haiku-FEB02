@@ -7,6 +7,7 @@
  */
 
 
+#define _FILE_OFFSET_BITS 64
 #include <errno.h>
 #include <getopt.h>
 #include <fcntl.h>
@@ -74,6 +75,7 @@ mbrWipe(int handle)
 	// End of MBR marker
 	emptyMBR[64] = 0x55;
 	emptyMBR[65] = 0xAA;
+	errno = 0;
 	return pwrite(handle, emptyMBR, 66, 0x1BE);
 }
 
@@ -170,6 +172,7 @@ createPartition(int handle, int index, bool active, uint8_t type,
 		active ? 'b' : '-', offset, offset + size, partitionOffset,
 		partitionOffset + partitionSize);
 
+	errno = 0;
 	ssize_t written = pwrite(handle, partition, 16, 512 - 2 - 16 * (4 - index));
 	checkError(written != 16, "failed to write partition entry");
 
@@ -181,6 +184,7 @@ createPartition(int handle, int index, bool active, uint8_t type,
 		bootableOffset[2] = (partitionOffset >> 16) & 0xff;
 		bootableOffset[3] = (partitionOffset >> 24) & 0xff;
 
+		errno = 0;
 		written = pwrite(handle, bootableOffset, 4, offset + 512 - 2 - 4);
 		checkError(written != 4, "failed to make partition bootable");
 	}
@@ -244,6 +248,7 @@ main(int argc, char *argv[])
 		}
 	}
 
+	errno = 0;
 	checkError(partIndex < 0 || partIndex > 3,
 		"invalid partition index, valid range is 0-3");
 	checkError(partType < 0,  "Incorrect Partition Type!");
