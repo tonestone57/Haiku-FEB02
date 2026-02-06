@@ -392,7 +392,7 @@ AllocationGroup::AllocationGroup()
 AllocationGroup::~AllocationGroup()
 {
 	recursive_lock_destroy(&fLock);
-	free(fBlockBitmap);
+	delete[] fBlockBitmap;
 }
 
 
@@ -743,11 +743,11 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 
 		// Initialize summary index
 		uint32 numBitmapBlocks = groups[i].NumBitmapBlocks();
-		size_t bitmapSize = (numBitmapBlocks + 63) / 64 * sizeof(uint64);
-		groups[i].fBlockBitmap = (uint64*)malloc(bitmapSize);
+		uint32 bitmapCount = (numBitmapBlocks + 63) / 64;
+		groups[i].fBlockBitmap = new(std::nothrow) uint64[bitmapCount];
 		if (groups[i].fBlockBitmap != NULL) {
 			// Initialize to all ones (full)
-			memset(groups[i].fBlockBitmap, 0xff, bitmapSize);
+			memset(groups[i].fBlockBitmap, 0xff, bitmapCount * sizeof(uint64));
 		}
 
 		uint32 wordsPerBlock = volume->BlockSize() / 4;

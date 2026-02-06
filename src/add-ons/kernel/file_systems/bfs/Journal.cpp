@@ -913,7 +913,7 @@ Journal::Lock(Transaction* owner)
 	while (Transaction* transaction = iterator.Next()) {
 		if (transaction->Thread() == thread) {
 			// there is already a transaction for this thread
-			owner->SetParent(transaction);
+			owner->fParent = transaction;
 			owner->fTransactionID = transaction->ID();
 			mutex_unlock(&fEntriesLock);
 			return B_OK;
