@@ -13,6 +13,8 @@
 
 #include "SettingsWindow.h"
 
+#include <limits.h>
+
 #include <Application.h>
 #include <Alert.h>
 #include <Box.h>
@@ -419,8 +421,11 @@ SettingsWindow::_RecordChoices()
 	fSettings.SetSwapAutomatic(fSwapAutomaticCheckBox->Value());
 	fSettings.SetSwapEnabled(fSwapEnabledCheckBox->Value());
 	fSettings.SetSwapSize((off_t)fSizeSlider->Value() * kMegaByte);
-	fSettings.SetSwapVolume(((VolumeMenuItem*)fVolumeMenuField
-		->Menu()->FindMarked())->Volume().Device());
+
+	VolumeMenuItem* item = (VolumeMenuItem*)fVolumeMenuField->Menu()
+		->FindMarked();
+	if (item != NULL)
+		fSettings.SetSwapVolume(item->Volume().Device());
 }
 
 
@@ -453,6 +458,14 @@ SettingsWindow::_Update()
 		(safeSpace >>= 20) <<= 20;
 		off_t minSize = B_PAGE_SIZE + kMegaByte;
 		(minSize >>= 20) <<= 20;
+
+		// Ensure we don't overflow the slider values
+		if (safeSpace > (off_t)INT_MAX * kMegaByte)
+			safeSpace = (off_t)INT_MAX * kMegaByte;
+
+		// Ensure limits are valid
+		safeSpace = max_c(safeSpace, minSize);
+
 		BString minLabel, maxLabel;
 		minLabel << string_for_size(minSize, sizeStr, sizeof(sizeStr));
 		maxLabel << string_for_size(safeSpace, sizeStr, sizeof(sizeStr));

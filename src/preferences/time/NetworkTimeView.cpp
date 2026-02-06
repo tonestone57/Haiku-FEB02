@@ -296,6 +296,9 @@ NetworkTimeView::NetworkTimeView(const char* name)
 
 NetworkTimeView::~NetworkTimeView()
 {
+	if (fUpdateThread >= B_OK)
+		kill_thread(fUpdateThread);
+
 	delete fServerTextControl;
 	delete fAddButton;
 	delete fRemoveButton;
@@ -600,6 +603,7 @@ update_thread(void* params)
 
 	messenger->SendMessage(&result);
 	delete messenger;
+	delete list;
 
 	return B_OK;
 }
@@ -613,6 +617,12 @@ update_time(const Settings& settings, BMessenger* messenger,
 	params->AddItem((void*)&settings);
 	params->AddItem((void*)messenger);
 	*thread = spawn_thread(update_thread, "ntpUpdate", 64, params);
+
+	if (*thread < 0) {
+		delete params;
+		delete messenger;
+		return *thread;
+	}
 
 	return resume_thread(*thread);
 }

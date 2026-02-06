@@ -282,7 +282,7 @@ ExtensionListView::MessageReceived(BMessage* message)
 		entry_ref ref;
 		for (int32 index = 0; message->FindRef("refs", index, &ref) == B_OK;
 				index++) {
-			const char* point = strchr(ref.name, '.');
+			const char* point = strrchr(ref.name, '.');
 			if (point != NULL && point[1])
 				list.AddItem(strdup(++point));
 		}
@@ -309,7 +309,7 @@ ExtensionListView::AcceptsDrag(const BMessage* message)
 
 	for (int32 index = 0; message->FindRef("refs", index, &ref) == B_OK;
 			index++) {
-		const char* point = strchr(ref.name, '.');
+		const char* point = strrchr(ref.name, '.');
 		if (point != NULL && point[1])
 			count++;
 	}

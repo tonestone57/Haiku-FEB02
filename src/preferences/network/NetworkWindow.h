@@ -11,6 +11,7 @@
 
 
 #include <map>
+#include <set>
 
 #include <ObjectList.h>
 #include <Window.h>
@@ -67,12 +68,13 @@ private:
 									const BListItem* b);
 
 private:
-	typedef BObjectList<BNetworkSettingsAddOn> AddOnList;
+	typedef BObjectList<BNetworkSettingsAddOn, true> AddOnList;
 	typedef std::map<BString, BListItem*> ItemMap;
 	typedef std::map<BListItem*, BNetworkSettingsItem*> SettingsMap;
 
 			BNetworkSettings	fSettings;
 			AddOnList			fAddOns;
+			std::set<image_id>	fLoadedAddOns;
 
 			BOutlineListView*	fListView;
 			ItemMap				fInterfaceItemMap;

@@ -120,6 +120,7 @@ InputWindow::MessageReceived(BMessage* message)
 							fDeviceListView->ItemAt(i));
 					if (item != NULL && item->Label() == name) {
 						fDeviceListView->RemoveItem(i);
+						delete item;
 						BView* settings = fCardView->ChildAt(i);
 						fCardView->RemoveChild(settings);
 						delete settings;

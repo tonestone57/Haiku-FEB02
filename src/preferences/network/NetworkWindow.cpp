@@ -190,6 +190,12 @@ NetworkWindow::~NetworkWindow()
 {
 	stop_watching_network(this);
 	fSettings.StopMonitoring(this);
+
+	fAddOns.MakeEmpty();
+
+	std::set<image_id>::iterator iterator = fLoadedAddOns.begin();
+	for (; iterator != fLoadedAddOns.end(); iterator++)
+		unload_add_on(*iterator);
 }
 
 
@@ -418,6 +424,7 @@ NetworkWindow::_ScanAddOns()
 		}
 
 		fAddOns.AddItem(addOn);
+		fLoadedAddOns.insert(image);
 
 		// Per interface items
 		ItemMap::const_iterator iterator = fInterfaceItemMap.begin();
