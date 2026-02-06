@@ -206,7 +206,8 @@ PoorManWindow::MessageReceived(BMessage* message)
 		case MSG_MENU_CTRL_CLEAR_LOG:
 			FILE* f;
 			f = fopen(fLogPath.String(), "w");
-			fclose(f);
+			if (f != NULL)
+				fclose(f);
 			break;
 		case MSG_LOG: {
 			if (!fLogConsoleFlag && !fLogFileFlag)
@@ -531,7 +532,7 @@ PoorManWindow::SaveConsole(BMessage* message, bool selection)
 }
 
 
-void
+bool
 PoorManWindow::DefaultSettings()
 {
 	BAlert* serverAlert = new BAlert(B_TRANSLATE("Error server"),
@@ -552,10 +553,7 @@ PoorManWindow::DefaultSettings()
 
 	switch (buttonIndex) {
 		case 0:
-			if (Lock())
-				Quit();
-			be_app_messenger.SendMessage(B_QUIT_REQUESTED);
-			break;
+			return false;
 
 		case 1:
 			fPrefWindow = new PoorManPreferencesWindow(fSetwindowFrame);
@@ -565,10 +563,7 @@ PoorManWindow::DefaultSettings()
 		case 2:
 			if (create_directory(STR_DEFAULT_WEB_DIRECTORY, 0755) != B_OK) {
 				serverAlert->Go();
-				if (Lock())
-					Quit();
-				be_app_messenger.SendMessage(B_QUIT_REQUESTED);
-				break;
+				return false;
 			}
 			BAlert* dirCreatedAlert =
 				new BAlert(B_TRANSLATE("Dir Created"), STR_DIR_CREATED,
@@ -579,6 +574,7 @@ PoorManWindow::DefaultSettings()
 			be_app->PostMessage(kStartServer);
 			break;
 	}
+	return true;
 }
 
 

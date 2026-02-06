@@ -28,14 +28,24 @@ PoorManApplication::PoorManApplication()
 	
 	BDirectory webDir;
 	if (mainWindow->ReadSettings() != B_OK) {
-		if (webDir.SetTo(STR_DEFAULT_WEB_DIRECTORY) != B_OK)
-			mainWindow->DefaultSettings();
-		else
+		if (webDir.SetTo(STR_DEFAULT_WEB_DIRECTORY) != B_OK) {
+			if (!mainWindow->DefaultSettings()) {
+				mainWindow->Lock();
+				mainWindow->Quit();
+				mainWindow = NULL;
+				PostMessage(B_QUIT_REQUESTED);
+			}
+		} else
 			PostMessage(kStartServer);
 	} else {
-		if (webDir.SetTo(mainWindow->WebDir()) != B_OK)
-			mainWindow->DefaultSettings();
-		else
+		if (webDir.SetTo(mainWindow->WebDir()) != B_OK) {
+			if (!mainWindow->DefaultSettings()) {
+				mainWindow->Lock();
+				mainWindow->Quit();
+				mainWindow = NULL;
+				PostMessage(B_QUIT_REQUESTED);
+			}
+		} else
 			PostMessage(kStartServer);
 	}
 }
@@ -46,26 +56,31 @@ PoorManApplication::MessageReceived(BMessage *message)
 {
 	switch (message->what) {
 		case MSG_FILE_PANEL_SELECT_WEB_DIR:
-			mainWindow->MessageReceived(message);
+			if (mainWindow)
+				mainWindow->MessageReceived(message);
 			break;
 
 		case kStartServer:
-			mainWindow->StartServer();
-			mainWindow->SetDirLabel(mainWindow->WebDir());
-			mainWindow->Show();
+			if (mainWindow) {
+				mainWindow->StartServer();
+				mainWindow->SetDirLabel(mainWindow->WebDir());
+				mainWindow->Show();
+			}
 			break;
 
 		case B_CANCEL: {
 			BDirectory webDir;
 			if (mainWindow->ReadSettings() != B_OK) {
-				if (webDir.SetTo(STR_DEFAULT_WEB_DIRECTORY) != B_OK)
-					mainWindow->DefaultSettings();
-				else
+				if (webDir.SetTo(STR_DEFAULT_WEB_DIRECTORY) != B_OK) {
+					if (!mainWindow->DefaultSettings())
+						PostMessage(B_QUIT_REQUESTED);
+				} else
 					mainWindow->StartServer();
 			} else {
-				if (webDir.SetTo(mainWindow->WebDir()) != B_OK)
-					mainWindow->DefaultSettings();
-				else
+				if (webDir.SetTo(mainWindow->WebDir()) != B_OK) {
+					if (!mainWindow->DefaultSettings())
+						PostMessage(B_QUIT_REQUESTED);
+				} else
 					mainWindow->StartServer();
 			}
 		}

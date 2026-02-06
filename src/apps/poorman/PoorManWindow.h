@@ -51,7 +51,7 @@ public:
 		
 			status_t		SaveSettings();
 			status_t		ReadSettings();
-			void			DefaultSettings();
+			bool			DefaultSettings();
 		
 			status_t		StartServer();
 			status_t		StopServer();
