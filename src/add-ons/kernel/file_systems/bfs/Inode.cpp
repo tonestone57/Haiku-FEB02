@@ -752,6 +752,9 @@ Inode::_AddSmallData(Transaction& transaction, NodeGetter& nodeGetter,
 
 	// reject any requests that can't fit into the small_data section
 	uint32 nameLength = strlen(name);
+	if (pos < 0 || pos > fVolume->InodeSize())
+		return B_DEVICE_FULL;
+
 	uint32 spaceNeeded = sizeof(small_data) + nameLength + 3 + pos + length + 1;
 	if (spaceNeeded > fVolume->InodeSize() - sizeof(bfs_inode))
 		return B_DEVICE_FULL;
@@ -1651,7 +1654,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	if ((uint64)pos + (uint64)length > (uint64)oldSize) {
 		// let's grow the data stream to the size needed
-		status_t status = SetFileSize(transaction, pos + length, true);
+		status_t status = SetFileSize(transaction, pos + length);
 		if (status != B_OK) {
 			*_length = 0;
 			WriteLockInTransaction(transaction);
