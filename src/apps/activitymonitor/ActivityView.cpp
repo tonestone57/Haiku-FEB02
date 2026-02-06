@@ -1529,8 +1529,9 @@ ActivityView::_Refresh()
 	BMessenger target(this);
 
 	while (true) {
+		bigtime_t timeout = lastTimeout + RefreshInterval();
 		status_t status = acquire_sem_etc(fRefreshSem, 1, B_ABSOLUTE_TIMEOUT,
-			lastTimeout + RefreshInterval());
+			timeout);
 		if (status == B_OK || status == B_BAD_SEM_ID)
 			break;
 		if (status == B_INTERRUPTED)
@@ -1538,6 +1539,11 @@ ActivityView::_Refresh()
 
 		SystemInfo info(fSystemInfoHandler);
 		lastTimeout += RefreshInterval();
+
+		if (lastTimeout < info.Time() - 2 * RefreshInterval()) {
+			// We skipped some updates, let's catch up
+			lastTimeout = info.Time() - RefreshInterval();
+		}
 
 		fSourcesLock.Lock();
 
