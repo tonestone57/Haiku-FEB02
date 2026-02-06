@@ -6,8 +6,11 @@
  * 	Consumers and Producers)
  */
 
+#include <new>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
+
 #include <IconUtils.h>
 #include <MimeType.h>
 #include <Screen.h>
@@ -43,6 +46,7 @@ ScopeView::ScopeView(BRect rect, uint32 resizeFlags)
 ScopeView::~ScopeView()
 {
 	delete_sem(fRenderSem);
+	delete fBitmap;
 }
 
 
@@ -121,9 +125,14 @@ ScopeView::ComputeRendering()
 	int64 framesCount = fMediaTrack->CountFrames() / SAMPLES_COUNT;
 	if (framesCount <= 0)
 		return;
-	T samples[fPlayFormat.u.raw_audio.buffer_size
+
+	size_t sampleCount = fPlayFormat.u.raw_audio.buffer_size
 		/ (fPlayFormat.u.raw_audio.format
-		& media_raw_audio_format::B_AUDIO_SIZE_MASK)];
+		& media_raw_audio_format::B_AUDIO_SIZE_MASK);
+	T* samples = new (std::nothrow) T[sampleCount];
+	if (samples == NULL)
+		return;
+
 	int64 frames = 0;
 	U sum = 0;
 	int64 sumCount = 0;
@@ -162,6 +171,8 @@ ScopeView::ComputeRendering()
 			}
 		}
 	}
+
+	delete[] samples;
 
 	if (previewMax <= 0)
 		return;
