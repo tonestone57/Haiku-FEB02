@@ -196,8 +196,6 @@ x86_unexpected_exception(iframe* frame)
 			type = B_ALIGNMENT_EXCEPTION;
 			signalNumber = SIGBUS;
 			signalCode = BUS_ADRALN;
-			// TODO: Also get the address (from where?). Since we don't enable
-			// alignment checking this exception should never happen, though.
 			signalError = EFAULT;
 			break;
 

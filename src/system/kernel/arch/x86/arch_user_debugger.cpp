@@ -1142,7 +1142,7 @@ x86_init_user_debug()
 	// get debug settings
 	if (void* handle = load_driver_settings("kernel")) {
 		sQEmuSingleStepHack = get_driver_boolean_parameter(handle,
-			"qemu_single_step_hack", false, false);;
+			"qemu_single_step_hack", false, false);
 
 		unload_driver_settings(handle);
 	}
