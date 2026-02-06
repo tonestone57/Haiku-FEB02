@@ -324,7 +324,7 @@ LegacyBootMenu::CanBeInstalled(const BootDrive& drive)
 		return B_ENTRY_NOT_FOUND;
 
 	// Enough space to write boot menu to drive?
-	if (visitor.FirstOffset() < (int)sizeof(kBootLoader))
+	if (visitor.FirstOffset() < (off_t)kBlockSize * kNumberOfBootLoaderBlocks)
 		return B_PARTITION_TOO_SMALL;
 
 	if (device.IsReadOnlyMedia())
@@ -450,6 +450,11 @@ LegacyBootMenu::Install(const BootDrive& drive, BMessage& settings)
 	if (!newBootLoader.Align(kBlockSize)) {
 		close(fd);
 		return B_ERROR;
+	}
+
+	if (newBootLoader.Position() > kBlockSize * kNumberOfBootLoaderBlocks) {
+		close(fd);
+		return B_PARTITION_TOO_SMALL;
 	}
 
 	lseek(fd, 0, SEEK_SET);
@@ -612,7 +617,7 @@ LegacyBootMenu::_GetBIOSDrive(const char* device, int8& drive)
 {
 	int fd = open(device, O_RDONLY);
 	if (fd < 0)
-		return errno;
+		return errno > 0 ? -errno : B_IO_ERROR;
 
 	status_t status = ioctl(fd, B_GET_BIOS_DRIVE_ID, &drive, 1);
 	close(fd);
