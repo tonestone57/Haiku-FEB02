@@ -312,6 +312,7 @@ InterfaceView::_Update(bool updateWirelessNetworks)
 			if (!networkFound) {
 				menu->RemoveItem(networkItem);
 				count--;
+				index--;
 			}
 		}
 
