@@ -1649,7 +1649,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	writeLocker.Unlock();
 
 	if (oldSize < pos)
-		FillGapWithZeros(oldSize, pos);
+		FillGapWithZeros(transaction, oldSize, pos);
 
 	// If we don't want to write anything, we can now return (we may
 	// just have changed the file size using the position parameter)
@@ -1808,6 +1808,9 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 		uint32 free = 0;
 		off_t block;
 
+		uint32 numberOfRuns = fVolume->BlockSize() / sizeof(block_run);
+		int32 i = 0;
+
 		// if there is no indirect block yet, create one
 		if (data->indirect.IsZero()) {
 			status = _AllocateBlockArray(transaction, data->indirect,
@@ -1823,11 +1826,9 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 
 			runs = (block_run*)cached.Block();
 		} else {
-			uint32 numberOfRuns = fVolume->BlockSize() / sizeof(block_run);
 			block = fVolume->ToBlock(data->indirect);
 
 			// search first empty entry
-			int32 i = 0;
 			for (; i < data->indirect.Length(); i++) {
 				status = cached.SetTo(block + i);
 				if (status != B_OK)

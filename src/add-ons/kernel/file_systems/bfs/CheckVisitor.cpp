@@ -50,7 +50,7 @@ CheckVisitor::StartBitmapPass()
 		return B_BAD_VALUE;
 
 	// Lock the volume's journal and block allocator
-	GetVolume()->GetJournal(0)->Lock(NULL, true);
+	GetVolume()->GetJournal(0)->FlushLogAndLockJournal();
 	recursive_lock_lock(&GetVolume()->Allocator().Lock());
 
 	size_t size = _BitmapSize();

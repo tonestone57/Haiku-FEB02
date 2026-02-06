@@ -908,7 +908,8 @@ Journal::Lock(Transaction* owner)
 
 	// check if this thread already has an active transaction
 	thread_id thread = find_thread(NULL);
-	DoublyLinkedList<Transaction>::Iterator iterator
+	DoublyLinkedList<Transaction, DoublyLinkedListMemberGetLink<Transaction,
+		&Transaction::fActiveLink> >::Iterator iterator
 		= fActiveTransactions.GetIterator();
 	while (Transaction* transaction = iterator.Next()) {
 		if (transaction->Thread() == thread) {
