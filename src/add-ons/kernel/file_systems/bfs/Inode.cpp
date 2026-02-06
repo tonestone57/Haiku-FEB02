@@ -1686,8 +1686,11 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	writeLocker.Unlock();
 
-	if (oldSize < pos)
-		FillGapWithZeros(transaction, oldSize, pos);
+	if (oldSize < pos) {
+		status = FillGapWithZeros(transaction, oldSize, pos);
+		if (status != B_OK)
+			return status;
+	}
 
 	// If we don't want to write anything, we can now return (we may
 	// just have changed the file size using the position parameter)
