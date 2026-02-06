@@ -1688,8 +1688,13 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	if (oldSize < pos) {
 		status = FillGapWithZeros(transaction, oldSize, pos);
-		if (status != B_OK)
-			return status;
+		if (status != B_OK) {
+			// TODO: fixing this bug (returning the error) causes a crash in
+			// bfs_shell (invalid transaction ID) during build. For now, we
+			// log the error and continue, restoring the previous behavior.
+			FATAL(("Inode::WriteAt: FillGapWithZeros failed: %s\n",
+				strerror(status)));
+		}
 	}
 
 	// If we don't want to write anything, we can now return (we may
