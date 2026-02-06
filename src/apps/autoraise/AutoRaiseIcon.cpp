@@ -455,7 +455,8 @@ PRINT(("wi [%" B_PRId32 "] = %p, %" B_PRId32 " %s\n", i, wi, wi->layer,
 					|| (wi->window_left > wi->window_right)
 					|| (wi->window_top > wi->window_bottom) // invalid window ?
 					|| wi->is_mini) {
-					// Don't leak memory (wi is freed at loop start)
+					free(wi);
+					wi = NULL;
 					continue;
 				}
 
