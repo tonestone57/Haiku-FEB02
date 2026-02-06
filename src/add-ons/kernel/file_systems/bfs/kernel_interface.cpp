@@ -368,6 +368,8 @@ bfs_put_vnode(fs_volume* _volume, fs_vnode* _node, bool reenter)
 	if (!volume->IsReadOnly() && !volume->IsCheckingThread()
 		&& inode->NeedsTrimming()) {
 		Transaction transaction(volume, inode->BlockNumber());
+		if (!transaction.IsStarted())
+			return B_OK;
 
 		if (inode->TrimPreallocation(transaction) == B_OK)
 			transaction.Done();
@@ -394,6 +396,8 @@ bfs_remove_vnode(fs_volume* _volume, fs_vnode* _node, bool reenter)
 	// bfs_unlink() returns - in this case, we can just use the
 	// transaction which has already deleted the inode.
 	Transaction transaction(volume, volume->ToBlock(inode->Parent()));
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	// The file system check functionality uses this flag to prevent the space
 	// used up by the inode from being freed - this flag is set only in
@@ -542,6 +546,9 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 
 		if (needsAllocation) {
 			Transaction transaction(volume, inode->BlockNumber());
+			if (!transaction.IsStarted())
+				return B_ERROR;
+
 			status = inode->AllocateForRange(pos, bytesLeft, transaction);
 			if (status == B_OK)
 				status = transaction.Done();
@@ -973,6 +980,9 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 	bool updateTime = false;
 
 	Transaction transaction(volume, inode->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
+
 	inode->WriteLockInTransaction(transaction);
 
 	if (check_write_stat_permissions(node.GroupID(), node.UserID(), node.Mode(),
@@ -1097,6 +1107,8 @@ bfs_create(fs_volume* _volume, fs_vnode* _directory, const char* name,
 	cookie->last_notification = system_time();
 
 	Transaction transaction(volume, directory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	Inode* inode;
 	bool created;
@@ -1151,6 +1163,8 @@ bfs_create_symlink(fs_volume* _volume, fs_vnode* _directory, const char* name,
 		RETURN_ERROR(status);
 
 	Transaction transaction(volume, directory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	Inode* link;
 	off_t id;
@@ -1223,6 +1237,8 @@ bfs_unlink(fs_volume* _volume, fs_vnode* _directory, const char* name)
 		return status;
 
 	Transaction transaction(volume, directory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	off_t id;
 	status = directory->Remove(transaction, name, &id);
@@ -1255,6 +1271,8 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 		return B_OK;
 
 	Transaction transaction(volume, oldDirectory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	oldDirectory->WriteLockInTransaction(transaction);
 	if (oldDirectory != newDirectory)
@@ -1463,6 +1481,9 @@ bfs_open(fs_volume* _volume, fs_vnode* _node, int openMode, void** _cookie)
 			return B_NOT_ALLOWED;
 
 		Transaction transaction(volume, inode->BlockNumber());
+		if (!transaction.IsStarted())
+			return B_ERROR;
+
 		inode->WriteLockInTransaction(transaction);
 
 		status_t status = inode->SetFileSize(transaction, 0);
@@ -1721,6 +1742,8 @@ bfs_create_dir(fs_volume* _volume, fs_vnode* _directory, const char* name,
 		RETURN_ERROR(status);
 
 	Transaction transaction(volume, directory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	// Inode::Create() locks the inode if we pass the "id" parameter, but we
 	// need it anyway
@@ -1752,6 +1775,8 @@ bfs_remove_dir(fs_volume* _volume, fs_vnode* _directory, const char* name)
 	Inode* directory = (Inode*)_directory->private_node;
 
 	Transaction transaction(volume, directory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	off_t id;
 	status_t status = directory->Remove(transaction, name, &id, true);
@@ -2024,6 +2049,9 @@ bfs_write_attr(fs_volume* _volume, fs_vnode* _file, void* _cookie,
 	Inode* inode = (Inode*)_file->private_node;
 
 	Transaction transaction(volume, inode->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
+
 	Attribute attribute(inode, cookie);
 
 	bool created;
@@ -2095,6 +2123,8 @@ bfs_remove_attr(fs_volume* _volume, fs_vnode* _node, const char* name)
 		return status;
 
 	Transaction transaction(volume, inode->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	status = inode->RemoveAttribute(transaction, name);
 	if (status == B_OK)
@@ -2137,6 +2167,8 @@ bfs_create_special_node(fs_volume* _volume, fs_vnode* _directory,
 		RETURN_ERROR(status);
 
 	Transaction transaction(volume, directory->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	off_t id;
 	Inode* inode;
@@ -2262,6 +2294,8 @@ bfs_create_index(fs_volume* _volume, const char* name, uint32 type,
 		return B_NOT_ALLOWED;
 
 	Transaction transaction(volume, volume->Indices());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	Index index(volume);
 	status_t status = index.Create(transaction, name, type);
@@ -2292,6 +2326,8 @@ bfs_remove_index(fs_volume* _volume, const char* name)
 		return B_ENTRY_NOT_FOUND;
 
 	Transaction transaction(volume, volume->Indices());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	status_t status = indices->Remove(transaction, name);
 	if (status == B_OK)

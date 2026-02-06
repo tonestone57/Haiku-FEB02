@@ -140,6 +140,8 @@ CheckVisitor::WriteBackCheckBitmap()
 
 		for (uint32 i = 0; i < numBitmapBlocks; i += 512) {
 			Transaction transaction(GetVolume(), 1 + i);
+			if (!transaction.IsStarted())
+				return B_ERROR;
 
 			uint32 blocksToWrite = 512;
 			if (blocksToWrite + i > numBitmapBlocks)
@@ -228,6 +230,10 @@ CheckVisitor::VisitDirectoryEntry(Inode* inode, Inode* parent,
 			if ((Control().flags & BFS_FIX_NAME_MISMATCHES) != 0) {
 				// Rename the inode
 				Transaction transaction(GetVolume(), inode->BlockNumber());
+				if (!transaction.IsStarted()) {
+					Control().status = B_ERROR;
+					return B_OK;
+				}
 
 				// Note, this may need extra blocks, but the inode will
 				// only be checked afterwards, so that it won't be lost
@@ -395,6 +401,9 @@ CheckVisitor::_RemoveInvalidNode(Inode* parent, BPlusTree* tree,
 	// if we set the INODE_DONT_FREE_SPACE flag - since we fix
 	// the bitmap anyway.
 	Transaction transaction(GetVolume(), parent->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
+
 	status_t status;
 
 	if (inode != NULL) {
@@ -727,6 +736,8 @@ status_t
 CheckVisitor::_AddInodeToIndex(Inode* inode)
 {
 	Transaction transaction(GetVolume(), inode->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
 
 	for (int32 i = 0; i < Indices().CountItems(); i++) {
 		check_index* index = Indices().Array()[i];
