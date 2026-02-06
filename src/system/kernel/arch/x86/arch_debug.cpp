@@ -1406,7 +1406,11 @@ arch_debug_snooze(bigtime_t duration)
 			if (now - start >= delay)
 				break;
 
-			sDebugSnooze(delay - (now - start));
+			uint64 remaining = delay - (now - start);
+			if (remaining > 0xffffffff)
+				remaining = 0xffffffff;
+
+			sDebugSnooze((uint32)remaining);
 		}
 		return;
 	}
