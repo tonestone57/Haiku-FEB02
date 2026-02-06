@@ -451,12 +451,13 @@ int32 poller(void *arg)
 			if (wi) {
 PRINT(("wi [%" B_PRId32 "] = %p, %" B_PRId32 " %s\n", i, wi, wi->layer,
 	((struct client_window_info *)wi)->name));
-				if (wi->layer < 3) // we hit the desktop or a window not on this WS
+				if (wi->layer < 3 // we hit the desktop or a window not on this WS
+					|| (wi->window_left > wi->window_right)
+					|| (wi->window_top > wi->window_bottom) // invalid window ?
+					|| wi->is_mini) {
+					// Don't leak memory (wi is freed at loop start)
 					continue;
-				if ((wi->window_left > wi->window_right) || (wi->window_top > wi->window_bottom))
-					continue; // invalid window ?
-				if (wi->is_mini)
-					continue;
+				}
 
 PRINT(("if (!%s && (%li, %li)isin(%" B_PRId32 ")(%" B_PRId32 ", %" B_PRId32
 	", %" B_PRId32 ", %" B_PRId32 ") && (%" B_PRId32 " != %" B_PRId32 ") \n",
@@ -485,7 +486,7 @@ PRINT(("if (!%s && (%li, %li)isin(%" B_PRId32 ")(%" B_PRId32 ", %" B_PRId32
 				free(wi);
 				wi=NULL;
 			} else
-				goto zzz;
+				continue;
 		}
 	zzz:
 //		puts("");
