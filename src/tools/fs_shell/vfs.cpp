@@ -83,7 +83,9 @@ struct vnode : fssh_fs_vnode {
 	struct fs_mount	*mount;
 	struct vnode	*covered_by;
 	int32_t			ref_count;
-	uint32_t		type;
+	uint32_t		type : 29;
+						// TODO: S_INDEX_DIR actually needs another bit.
+						// Better combine this field with the following ones.
 	uint32_t		remove : 1;
 	uint32_t		busy : 1;
 	uint32_t		unpublished : 1;
