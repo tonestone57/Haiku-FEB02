@@ -8,7 +8,6 @@
 
 
 #include <StackOrHeapArray.h>
-#include <util/AutoLock.h>
 
 #include "Journal.h"
 
