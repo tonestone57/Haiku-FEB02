@@ -40,7 +40,7 @@ namespace {
 struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 	queued_message(const void *_message, ssize_t _length)
 		:
-		fInitStatus(B_NO_MEMORY),
+		fInitStatus(ENOMEM),
 		length(_length)
 	{
 		message = (char *)malloc(sizeof(char) * _length);
@@ -51,7 +51,7 @@ struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 			|| user_memcpy(message, (void *)((char *)_message + sizeof(long)),
 			_length) != B_OK) {
 			free(message);
-			fInitStatus = B_BAD_ADDRESS;
+			fInitStatus = EFAULT;
 			return;
 		}
 		fInitStatus = B_OK;
@@ -813,7 +813,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 		= new(std::nothrow) queued_message(messagePointer, messageSize);
 	if (message == NULL) {
 		TRACE_ERROR(("xsi_msgsnd: failed to allocate new message\n"));
-		return B_NO_MEMORY;
+		return ENOMEM;
 	}
 	if (message->InitStatus() != B_OK) {
 		status_t status = message->InitStatus();
