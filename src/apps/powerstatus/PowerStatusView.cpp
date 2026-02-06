@@ -599,7 +599,10 @@ PowerStatusView::_GetBatteryInfo(int batteryID, battery_info* batteryInfo)
 
 		for (int i = 0; i < fDriverInterface->GetBatteryCount(); i++) {
 			battery_info info;
-			fDriverInterface->GetBatteryInfo(i, &info);
+			memset(&info, 0, sizeof(battery_info));
+			if (fDriverInterface->GetBatteryInfo(i, &info) != B_OK)
+				continue;
+
 			if (info.full_capacity <= 0)
 				continue;
 
@@ -715,13 +718,10 @@ PowerStatusReplicant::PowerStatusReplicant(BMessage* archive)
 
 PowerStatusReplicant::~PowerStatusReplicant()
 {
-	if (fMessengerExist)
-		delete fExtWindowMessenger;
+	if (fExtWindowMessenger != NULL && fExtWindowMessenger->LockTarget())
+		fExtendedWindow->Quit();
 
-	if (fExtendedWindow != NULL && fExtendedWindow->Lock()) {
-			fExtendedWindow->Quit();
-			fExtendedWindow = NULL;
-	}
+	delete fExtWindowMessenger;
 
 	fDriverInterface->StopWatching(this);
 	fDriverInterface->Disconnect();
@@ -875,7 +875,6 @@ PowerStatusReplicant::_Init()
 	}
 
 	fExtendedWindow = NULL;
-	fMessengerExist = false;
 	fExtWindowMessenger = NULL;
 
 	fDriverInterface->StartWatching(this);
@@ -949,7 +948,7 @@ PowerStatusReplicant::_SaveSettings()
 void
 PowerStatusReplicant::_OpenExtendedWindow()
 {
-	if (!fExtendedWindow) {
+	if (fExtendedWindow == NULL) {
 		fExtendedWindow = new ExtendedInfoWindow(fDriverInterface);
 		fExtWindowMessenger = new BMessenger(NULL, fExtendedWindow);
 		fExtendedWindow->Show();
@@ -960,10 +959,8 @@ PowerStatusReplicant::_OpenExtendedWindow()
 	msg.AddSpecifier("Hidden", int32(0));
 	if (fExtWindowMessenger->SendMessage(&msg) == B_BAD_PORT_ID) {
 		fExtendedWindow = new ExtendedInfoWindow(fDriverInterface);
-		if (fMessengerExist)
-			delete fExtWindowMessenger;
+		delete fExtWindowMessenger;
 		fExtWindowMessenger = new BMessenger(NULL, fExtendedWindow);
-		fMessengerExist = true;
 		fExtendedWindow->Show();
 	} else
 		fExtendedWindow->Activate();

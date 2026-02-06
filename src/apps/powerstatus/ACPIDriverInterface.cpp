@@ -250,7 +250,7 @@ ACPIDriverInterface::_FindDrivers(const char* dirpath)
 
 		if (entry.IsDirectory()) {
 			if (_FindDrivers(path.Path()) == B_OK)
-				return B_OK;
+				status = B_OK;
 		} else {
 			int32 handler = open(path.Path(), O_RDWR);
 			if (handler >= 0) {
