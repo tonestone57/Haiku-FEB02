@@ -40,7 +40,7 @@ namespace {
 struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 	queued_message(const void *_message, ssize_t _length)
 		:
-		initOK(false),
+		fInitStatus(B_NO_MEMORY),
 		length(_length)
 	{
 		message = (char *)malloc(sizeof(char) * _length);
@@ -51,14 +51,15 @@ struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 			|| user_memcpy(message, (void *)((char *)_message + sizeof(long)),
 			_length) != B_OK) {
 			free(message);
+			fInitStatus = B_BAD_ADDRESS;
 			return;
 		}
-		initOK = true;
+		fInitStatus = B_OK;
 	}
 
 	~queued_message()
 	{
-		if (initOK)
+		if (fInitStatus == B_OK)
 			free(message);
 	}
 
@@ -74,7 +75,12 @@ struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 		return _length;
 	}
 
-	bool		initOK;
+	status_t InitStatus() const
+	{
+		return fInitStatus;
+	}
+
+	status_t	fInitStatus;
 	ssize_t		length;
 	char		*message;
 	long		type;
@@ -805,10 +811,16 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 
 	queued_message *message
 		= new(std::nothrow) queued_message(messagePointer, messageSize);
-	if (message == NULL || message->initOK != true) {
-		TRACE_ERROR(("xsi_msgsnd: failed to create new message to queue\n"));
+	if (message == NULL) {
+		TRACE_ERROR(("xsi_msgsnd: failed to allocate new message\n"));
+		return B_NO_MEMORY;
+	}
+	if (message->InitStatus() != B_OK) {
+		status_t status = message->InitStatus();
+		TRACE_ERROR(("xsi_msgsnd: failed to create new message to queue: %s\n",
+			strerror(status)));
 		delete message;
-		return ENOMEM;
+		return status;
 	}
 
 	bool notSent = true;
