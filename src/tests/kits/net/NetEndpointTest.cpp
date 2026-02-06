@@ -17,6 +17,7 @@
 
 static BNetAddress serverAddr("127.0.0.1", 1234);
 static BNetAddress clientAddr("127.0.0.1", 51234);
+static sem_id gSyncSem = -1;
 
 
 static int problemCount = 0;
@@ -183,6 +184,8 @@ void testServer(thread_id clientThread)
 		if (i == 0)
 			resume_thread(clientThread);
 
+		release_sem(gSyncSem);
+
 		BNetAddress remoteAddr;
 		status = server.ReceiveFrom(buf, 1, remoteAddr, 0);
 		if (status < B_OK) {
@@ -218,6 +221,8 @@ void testServer(thread_id clientThread)
 	
 	checkAddrsAreEqual(server.LocalAddr(), serverAddr,
 		"LocalAddr() doesn't match serverAddr\n");
+
+	release_sem(gSyncSem);
 
 	status = server.Listen();
 	BNetEndpoint* acceptedConn = server.Accept();
@@ -257,6 +262,7 @@ int32 testClient(void *)
 	BNetEndpoint client(SOCK_DGRAM);
 	printf("testing udp...\n");
 	for(int i=0; i < 2; ++i) {
+		acquire_sem(gSyncSem);
 		status_t status = client.Bind(clientAddr);
 		if (status != B_OK) {
 			fprintf(stderr, "Bind() failed in testClient - %s\n",
@@ -278,12 +284,8 @@ int32 testClient(void *)
 
 		checkArchive(client, SOCK_DGRAM, clientAddr, serverAddr);
 
-		sleep(1);
-
 		client.Close();
 	}
-
-	sleep(1);
 
 	printf("testing tcp...\n");
 	// now switch to TCP and try again
@@ -298,6 +300,8 @@ int32 testClient(void *)
 	
 	checkAddrsAreEqual(client.LocalAddr(), clientAddr,
 		"LocalAddr(%x:%d) doesn't match clientAddr(%x:%d)\n");
+
+	acquire_sem(gSyncSem);
 
 	status = client.Connect(serverAddr);
 	if (status < B_OK) {
@@ -325,6 +329,8 @@ int32 testClient(void *)
 int
 main(int argc, const char* const* argv)
 {
+	gSyncSem = create_sem(0, "sync sem");
+
 	BNetEndpoint dummy(SOCK_DGRAM);
 	if (sizeof(dummy) != 208) {
 		fprintf(stderr, "expected sizeof(netEndpoint) to be 208 - is %ld\n",
@@ -344,6 +350,8 @@ main(int argc, const char* const* argv)
 
 	status_t clientStatus;
 	wait_for_thread(tid, &clientStatus);
+
+	delete_sem(gSyncSem);
 
 	if (!problemCount)
 		printf("Everything went fine.\n");
