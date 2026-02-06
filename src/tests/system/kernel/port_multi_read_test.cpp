@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include <OS.h>
 
@@ -23,6 +24,7 @@ read_thread(void* _data)
 	while (true) {
 		ssize_t bytes = port_buffer_size(port);
 		printf("[%ld] buffer size %ld waiting\n", find_thread(NULL), bytes);
+		assert(bytes >= 0);
 
 		char buffer[256];
 		int32 code;
@@ -42,11 +44,13 @@ main()
 {
 	port_id port = create_port(1, "test port");
 	printf("created port %ld\n", port);
+	assert(port > 0);
 
 	thread_id threads[THREAD_COUNT];
 	for (int32 i = 0; i < THREAD_COUNT; i++) {
 		threads[i] = spawn_thread(read_thread, "read thread", B_NORMAL_PRIORITY,
 			(void*)port);
+		assert(threads[i] > 0);
 		resume_thread(threads[i]);
 	}
 
@@ -59,13 +63,17 @@ main()
 		memset(buffer, 0x55, bytes);
 
 		printf("send %ld bytes\n", bytes);
-		write_port(port, 0x42, buffer, bytes);
+		status_t status = write_port(port, 0x42, buffer, bytes);
+		assert(status == B_OK);
 		snooze(10000);
 	}
 
 	printf("waiting for threads to terminate\n");
 	for (int32 i = 0; i < THREAD_COUNT; i++) {
-		wait_for_thread(threads[i], NULL);
+		status_t thread_return;
+		status_t status = wait_for_thread(threads[i], &thread_return);
+		assert(status == B_OK);
+		assert(thread_return == B_OK);
 	}
 
 	return 0;
