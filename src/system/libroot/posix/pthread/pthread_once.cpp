@@ -110,9 +110,13 @@ pthread_once(pthread_once_t* onceControl, void (*initRoutine)(void))
 
 		if (value >= 0) {
 			// wait on the semaphore
-			while (acquire_sem(value) == B_INTERRUPTED);
+			status_t status;
+			do {
+				status = acquire_sem(value);
+			} while (status == B_INTERRUPTED);
 
-			return 0;
+			if (status == B_OK)
+				return 0;
 		} else if (value == STATE_SPINNING) {
 			// out of semaphores -- spin
 			while (atomic_get((int32*)&onceControl->state) == STATE_SPINNING);
