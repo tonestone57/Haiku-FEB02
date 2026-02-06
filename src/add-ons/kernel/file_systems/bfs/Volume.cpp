@@ -44,17 +44,44 @@ disk_super_block::IsMagicValid() const
 bool
 disk_super_block::IsValid() const
 {
-	if (!IsMagicValid()
-		|| (int32)block_size != inode_size
-		|| ByteOrder() != SUPER_BLOCK_FS_LENDIAN
-		|| (1UL << BlockShift()) != BlockSize()
-		|| AllocationGroups() < 1
-		|| AllocationGroupShift() < 1
-		|| BlocksPerAllocationGroup() < 1
-		|| NumBlocks() < 10
-		|| AllocationGroups() != divide_roundup(NumBlocks(),
-			1L << AllocationGroupShift()))
+	if (!IsMagicValid()) {
+		dprintf("disk_super_block::IsValid: invalid magic (%" B_PRIx32 ", %" B_PRIx32 ", %" B_PRIx32 ")\n",
+			Magic1(), Magic2(), Magic3());
 		return false;
+	}
+	if ((int32)block_size != inode_size) {
+		dprintf("disk_super_block::IsValid: block_size != inode_size\n");
+		return false;
+	}
+	if (ByteOrder() != SUPER_BLOCK_FS_LENDIAN) {
+		dprintf("disk_super_block::IsValid: invalid byte order\n");
+		return false;
+	}
+	if ((1UL << BlockShift()) != BlockSize()) {
+		dprintf("disk_super_block::IsValid: invalid block shift\n");
+		return false;
+	}
+	if (AllocationGroups() < 1) {
+		dprintf("disk_super_block::IsValid: invalid allocation groups\n");
+		return false;
+	}
+	if (AllocationGroupShift() < 1) {
+		dprintf("disk_super_block::IsValid: invalid allocation group shift\n");
+		return false;
+	}
+	if (BlocksPerAllocationGroup() < 1) {
+		dprintf("disk_super_block::IsValid: invalid blocks per allocation group\n");
+		return false;
+	}
+	if (NumBlocks() < 10) {
+		dprintf("disk_super_block::IsValid: invalid num blocks\n");
+		return false;
+	}
+	if (AllocationGroups() != divide_roundup(NumBlocks(),
+			1L << AllocationGroupShift())) {
+		dprintf("disk_super_block::IsValid: allocation groups mismatch\n");
+		return false;
+	}
 
 	return true;
 }
