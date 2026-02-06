@@ -622,6 +622,8 @@ Volume::Initialize(int fd, const char* name, uint32 blockSize,
 	// ready to write data to disk
 
 	Transaction transaction(this, 0);
+	if (!transaction.IsStarted())
+		RETURN_ERROR(B_ERROR);
 
 	if (fBlockAllocator.InitializeAndClearBitmap(transaction) < B_OK)
 		RETURN_ERROR(B_ERROR);

@@ -234,6 +234,9 @@ Attribute::_Truncate()
 	if (fAttribute != NULL) {
 		Transaction transaction(fAttribute->GetVolume(),
 			fAttribute->BlockNumber());
+		if (!transaction.IsStarted())
+			return B_ERROR;
+
 		fAttribute->WriteLockInTransaction(transaction);
 
 		status_t status = fAttribute->SetFileSize(transaction, 0);
