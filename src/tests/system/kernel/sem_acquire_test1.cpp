@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include <OS.h>
 
 
 static sem_id sSemaphore = -1;
+static bool sThread2Finished = false;
+static bool sThread3Finished = false;
 
 
 static status_t
@@ -14,6 +17,8 @@ thread_function1(void* data)
 	printf("%s: going to acquire sem...\n", threadName);
 	status_t error = acquire_sem_etc(sSemaphore, 2, 0, 0);
 	printf("%s: acquire_sem_etc() returned: %s\n", threadName, strerror(error));
+	if (strcmp(threadName, "thread3") == 0)
+		sThread3Finished = true;
 	return error;
 }
 
@@ -24,6 +29,7 @@ thread_function2(void*)
 	printf("thread2: going to acquire sem...\n");
 	status_t error = acquire_sem_etc(sSemaphore, 1, 0, 0);
 	printf("thread2: acquire_sem_etc() returned: %s\n", strerror(error));
+	sThread2Finished = true;
 	return error;
 }
 
@@ -55,11 +61,18 @@ main()
 	int32 semCount = 42;
 	get_sem_count(sSemaphore, &semCount);
 	printf("sem count: %ld\n", semCount);
+	assert(semCount == -3);
 
 	printf("killing thread1...\n");
 	kill_thread(thread1);
 
 	snooze(2000000);
+
+	assert(sThread2Finished);
+	assert(!sThread3Finished);
+
+	kill_thread(thread3);
+	delete_sem(sSemaphore);
 
 	return 0;
 }

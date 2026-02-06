@@ -6,6 +6,7 @@
 
 #include <immintrin.h>
 #include <stdio.h>
+#include <assert.h>
 
 int main() {
 
@@ -20,6 +21,10 @@ int main() {
   float* f = (float*)&result;
   printf("%f %f %f %f %f %f %f %f\n",
     f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7]);
+
+  for (int i = 0; i < 8; i++) {
+	  assert(f[i] == 1.0f);
+  }
 
   return 0;
 }

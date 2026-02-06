@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <poll.h>
+#include <assert.h>
+#include <string.h>
 
 int main() {
 	/* Test for #7859.
@@ -14,8 +16,10 @@ int main() {
 	 */
 	FILE* f = popen("/bin/bash -c 'for i in 1 2 3; do { echo $i; sleep 1; }; done'", "r");
 	printf("f=%p\n", f);
+	assert(f != NULL);
 	int fd = fileno(f);
 	printf("fd=%d\n", fd);
+	assert(fd >= 0);
 
 	struct pollfd pfd;
 	pfd.fd = fd;
@@ -24,7 +28,7 @@ int main() {
 	char buffer[80];
 
 	while (1) {
-		int rv = poll(&pfd, 1, 500);
+		int rv = poll(&pfd, 1, 5000); // Increased timeout to avoid flakiness in VM
 		printf("rv=%d\n", rv);
 		if (rv == 0)
 			continue;
@@ -38,11 +42,12 @@ int main() {
 			}
 		}
 		printf("events=%08x revents=%08x\n", pfd.events, pfd.revents);
+		assert(rv > 0);
 		if ((pfd.events & pfd.revents) == 0)
 			break;
 
-		fgets(buffer, 79, f);
-		printf("output: %s", buffer);
+		if (fgets(buffer, 79, f) != NULL)
+			printf("output: %s", buffer);
 	}
 
 	return 0;

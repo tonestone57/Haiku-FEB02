@@ -8,6 +8,7 @@
 
 
 #include <image.h>
+#include <OS.h>
 
 #include <errno.h>
 #include <string.h>
@@ -28,14 +29,9 @@ usage(char const *app)
 
 
 int
-main(int argc, char *argv[])
+fibo(int num)
 {
 	int result = 0;
-
-	if (argc != 2)
-		usage(argv[0]);
-
-	int num = atoi(argv[1]);
 
 	if (num < 2) {
 		result = num;
@@ -43,13 +39,8 @@ main(int argc, char *argv[])
 		pid_t childA = fork();
 		if (childA == 0) {
 			// we're the child
-			char buffer[64];
-			char* args[]= { argv[0], buffer, NULL };
-			int argCount = 2;
 			gForked++;
-
-			snprintf(buffer, sizeof(buffer), "%d", num - 1);
-			return main(argCount, args);
+			return fibo(num - 1);
 		} else if (childA < 0) {
 			fprintf(stderr, "fork() failed for child A: %s\n", strerror(errno));
 			return -1;
@@ -58,13 +49,8 @@ main(int argc, char *argv[])
 		pid_t childB = fork();
 		if (childB == 0) {
 			// we're the child
-			char buffer[64];
-			char* args[]= { argv[0], buffer, NULL };
-			int argCount = 2;
 			gForked++;
-
-			snprintf(buffer, sizeof(buffer), "%d", num - 2);
-			return main(argCount, args);
+			return fibo(num - 2);
 		} else if (childB < 0) {
 			fprintf(stderr, "fork() failed for child B: %s\n", strerror(errno));
 			return -1;
@@ -90,6 +76,20 @@ main(int argc, char *argv[])
 			fprintf(stderr, "wait_for_thread(%ld) B failed: %s\n", childB, strerror(status));
 	}
 
+	return result;
+}
+
+
+int
+main(int argc, char *argv[])
+{
+	if (argc != 2)
+		usage(argv[0]);
+
+	int num = atoi(argv[1]);
+
+	int result = fibo(num);
+
 	if (gForked) {
 		return result;
 	} else {
@@ -97,4 +97,3 @@ main(int argc, char *argv[])
 		return 0;
 	}
 }
-

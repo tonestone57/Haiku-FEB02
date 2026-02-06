@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fenv.h>
+#include <float.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
