@@ -10,12 +10,12 @@ quicktour=/boot/system/documentation/welcome/en/quicktour.html
 localizedQuicktour=/boot/system/documentation/welcome/"$language"/quicktour.html
 localizedQuicktourBase=/boot/system/documentation/welcome/"$languageBase"/quicktour.html
 
-if [ -f $localizedQuicktour ]; then
-	open file:$localizedQuicktour
-elif [ -f $localizedQuicktourBase ]; then
-	open file:$localizedQuicktourBase
-elif [ -f $quicktour ]; then
-	open $quicktour
+if [ -f "$localizedQuicktour" ]; then
+	open "$localizedQuicktour"
+elif [ -f "$localizedQuicktourBase" ]; then
+	open "$localizedQuicktourBase"
+elif [ -f "$quicktour" ]; then
+	open "$quicktour"
 else
-	open $quicktourURL
+	open "$quicktourURL"
 fi
