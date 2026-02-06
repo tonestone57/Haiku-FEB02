@@ -88,10 +88,10 @@ dump_image_info(const char *filename)
 	if (header.descriptorOffset != 0) {
 		printf("\n--------------- Descriptor ---------------\n");
 		size_t descriptorSize = header.descriptorSize * 512 * 2;
-		char *descriptor = (char *)malloc(descriptorSize);
+		char *descriptor = (char *)malloc(descriptorSize + 1);
 		if (descriptor == NULL) {
 			fprintf(stderr, "Error: cannot allocate descriptor size %u.\n",
-				(unsigned int)descriptorSize);
+				(unsigned int)descriptorSize + 1);
 			exit(EXIT_FAILURE);
 		}
 
@@ -102,6 +102,7 @@ dump_image_info(const char *filename)
 			exit(EXIT_FAILURE);
 		}
 
+		descriptor[descriptorSize] = '\0';
 		puts(descriptor);
 		putchar('\n');
 		free(descriptor);
@@ -339,18 +340,14 @@ main(int argc, char *argv[])
 	}
 
 	// Create embedded descriptor
-	strcat(desc,
+	int len = snprintf(desc, sizeof(desc),
 		"# Disk Descriptor File\n"
 		"version=1\n"
 		"CID=fffffffe\n"
 		"parentCID=ffffffff\n"
-		"createType=\"monolithicFlat\"\n");
-	sprintf(desc + strlen(desc),
+		"createType=\"monolithicFlat\"\n"
 		"# Extent Description\n"
-		"RW %llu FLAT \"%s\" %llu\n",
-		(unsigned long long)actualImageSize / 512, name,
-		(unsigned long long)headerSize / 512);
-	sprintf(desc + strlen(desc),
+		"RW %llu FLAT \"%s\" %llu\n"
 		"# Disk Data Base\n"
 		"ddb.toolsVersion = \"0\"\n"
 		"ddb.virtualHWVersion = \"3\"\n"
@@ -358,16 +355,30 @@ main(int argc, char *argv[])
 		"ddb.adapterType = \"ide\"\n"
 		"ddb.geometry.heads = \"%llu\"\n"
 		"ddb.geometry.cylinders = \"%llu\"\n",
+		(unsigned long long)actualImageSize / 512, name,
+		(unsigned long long)headerSize / 512,
 		(unsigned long long)sectors, (unsigned long long)heads,
 		(unsigned long long)cylinders);
 
+	if (len >= (int)sizeof(desc)) {
+		fprintf(stderr, "Error: descriptor buffer too small\n");
+		exit(EXIT_FAILURE);
+	}
+
 	if (uuid == NULL) {
-		sprintf(desc + strlen(desc),
+		len += snprintf(desc + len, sizeof(desc) - len,
 			"ddb.uuid.image=\"%08llx-%04llx-%04llx-%04llx-%012llx\"\n",
 			uuid1 & 0xffffffffLL, uuid2 & 0xffffLL, uuid3 & 0xffffLL,
 			uuid4 & 0xffffLL, uuid5 & 0xffffffffffffLL);
-	} else
-		sprintf(desc + strlen(desc), "ddb.uuid.image=\"%s\"\n", uuid);
+	} else {
+		len += snprintf(desc + len, sizeof(desc) - len,
+			"ddb.uuid.image=\"%s\"\n", uuid);
+	}
+
+	if (len >= (int)sizeof(desc)) {
+		fprintf(stderr, "Error: descriptor buffer too small\n");
+		exit(EXIT_FAILURE);
+	}
 
 	int fd = open(file, O_RDWR | O_CREAT, 0666);
 	if (fd < 0) {

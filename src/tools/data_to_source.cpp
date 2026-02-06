@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <string>
+
 
 void
 write_string(int fd, const char* data)
@@ -63,10 +65,13 @@ main(int argc, const char* const* argv)
 	unsigned char buffer[kBufferSize];
 	char lineBuffer[128];
 
-	sprintf(lineBuffer, "#include <stddef.h>\n");
-	write_string(outFD, lineBuffer);
-	sprintf(lineBuffer, "const unsigned char %s[] = {\n", dataVarName);
-	write_string(outFD, lineBuffer);
+	std::string header = "#include <stddef.h>\n";
+	write_string(outFD, header.c_str());
+
+	header = "const unsigned char ";
+	header += dataVarName;
+	header += "[] = {\n";
+	write_string(outFD, header.c_str());
 
 	off_t offset = 0;
 	char* lineBufferEnd = lineBuffer;
@@ -108,9 +113,12 @@ main(int argc, const char* const* argv)
 	}
 
 	// close the braces and write the size variable
-	sprintf(lineBuffer, "};\nconst size_t %s = sizeof(%s);\n", sizeVarName,
-		dataVarName);
-	write_string(outFD, lineBuffer);
+	std::string footer = "};\nconst size_t ";
+	footer += sizeVarName;
+	footer += " = sizeof(";
+	footer += dataVarName;
+	footer += ");\n";
+	write_string(outFD, footer.c_str());
 
 	close(inFD);
 	close(outFD);
