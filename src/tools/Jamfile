@@ -31,7 +31,7 @@ BuildPlatformMain <build>copyattr : copyattr.cpp
 BuildPlatformMain <build>create_image : create_image.cpp : $(HOST_LIBSUPC++) ;
 
 BuildPlatformMain <build>data_to_source : data_to_source.cpp
-	: $(HOST_LIBSUPC++) $(HOST_LIBSTDC++) ;
+	: $(HOST_LIBSUPC++) ;
 
 BuildPlatformMain <build>elf2aout : elf2aout.c : ;
 

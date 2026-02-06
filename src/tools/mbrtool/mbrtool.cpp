@@ -7,7 +7,6 @@
  */
 
 
-#define _FILE_OFFSET_BITS 64
 #include <errno.h>
 #include <getopt.h>
 #include <fcntl.h>
@@ -75,7 +74,6 @@ mbrWipe(int handle)
 	// End of MBR marker
 	emptyMBR[64] = 0x55;
 	emptyMBR[65] = 0xAA;
-	errno = 0;
 	return pwrite(handle, emptyMBR, 66, 0x1BE);
 }
 
@@ -83,60 +81,12 @@ mbrWipe(int handle)
 static bool
 mbrValid(int handle)
 {
+	// TODO: this is a really basic check and ignores invalid
+	// partition table entries
 	uint8_t mbrBytes[66] = {};
 	ssize_t read = pread(handle, mbrBytes, 66, 0x1BE);
 	checkError(read < 0, "failed to read MBR for validation");
-
-	if (mbrBytes[64] != 0x55 || mbrBytes[65] != 0xAA)
-		return false;
-
-	// Check for valid partition table entries
-	for (int i = 0; i < 4; i++) {
-		uint8_t *entry = &mbrBytes[16 * i];
-		uint8_t status = entry[0];
-		uint32_t type = entry[4];
-		uint32_t start = (uint32_t)entry[8] | ((uint32_t)entry[9] << 8)
-			| ((uint32_t)entry[10] << 16) | ((uint32_t)entry[11] << 24);
-		uint32_t size = (uint32_t)entry[12] | ((uint32_t)entry[13] << 8)
-			| ((uint32_t)entry[14] << 16) | ((uint32_t)entry[15] << 24);
-
-		if (status != 0x00 && status != 0x80)
-			return false;
-
-		if (type == 0x00) {
-			// Empty slot should be zeroed
-			if (start != 0 || size != 0)
-				return false;
-		} else {
-			// Used slot
-			if (start == 0)
-				return false; // Cannot start at MBR sector
-			if (size == 0)
-				return false; // Empty size?
-
-			// Overlap check
-			for (int j = 0; j < i; j++) {
-				uint8_t *prevEntry = &mbrBytes[16 * j];
-				if (prevEntry[4] != 0) {
-					uint32_t prevStart = (uint32_t)prevEntry[8]
-						| ((uint32_t)prevEntry[9] << 8)
-						| ((uint32_t)prevEntry[10] << 16)
-						| ((uint32_t)prevEntry[11] << 24);
-					uint32_t prevSize = (uint32_t)prevEntry[12]
-						| ((uint32_t)prevEntry[13] << 8)
-						| ((uint32_t)prevEntry[14] << 16)
-						| ((uint32_t)prevEntry[15] << 24);
-
-					uint64_t end = (uint64_t)start + size;
-					uint64_t prevEnd = (uint64_t)prevStart + prevSize;
-					if (start < prevEnd && prevStart < end)
-						return false;
-				}
-			}
-		}
-	}
-
-	return true;
+	return (mbrBytes[64] == 0x55 && mbrBytes[65] == 0xAA);
 }
 
 
@@ -156,36 +106,19 @@ createPartition(int handle, int index, bool active, uint8_t type,
 
 	// fill in LBA values
 	uint32_t partitionOffset = (uint32_t)(offset / kSectorSize);
-	uint32_t partitionSize = (uint32_t)(size / kSectorSize);
-
-	partition[8] = partitionOffset & 0xff;
-	partition[9] = (partitionOffset >> 8) & 0xff;
-	partition[10] = (partitionOffset >> 16) & 0xff;
-	partition[11] = (partitionOffset >> 24) & 0xff;
-
-	partition[12] = partitionSize & 0xff;
-	partition[13] = (partitionSize >> 8) & 0xff;
-	partition[14] = (partitionSize >> 16) & 0xff;
-	partition[15] = (partitionSize >> 24) & 0xff;
+	((uint32_t *)partition)[2] = partitionOffset;
+	((uint32_t *)partition)[3] = (uint32_t)(size / kSectorSize);
 
 	TRACE("%s: #%d %c bytes: %u-%u, sectors: %u-%u\n", __func__, index,
 		active ? 'b' : '-', offset, offset + size, partitionOffset,
-		partitionOffset + partitionSize);
+		partitionOffset + uint32_t(size / kSectorSize));
 
-	errno = 0;
 	ssize_t written = pwrite(handle, partition, 16, 512 - 2 - 16 * (4 - index));
 	checkError(written != 16, "failed to write partition entry");
 
 	if (active) {
 		// make it bootable
-		uint8_t bootableOffset[4];
-		bootableOffset[0] = partitionOffset & 0xff;
-		bootableOffset[1] = (partitionOffset >> 8) & 0xff;
-		bootableOffset[2] = (partitionOffset >> 16) & 0xff;
-		bootableOffset[3] = (partitionOffset >> 24) & 0xff;
-
-		errno = 0;
-		written = pwrite(handle, bootableOffset, 4, offset + 512 - 2 - 4);
+		written = pwrite(handle, &partitionOffset, 4, offset + 512 - 2 - 4);
 		checkError(written != 4, "failed to make partition bootable");
 	}
 	return;
@@ -248,7 +181,6 @@ main(int argc, char *argv[])
 		}
 	}
 
-	errno = 0;
 	checkError(partIndex < 0 || partIndex > 3,
 		"invalid partition index, valid range is 0-3");
 	checkError(partType < 0,  "Incorrect Partition Type!");
@@ -266,8 +198,7 @@ main(int argc, char *argv[])
 
 	if (!mbrValid(imageFileHandle)) {
 		INFO("MBR of image is invalid, creating a fresh one.\n");
-		ssize_t wiped = mbrWipe(imageFileHandle);
-		checkError(wiped != 66, "failed to wipe MBR");
+		mbrWipe(imageFileHandle);
 	}
 
 	// Just a warning. This is technically valid since MBR partition

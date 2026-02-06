@@ -4,14 +4,12 @@
  * Distributed under the terms of the MIT License.
  */
 
-#include <algorithm>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -62,22 +60,14 @@ main(int argc, char *argv[])
 				break;
 
 			case 'i':
-			{
-				unsigned long long size = strtoull(optarg, NULL, 10);
+				imageSize = strtoull(optarg, NULL, 10);
 				if (strchr(optarg, 'G') || strchr(optarg, 'g'))
-					size *= 1024 * 1024 * 1024;
+					imageSize *= 1024 * 1024 * 1024;
 				else if (strchr(optarg, 'M') || strchr(optarg, 'm'))
-					size *= 1024 * 1024;
+					imageSize *= 1024 * 1024;
 				else if (strchr(optarg, 'K') || strchr(optarg, 'k'))
-					size *= 1024;
-
-				if (size > (unsigned long long)std::numeric_limits<off_t>::max()) {
-					fprintf(stderr, "Error: image size too large\n");
-					exit(EXIT_FAILURE);
-				}
-				imageSize = (off_t)size;
+					imageSize *= 1024;
 				break;
-			}
 
 			case 'f':
 				file = optarg;
@@ -143,24 +133,16 @@ main(int argc, char *argv[])
 
 			off_t totalWritten = 0;
 			ssize_t written;
-			while (totalWritten < imageSize) {
-				size_t toWrite = (size_t)std::min((off_t)sizeof(buffer),
-					imageSize - totalWritten);
-				written = write(fd, buffer, toWrite);
-				if (written <= 0)
-					break;
+			while ((written = write(fd, buffer, sizeof(buffer))) > 0)
 				totalWritten += written;
-			}
 
-			if (written < 0) {
+			// Only fail, if an error occurs and we haven't written anything at
+			// all yet.
+			// TODO: We should probably first determine the size of the device
+			// and try to write only that much.
+			if (totalWritten == 0 && written < 0) {
 				fprintf(stderr, "Error: writing to device file %s failed "
 					"(%s)\n", file, strerror(errno));
-				exit(EXIT_FAILURE);
-			}
-
-			if (totalWritten < imageSize) {
-				fprintf(stderr, "Error: wrote only %lld of %lld bytes to device %s\n",
-					(long long)totalWritten, (long long)imageSize, file);
 				exit(EXIT_FAILURE);
 			}
 		}
