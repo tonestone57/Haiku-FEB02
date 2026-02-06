@@ -498,7 +498,7 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 	XsiMessageQueue *messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 	if (messageQueue == NULL) {
 		TRACE(("xsi_msgctl: message queue id %d not valid\n", messageQueueID));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	if (buffer != NULL && !IS_USER_ADDRESS(buffer)) {
 		TRACE(("xsi_msgctl: buffer address is not valid\n"));
@@ -526,7 +526,7 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 				TRACE(("xsi_msgctl: calling process has not read "
 					"permission on message queue %d, key %d\n", messageQueueID,
 					(int)messageQueue->IpcKey()));
-				return EACCES;
+				return B_PERMISSION_DENIED;
 			}
 			struct msqid_ds msg = messageQueue->GetMessageQueue();
 			if (user_memcpy(buffer, &msg, sizeof(struct msqid_ds)) < B_OK) {
@@ -541,7 +541,7 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 				TRACE(("xsi_msgctl: calling process has not permission "
 					"on message queue %d, key %d\n", messageQueueID,
 					(int)messageQueue->IpcKey()));
-				return EPERM;
+				return B_NOT_ALLOWED;
 			}
 			struct msqid_ds msg;
 			if (user_memcpy(&msg, buffer, sizeof(struct msqid_ds)) < B_OK) {
@@ -551,11 +551,11 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 			if (msg.msg_qbytes > messageQueue->MaxBytes() && getuid() != 0) {
 				TRACE(("xsi_msgctl: user does not have permission to "
 					"increase the maximum number of bytes allowed on queue\n"));
-				return EPERM;
+				return B_NOT_ALLOWED;
 			}
 			if (msg.msg_qbytes == 0) {
 				TRACE(("xsi_msgctl: can't set msg_qbytes to 0!\n"));
-				return EINVAL;
+				return B_BAD_VALUE;
 			}
 
 			messageQueue->DoIpcSet(&msg);
@@ -571,7 +571,7 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 				TRACE(("xsi_msgctl: calling process has not permission "
 					"on message queue %d, key %d\n", messageQueueID,
 					(int)messageQueue->IpcKey()));
-				return EPERM;
+				return B_NOT_ALLOWED;
 			}
 			key_t key = messageQueue->IpcKey();
 			Ipc *ipcKey = NULL;
@@ -592,7 +592,7 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 
 		default:
 			TRACE_ERROR(("xsi_semctl: command %d not valid\n", command));
-			return EINVAL;
+			return B_BAD_VALUE;
 	}
 
 	return B_OK;
@@ -618,7 +618,7 @@ _user_xsi_msgget(key_t key, int flags)
 			if (!(flags & IPC_CREAT)) {
 				TRACE(("xsi_msgget: key %d does not exist, but the "
 					"caller did not ask for creation\n", (int)key));
-				return ENOENT;
+				return B_ENTRY_NOT_FOUND;
 			}
 			if (ipcKey == NULL) {
 				ipcKey = new(std::nothrow) Ipc(key);
@@ -633,7 +633,7 @@ _user_xsi_msgget(key_t key, int flags)
 			// The IPC key exist and it already has a message queue
 			if ((flags & IPC_CREAT) && (flags & IPC_EXCL)) {
 				TRACE_ERROR(("xsi_msgget: key %d already exist\n", (int)key));
-				return EEXIST;
+				return B_FILE_EXISTS;
 			}
 			int messageQueueID = ipcKey->MessageQueueID();
 
@@ -643,7 +643,7 @@ _user_xsi_msgget(key_t key, int flags)
 				TRACE(("xsi_msgget: calling process has not permission "
 					"on message queue %d, key %d\n", messageQueue->ID(),
 					(int)key));
-				return EACCES;
+				return B_PERMISSION_DENIED;
 			}
 			create = false;
 		}
@@ -654,7 +654,7 @@ _user_xsi_msgget(key_t key, int flags)
 		if (atomic_get(&sXsiMessageQueueCount) >= MAX_XSI_MESSAGE_QUEUE) {
 			TRACE_ERROR(("xsi_msgget: reached limit of maximun number of "
 				"message queues\n"));
-			return ENOSPC;
+			return B_DEVICE_FULL;
 		}
 
 		messageQueue = new(std::nothrow) XsiMessageQueue(flags);
@@ -691,20 +691,20 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 	if (messageQueue == NULL) {
 		TRACE(("xsi_msgrcv: message queue id %d not valid\n",
 			messageQueueID));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	MutexLocker messageQueueLocker(messageQueue->Lock());
 	messageQueueHashLocker.Unlock();
 
 	if (messageSize > MAX_BYTES_PER_QUEUE) {
 		TRACE_ERROR(("xsi_msgrcv: message size is out of range\n"));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	if (!messageQueue->HasPermission()) {
 		TRACE(("xsi_msgrcv: calling process has not permission "
 			"on message queue id %d, key %d\n", messageQueueID,
 			(int)messageQueue->IpcKey()));
-		return EACCES;
+		return B_PERMISSION_DENIED;
 	}
 	if (!IS_USER_ADDRESS(messagePointer)) {
 		TRACE(("xsi_msgrcv: message address is not valid\n"));
@@ -740,7 +740,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 					"waiting on message queue %d\n", (int)thread_get_current_thread_id(),
 					messageQueueID));
 				messageQueue->Dequeue(&queueEntry);
-				return EINTR;
+				return B_INTERRUPTED;
 			} else {
 				messageQueueLocker.Lock();
 				messageQueueHashLocker.Unlock();
@@ -789,20 +789,20 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 	if (messageQueue == NULL) {
 		TRACE(("xsi_msgsnd: message queue id %d not valid\n",
 			messageQueueID));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	MutexLocker messageQueueLocker(messageQueue->Lock());
 	messageQueueHashLocker.Unlock();
 
 	if (messageSize > MAX_BYTES_PER_QUEUE) {
 		TRACE_ERROR(("xsi_msgsnd: message size is out of range\n"));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	if (!messageQueue->HasPermission()) {
 		TRACE(("xsi_msgsnd: calling process has not permission "
 			"on message queue id %d, key %d\n", messageQueueID,
 			(int)messageQueue->IpcKey()));
-		return EACCES;
+		return B_PERMISSION_DENIED;
 	}
 	if (!IS_USER_ADDRESS(messagePointer)) {
 		TRACE(("xsi_msgsnd: message address is not valid\n"));
@@ -856,7 +856,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 				messageQueue->Dequeue(&queueEntry);
 				delete message;
 				notSent = false;
-				result = EINTR;
+				result = B_INTERRUPTED;
 			} else {
 				messageQueueLocker.Lock();
 				messageQueueHashLocker.Unlock();
@@ -865,7 +865,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 			// We did not send the message and we can't wait
 			delete message;
 			notSent = false;
-			result = EAGAIN;
+			result = B_WOULD_BLOCK;
 		} else {
 			// Message delivered correctly
 			TRACE(("xsi_msgsnd: message sent correctly\n"));

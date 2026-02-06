@@ -205,10 +205,10 @@ public:
 		NamedSem* sem = fNamedSemaphores.Lookup(name);
 		if (sem != NULL) {
 			if ((openFlags & O_EXCL) != 0)
-				return EEXIST;
+				return B_FILE_EXISTS;
 
 			if (!sem->HasPermissions())
-				return EACCES;
+				return B_PERMISSION_DENIED;
 
 			sem->AcquireReference();
 			_sem = sem;
@@ -217,11 +217,11 @@ public:
 		}
 
 		if ((openFlags & O_CREAT) == 0)
-			return ENOENT;
+			return B_ENTRY_NOT_FOUND;
 
 		// does not exist yet -- create
 		if (fSemaphoreCount >= MAX_POSIX_SEMS)
-			return ENOSPC;
+			return B_DEVICE_FULL;
 
 		sem = new(std::nothrow) NamedSem;
 		if (sem == NULL)
@@ -255,10 +255,10 @@ public:
 
 		NamedSem* sem = fNamedSemaphores.Lookup(name);
 		if (sem == NULL)
-			return ENOENT;
+			return B_ENTRY_NOT_FOUND;
 
 		if (!sem->HasPermissions())
-			return EACCES;
+			return B_PERMISSION_DENIED;
 
 		fNamedSemaphores.Remove(sem);
 		sem->ReleaseReference();
@@ -458,7 +458,7 @@ struct realtime_sem_context {
 			sem->ReleaseReference();
 			if (_created)
 				sSemTable.UnlinkNamedSem(name);
-			return ENOSPC;
+			return B_DEVICE_FULL;
 		}
 
 		teamSem = new(std::nothrow) TeamSemInfo(sem, userSem);
@@ -633,7 +633,7 @@ copy_sem_name_to_kernel(const char* userName, KPath& buffer, char*& name)
 	if (actualLength < 0)
 		return B_BAD_ADDRESS;
 	if ((size_t)actualLength >= buffer.BufferSize())
-		return ENAMETOOLONG;
+		return B_NAME_TOO_LONG;
 
 	return B_OK;
 }

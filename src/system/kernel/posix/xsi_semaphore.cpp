@@ -694,7 +694,7 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 			// The IPC key exist and it already has a semaphore
 			if ((flags & IPC_CREAT) && (flags & IPC_EXCL)) {
 				TRACE(("xsi_semget: key %d already exist\n", (int)key));
-				return EEXIST;
+				return B_FILE_EXISTS;
 			}
 			int semaphoreSetID = ipcKey->SemaphoreSetID();
 
@@ -703,20 +703,20 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 			if (semaphoreSet == NULL) {
 				TRACE(("xsi_semget: calling process has no semaphore, "
 					"key %d\n", (int)key));
-				return EINVAL;
+				return B_BAD_VALUE;
 			}
 			if (!semaphoreSet->HasPermission()) {
 				TRACE(("xsi_semget: calling process has no permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)key));
-				return EACCES;
+				return B_PERMISSION_DENIED;
 			}
 			if (numberOfSemaphores > semaphoreSet->NumberOfSemaphores()
 					&& numberOfSemaphores != 0) {
 				TRACE(("xsi_semget: numberOfSemaphores greater than the "
 					"one associated with semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)key));
-				return EINVAL;
+				return B_BAD_VALUE;
 			}
 
 			return semaphoreSet->ID();
@@ -726,13 +726,13 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 		if (!(flags & IPC_CREAT)) {
 			TRACE(("xsi_semget: key %d does not exist, but the "
 				"caller did not ask for creation\n",(int)key));
-			return ENOENT;
+			return B_ENTRY_NOT_FOUND;
 		}
 		ipcKey = new(std::nothrow) Ipc(key);
 		if (ipcKey == NULL) {
 			TRACE_ERROR(("xsi_semget: failed to create new Ipc object "
 				"for key %d\n",	(int)key));
-			return ENOMEM;
+			return B_NO_MEMORY;
 		}
 	}
 
@@ -741,14 +741,14 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 			|| numberOfSemaphores >= MAX_XSI_SEMS_PER_TEAM) {
 		TRACE_ERROR(("xsi_semget: numberOfSemaphores out of range\n"));
 		delete ipcKey;
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	if (sXsiSemaphoreCount >= MAX_XSI_SEMAPHORE
 			|| sXsiSemaphoreSetCount >= MAX_XSI_SEMAPHORE_SET) {
 		TRACE_ERROR(("xsi_semget: reached limit of maximum number of "
 			"semaphores allowed\n"));
 		delete ipcKey;
-		return ENOSPC;
+		return B_DEVICE_FULL;
 	}
 
 	semaphoreSet = new(std::nothrow) XsiSemaphoreSet(numberOfSemaphores, flags);
@@ -757,7 +757,7 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 			"semaphore set\n"));
 		delete semaphoreSet;
 		delete ipcKey;
-		return ENOMEM;
+		return B_NO_MEMORY;
 	}
 
 	atomic_add(&sXsiSemaphoreCount, numberOfSemaphores);
@@ -800,13 +800,13 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 	if (semaphoreSet == NULL) {
 		TRACE(("xsi_semctl: semaphore set id %d not valid\n",
 			semaphoreID));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	if (semaphoreNumber < 0
 		|| semaphoreNumber > semaphoreSet->NumberOfSemaphores()) {
 		TRACE(("xsi_semctl: semaphore number %d not valid for "
 			"semaphore %d\n", semaphoreNumber, semaphoreID));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 
 	// Lock the semaphore set itself and release both the semaphore
@@ -828,7 +828,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else
 				result = semaphore->Value();
 			break;
@@ -839,11 +839,11 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else {
 				if (args.val > USHRT_MAX) {
 					TRACE(("xsi_semctl: value %d out of range\n", args.val));
-					result = ERANGE;
+					result = B_RESULT_NOT_REPRESENTABLE;
 				} else {
 					semaphore->SetValue(args.val);
 					semaphoreSet->ClearUndo(semaphoreNumber);
@@ -857,7 +857,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else
 				result = semaphore->LastPid();
 			break;
@@ -868,7 +868,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else
 				result = semaphore->ThreadsWaitingToIncrease();
 			break;
@@ -879,7 +879,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else
 				result = semaphore->ThreadsWaitingToBeZero();
 			break;
@@ -890,7 +890,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not read "
 					"permission on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else
 				for (int i = 0; i < semaphoreSet->NumberOfSemaphores(); i++) {
 					semaphore = semaphoreSet->Semaphore(i);
@@ -910,7 +910,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else {
 				bool doClear = true;
 				for (int i = 0; i < semaphoreSet->NumberOfSemaphores(); i++) {
@@ -936,7 +936,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not read "
 					"permission on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_PERMISSION_DENIED;
 			} else {
 				struct semid_ds sem;
 				sem.sem_perm = semaphoreSet->IpcPermission();
@@ -957,7 +957,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not "
 					"permission on semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)semaphoreSet->IpcKey()));
-				result = EACCES;
+				result = B_NOT_ALLOWED;
 			} else {
 				struct semid_ds sem;
 				if (user_memcpy(&sem, args.buf, sizeof(struct semid_ds))
@@ -980,7 +980,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 				TRACE(("xsi_semctl: calling process has not "
 					"permission on semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)semaphoreSet->IpcKey()));
-				return EACCES;
+				return B_NOT_ALLOWED;
 			}
 			key_t key = semaphoreSet->IpcKey();
 			Ipc *ipcKey = NULL;
@@ -1010,7 +1010,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 
 		default:
 			TRACE_ERROR(("xsi_semctl: command %d not valid\n", command));
-			result = EINVAL;
+			result = B_BAD_VALUE;
 	}
 
 	return result;
@@ -1029,7 +1029,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 	}
 	if (numOps < 0 || numOps >= MAX_XSI_SEMS_PER_TEAM) {
 		TRACE(("xsi_semop: numOps out of range\n"));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 
 	MutexLocker setHashLocker(sXsiSemaphoreSetLock);
@@ -1037,7 +1037,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 	if (semaphoreSet == NULL) {
 		TRACE(("xsi_semop: semaphore set id %d not valid\n",
 			semaphoreID));
-		return EINVAL;
+		return B_BAD_VALUE;
 	}
 	MutexLocker setLocker(semaphoreSet->Lock());
 	setHashLocker.Unlock();
@@ -1073,7 +1073,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 			if (semaphoreNumber >= numberOfSemaphores) {
 				TRACE(("xsi_semop: %" B_PRIu32 " invalid semaphore number"
 					"\n", i));
-				result = EINVAL;
+				result = B_BAD_VALUE;
 				break;
 			}
 			semaphore = semaphoreSet->Semaphore(semaphoreNumber);
@@ -1084,7 +1084,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 			if (operation < 0) {
 				if (semaphore->Add(operation)) {
 					if (operations[i].sem_flg & IPC_NOWAIT)
-						result = EAGAIN;
+						result = B_WOULD_BLOCK;
 					else
 						goToSleep = true;
 					break;
@@ -1093,7 +1093,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 				if (value == 0)
 					continue;
 				else if (operations[i].sem_flg & IPC_NOWAIT) {
-					result = EAGAIN;
+					result = B_WOULD_BLOCK;
 					break;
 				} else {
 					goToSleep = true;
@@ -1154,7 +1154,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 					"waiting on semaphore set id %d\n", (int)thread_get_current_thread_id(),
 					semaphoreID));
 				XsiSemaphore::Dequeue(&queueEntry);
-				result = EINTR;
+				result = B_INTERRUPTED;
 				notDone = false;
 			} else {
 				setLocker.Lock();
@@ -1192,7 +1192,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 								operations[j].sem_op);
 						}
 					}
-					result = ENOSPC;
+					result = B_DEVICE_FULL;
 				}
 			}
 		}
