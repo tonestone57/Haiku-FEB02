@@ -8,6 +8,7 @@
 
 
 #include <StackOrHeapArray.h>
+#include <util/AutoLock.h>
 
 #include "Journal.h"
 
@@ -65,11 +66,13 @@ private:
 class LogEntry : public DoublyLinkedListLinkImpl<LogEntry> {
 public:
 							LogEntry(Journal* journal, uint32 logStart,
-								uint32 length);
+								uint32 length, int32 count);
 							~LogEntry();
 
 			uint32			Start() const { return fStart; }
 			uint32			Length() const { return fLength; }
+
+			int32			DecrementCount() { return atomic_add(&fCount, -1); }
 
 #ifdef BFS_DEBUGGER_COMMANDS
 			void			SetTransactionID(int32 id) { fTransactionID = id; }
@@ -82,6 +85,7 @@ private:
 			Journal*		fJournal;
 			uint32			fStart;
 			uint32			fLength;
+			int32			fCount;
 #ifdef BFS_DEBUGGER_COMMANDS
 			int32			fTransactionID;
 #endif
@@ -167,11 +171,12 @@ add_to_iovec(iovec* vecs, int32& index, int32 max, const void* address,
 //	#pragma mark - LogEntry
 
 
-LogEntry::LogEntry(Journal* journal, uint32 start, uint32 length)
+LogEntry::LogEntry(Journal* journal, uint32 start, uint32 length, int32 count)
 	:
 	fJournal(journal),
 	fStart(start),
-	fLength(length)
+	fLength(length),
+	fCount(count)
 {
 }
 
@@ -401,17 +406,17 @@ RunArrays::MaxArrayLength()
 Journal::Journal(Volume* volume)
 	:
 	fVolume(volume),
-	fOwner(NULL),
 	fLogSize(volume->Log().Length()),
 	fMaxTransactionSize(fLogSize / 2 - 5),
 	fUsed(0),
-	fUnwrittenTransactions(0),
-	fTransactionStartTime(0),
-	fHasSubtransaction(false),
-	fSeparateSubTransactions(false)
+	fPendingTransactionCount(0),
+	fPendingTransactionSize(0)
 {
 	recursive_lock_init(&fLock, "bfs journal");
 	mutex_init(&fEntriesLock, "bfs journal entries");
+	mutex_init(&fTransactionMapLock, "bfs journal transactions");
+
+	fInitStatus = fTransactionMap.Init();
 
 	fLogFlusherSem = create_sem(0, "bfs log flusher");
 	fLogFlusher = spawn_kernel_thread(&Journal::_LogFlusher, "bfs log flusher",
@@ -427,6 +432,7 @@ Journal::~Journal()
 
 	recursive_lock_destroy(&fLock);
 	mutex_destroy(&fEntriesLock);
+	mutex_destroy(&fTransactionMapLock);
 
 	sem_id logFlusher = fLogFlusherSem;
 	fLogFlusherSem = -1;
@@ -438,7 +444,7 @@ Journal::~Journal()
 status_t
 Journal::InitCheck()
 {
-	return B_OK;
+	return fInitStatus;
 }
 
 
@@ -616,22 +622,17 @@ Journal::ReplayLog()
 
 
 size_t
-Journal::CurrentTransactionSize() const
+Journal::TransactionSize(int32 transactionID) const
 {
-	if (_HasSubTransaction()) {
-		return cache_blocks_in_sub_transaction(fVolume->BlockCache(),
-			fTransactionID);
-	}
-
 	return cache_blocks_in_main_transaction(fVolume->BlockCache(),
-		fTransactionID);
+		transactionID);
 }
 
 
 bool
-Journal::CurrentTransactionTooLarge() const
+Journal::TransactionTooLarge(int32 transactionID) const
 {
-	return CurrentTransactionSize() > fLogSize;
+	return TransactionSize(transactionID) > fLogSize;
 }
 
 
@@ -645,6 +646,9 @@ Journal::CurrentTransactionTooLarge() const
 Journal::_TransactionWritten(int32 transactionID, int32 event, void* _logEntry)
 {
 	LogEntry* logEntry = (LogEntry*)_logEntry;
+
+	if (logEntry->DecrementCount() > 1)
+		return;
 
 	PRINT(("Log entry %p has been finished, transaction ID = %" B_PRId32 "\n",
 		logEntry, transactionID));
@@ -714,21 +718,6 @@ Journal::_LogFlusher(void* _journal)
 		if (acquire_sem(journal->fLogFlusherSem) != B_OK)
 			continue;
 
-		recursive_lock_lock(&journal->fLock);
-
-		if (journal->fUnwrittenTransactions == 0) {
-			recursive_lock_unlock(&journal->fLock);
-			continue;
-		}
-
-		bigtime_t elapsed = system_time() - journal->fTransactionStartTime;
-		if (journal->fUnwrittenTransactions < kMaxBatchedTransactions
-			&& elapsed < kMaxTransactionLatency) {
-			recursive_lock_unlock(&journal->fLock);
-			snooze(kMaxTransactionLatency - elapsed);
-		} else
-			recursive_lock_unlock(&journal->fLock);
-
 		journal->_FlushLog(false, false);
 	}
 	return B_OK;
@@ -741,76 +730,64 @@ Journal::_LogFlusher(void* _journal)
 	try to detach an existing sub-transaction.
 */
 status_t
-Journal::_WriteTransactionToLog()
+Journal::_FlushPendingTransactions()
 {
+	if (fPendingTransactionCount == 0)
+		return B_OK;
+
 	// TODO: in case of a failure, we need a backup plan like writing all
 	//	changed blocks back to disk immediately (hello disk corruption!)
 
-	bool detached = false;
-
-	if (_TransactionSize() > fLogSize) {
-		// The current transaction won't fit into the log anymore, try to
-		// detach the current sub-transaction
-		if (_HasSubTransaction() && cache_blocks_in_main_transaction(
-				fVolume->BlockCache(), fTransactionID) < (int32)fLogSize) {
-			detached = true;
-		} else {
-			// We created a transaction larger than one we can write back to
-			// disk - the only option we have (besides risking disk corruption
-			// by writing it back anyway), is to let it fail.
-			dprintf("transaction too large (%d blocks, log size %d)!\n",
-				(int)_TransactionSize(), (int)fLogSize);
-			return B_BUFFER_OVERFLOW;
-		}
-	}
-
-	fHasSubtransaction = false;
-
-	int32 blockShift = fVolume->BlockShift();
-	off_t logOffset = fVolume->ToBlock(fVolume->Log()) << blockShift;
-	off_t logStart = fVolume->LogEnd() % fLogSize;
-	off_t logPosition = logStart;
-	status_t status;
-
-	// create run_array structures for all changed blocks
-
 	RunArrays runArrays(this);
+	status_t status = B_OK;
 
-	off_t blockNumber;
-	long cookie = 0;
-	while (cache_next_block_in_transaction(fVolume->BlockCache(),
-			fTransactionID, detached, &cookie, &blockNumber, NULL,
-			NULL) == B_OK) {
-		status = runArrays.Insert(blockNumber);
-		if (status < B_OK) {
-			FATAL(("filling log entry failed!"));
-			return status;
+	for (int32 i = 0; i < fPendingTransactionCount; i++) {
+		int32 transactionID = fPendingTransactions[i];
+		off_t blockNumber;
+		long cookie = 0;
+		while (cache_next_block_in_transaction(fVolume->BlockCache(),
+				transactionID, false, &cookie, &blockNumber, NULL,
+				NULL) == B_OK) {
+			status = runArrays.Insert(blockNumber);
+			if (status < B_OK) {
+				FATAL(("filling log entry failed!"));
+				// We can't recover easily from this, but we must clear pending count
+				// to avoid infinite loops or memory corruption.
+				for (int32 j = 0; j < fPendingTransactionCount; j++) {
+					cache_abort_transaction(fVolume->BlockCache(),
+						fPendingTransactions[j]);
+				}
+				fPendingTransactionCount = 0;
+				return status;
+			}
 		}
 	}
 
 	if (runArrays.CountBlocks() == 0) {
-		// nothing has changed during this transaction
-		if (detached) {
-			fTransactionID = cache_detach_sub_transaction(fVolume->BlockCache(),
-				fTransactionID, NULL, NULL);
-			fUnwrittenTransactions = 1;
-		} else {
-			cache_end_transaction(fVolume->BlockCache(), fTransactionID, NULL,
-				NULL);
-			fUnwrittenTransactions = 0;
+		// nothing has changed during these transactions
+		for (int32 i = 0; i < fPendingTransactionCount; i++) {
+			cache_end_transaction(fVolume->BlockCache(), fPendingTransactions[i],
+				NULL, NULL);
 		}
+		fPendingTransactionCount = 0;
 		return B_OK;
 	}
 
 	// If necessary, flush the log, so that we have enough space for this
 	// transaction
 	if (runArrays.LogEntryLength() > FreeLogBlocks()) {
-		cache_sync_transaction(fVolume->BlockCache(), fTransactionID);
+		// we just flush the first pending transaction to free some space
+		cache_sync_transaction(fVolume->BlockCache(), fPendingTransactions[0]);
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
 			panic("no space in log after sync (%ld for %ld blocks)!",
 				(long)FreeLogBlocks(), (long)runArrays.LogEntryLength());
 		}
 	}
+
+	int32 blockShift = fVolume->BlockShift();
+	off_t logOffset = fVolume->ToBlock(fVolume->Log()) << blockShift;
+	off_t logStart = fVolume->LogEnd() % fLogSize;
+	off_t logPosition = logStart;
 
 	// Write log entries to disk
 
@@ -884,14 +861,14 @@ Journal::_WriteTransactionToLog()
 	}
 
 	LogEntry* logEntry = new(std::nothrow) LogEntry(this, fVolume->LogEnd(),
-		runArrays.LogEntryLength());
+		runArrays.LogEntryLength(), fPendingTransactionCount);
 	if (logEntry == NULL) {
 		FATAL(("no memory to allocate log entries!"));
 		return B_NO_MEMORY;
 	}
 
 #ifdef BFS_DEBUGGER_COMMANDS
-	logEntry->SetTransactionID(fTransactionID);
+	logEntry->SetTransactionID(fPendingTransactions[fPendingTransactionCount - 1]);
 #endif
 
 	// Update the log end pointer in the superblock
@@ -917,24 +894,13 @@ Journal::_WriteTransactionToLog()
 	fUsed += logEntry->Length();
 	mutex_unlock(&fEntriesLock);
 
-	if (detached) {
-		fTransactionID = cache_detach_sub_transaction(fVolume->BlockCache(),
-			fTransactionID, _TransactionWritten, logEntry);
-		fUnwrittenTransactions = 1;
-
-		if (status == B_OK && _TransactionSize() > fLogSize) {
-			// If the transaction is too large after writing, there is no way to
-			// recover, so let this transaction fail.
-			dprintf("transaction too large (%d blocks, log size %d)!\n",
-				(int)_TransactionSize(), (int)fLogSize);
-			return B_BUFFER_OVERFLOW;
-		}
-	} else {
-		cache_end_transaction(fVolume->BlockCache(), fTransactionID,
+	for (int32 i = 0; i < fPendingTransactionCount; i++) {
+		cache_end_transaction(fVolume->BlockCache(), fPendingTransactions[i],
 			_TransactionWritten, logEntry);
-		fUnwrittenTransactions = 0;
 	}
 
+	fPendingTransactionCount = 0;
+	fPendingTransactionSize = 0;
 	return status;
 }
 
@@ -951,17 +917,10 @@ Journal::_FlushLog(bool canWait, bool flushBlocks, bool alreadyLocked)
 	if (status != B_OK)
 		return status;
 
-	int32 allowedLocks = alreadyLocked ? 2 : 1;
-	if (recursive_lock_get_recursion(&fLock) > allowedLocks) {
-		// whoa, FlushLogAndBlocks() was called from inside a transaction
-		recursive_lock_unlock(&fLock);
-		return B_OK;
-	}
-
 	// write the current log entry to disk
 
-	if (fUnwrittenTransactions != 0) {
-		status = _WriteTransactionToLog();
+	if (fPendingTransactionCount > 0) {
+		status = _FlushPendingTransactions();
 		if (status < B_OK)
 			FATAL(("writing current log entry failed: %s\n", strerror(status)));
 	}
@@ -991,7 +950,7 @@ Journal::FlushLogAndBlocks()
 status_t
 Journal::FlushLogAndLockJournal()
 {
-	status_t status = Lock(NULL, true);
+	status_t status = recursive_lock_lock(&fLock);
 	if (status != B_OK)
 		return status;
 
@@ -1004,95 +963,116 @@ Journal::FlushLogAndLockJournal()
 }
 
 
-status_t
-Journal::Lock(Transaction* owner, bool separateSubTransactions)
+int32
+Journal::StartTransaction(Transaction* owner)
 {
-	status_t status = recursive_lock_lock(&fLock);
-	if (status != B_OK)
-		return status;
+	MutexLocker locker(fTransactionMapLock);
 
-	if (!fSeparateSubTransactions && recursive_lock_get_recursion(&fLock) > 1) {
-		// we'll just use the current transaction again
-		return B_OK;
+	TransactionInfo* info = fTransactionMap.Lookup(find_thread(NULL));
+	if (info != NULL) {
+		// Nested transaction
+		info->nesting++;
+		return info->transactionID;
 	}
 
-	if (separateSubTransactions)
-		fSeparateSubTransactions = true;
+	int32 transactionID = cache_start_transaction(fVolume->BlockCache());
+	if (transactionID < B_OK)
+		return transactionID;
 
-	if (owner != NULL)
-		owner->SetParent(fOwner);
-
-	fOwner = owner;
-
-	// TODO: we need a way to find out how big the current transaction is;
-	//	we need to be able to either detach the latest sub transaction on
-	//	demand, as well as having some kind of fall back plan in case the
-	//	sub transaction itself grows bigger than the log.
-	//	For that, it would be nice to have some call-back interface in the
-	//	cache transaction API...
-
-	if (fOwner != NULL) {
-		if (fUnwrittenTransactions > 0) {
-			// start a sub transaction
-			cache_start_sub_transaction(fVolume->BlockCache(), fTransactionID);
-			fHasSubtransaction = true;
-		} else
-			fTransactionID = cache_start_transaction(fVolume->BlockCache());
-
-		if (fTransactionID < B_OK) {
-			recursive_lock_unlock(&fLock);
-			return fTransactionID;
-		}
-
-		cache_add_transaction_listener(fVolume->BlockCache(), fTransactionID,
-			TRANSACTION_IDLE, _TransactionIdle, this);
+	info = new(std::nothrow) TransactionInfo;
+	if (info == NULL) {
+		cache_abort_transaction(fVolume->BlockCache(), transactionID);
+		return B_NO_MEMORY;
 	}
-	return B_OK;
+
+	info->thread = find_thread(NULL);
+	info->transactionID = transactionID;
+	info->nesting = 1;
+	info->failed = false;
+	info->owner = owner;
+	fTransactionMap.Insert(info);
+
+	cache_add_transaction_listener(fVolume->BlockCache(), transactionID,
+		TRANSACTION_IDLE, _TransactionIdle, this);
+
+	return transactionID;
 }
 
 
 status_t
-Journal::Unlock(Transaction* owner, bool success)
+Journal::CommitTransaction(Transaction* owner, bool success)
 {
-	if (fSeparateSubTransactions || recursive_lock_get_recursion(&fLock) == 1) {
-		// we only end the transaction if we would really unlock it
-		// TODO: what about failing transactions that do not unlock?
-		// (they must make the parent fail, too)
-		if (owner != NULL) {
-			status_t status = _TransactionDone(success);
-			if (status != B_OK)
-				return status;
+	MutexLocker locker(fTransactionMapLock);
 
-			// Unlocking the inodes might trigger new transactions, but we
-			// cannot reuse the current one anymore, as this one is already
-			// closed.
-			bool separateSubTransactions = fSeparateSubTransactions;
-			fSeparateSubTransactions = true;
-			owner->NotifyListeners(success);
-			fSeparateSubTransactions = separateSubTransactions;
+	TransactionInfo* info = fTransactionMap.Lookup(find_thread(NULL));
+	if (info == NULL) {
+		panic("CommitTransaction: no transaction for thread %" B_PRId32,
+			find_thread(NULL));
+		return B_BAD_VALUE;
+	}
 
-			fOwner = owner->Parent();
-		} else
-			fOwner = NULL;
+	if (!success)
+		info->failed = true;
 
-		fTimestamp = system_time();
+	if (--info->nesting > 0)
+		return B_OK;
 
-		if (fSeparateSubTransactions
-			&& recursive_lock_get_recursion(&fLock) == 1)
-			fSeparateSubTransactions = false;
-	} else
-		owner->MoveListenersTo(fOwner);
+	fTransactionMap.Remove(info);
+	int32 transactionID = info->transactionID;
+	bool failed = info->failed;
 
-	recursive_lock_unlock(&fLock);
+	// Move listeners from info to the owner transaction so they can be notified
+	while (TransactionListener* listener = info->listeners.RemoveHead()) {
+		owner->fListeners.Add(listener);
+	}
+
+	delete info;
+
+	locker.Unlock();
+
+	status_t status = _TransactionDone(transactionID, !failed);
+	if (status != B_OK)
+		return status;
+
+	owner->NotifyListeners(!failed);
+
 	return B_OK;
+}
+
+
+void
+Journal::AddTransactionListener(Transaction* owner, TransactionListener* listener)
+{
+	MutexLocker locker(fTransactionMapLock);
+
+	TransactionInfo* info = fTransactionMap.Lookup(find_thread(NULL));
+	if (info != NULL) {
+		info->listeners.Add(listener);
+	} else {
+		// Should not happen if StartTransaction was called
+		panic("AddTransactionListener: no transaction for thread");
+	}
+}
+
+
+Transaction*
+Journal::CurrentTransaction()
+{
+	MutexLocker locker(fTransactionMapLock);
+
+	TransactionInfo* info = fTransactionMap.Lookup(find_thread(NULL));
+	if (info != NULL)
+		return info->owner;
+
+	return NULL;
 }
 
 
 uint32
-Journal::_TransactionSize() const
+Journal::_TransactionSize(int32 transactionID) const
 {
 	int32 count = cache_blocks_in_transaction(fVolume->BlockCache(),
-		fTransactionID);
+		transactionID);
 	if (count <= 0)
 		return 0;
 
@@ -1104,40 +1084,45 @@ Journal::_TransactionSize() const
 
 
 status_t
-Journal::_TransactionDone(bool success)
+Journal::_TransactionDone(int32 transactionID, bool success)
 {
 	if (!success) {
-		if (_HasSubTransaction()) {
-			cache_abort_sub_transaction(fVolume->BlockCache(), fTransactionID);
-			// We can continue to use the parent transaction afterwards
-		} else {
-			cache_abort_transaction(fVolume->BlockCache(), fTransactionID);
-			fUnwrittenTransactions = 0;
-		}
-
+		cache_abort_transaction(fVolume->BlockCache(), transactionID);
 		return B_OK;
 	}
 
-	// Up to a maximum size, we will just batch several
-	// transactions together to improve speed
-	uint32 size = _TransactionSize();
-	if (size < fMaxTransactionSize
-		&& fUnwrittenTransactions < kMaxBatchedTransactions) {
-		// Flush the log from time to time, so that we have enough space
-		// for this transaction
-		if (size > FreeLogBlocks())
-			cache_sync_transaction(fVolume->BlockCache(), fTransactionID);
+	RecursiveLocker _(fLock);
 
-		if (fUnwrittenTransactions == 0) {
-			fTransactionStartTime = system_time();
-			release_sem(fLogFlusherSem);
-		}
+	fTimestamp = system_time();
 
-		fUnwrittenTransactions++;
-		return B_OK;
+	uint32 transactionSize = _TransactionSize(transactionID);
+	if (transactionSize > fLogSize) {
+		// This transaction is too large to fit into the log
+		dprintf("transaction too large (%d blocks, log size %d)!\n",
+			(int)transactionSize, (int)fLogSize);
+		cache_abort_transaction(fVolume->BlockCache(), transactionID);
+		return B_BUFFER_OVERFLOW;
 	}
 
-	return _WriteTransactionToLog();
+	if (fPendingTransactionCount >= kMaxPendingTransactions
+		|| fPendingTransactionSize + transactionSize > fMaxTransactionSize) {
+		status_t status = _FlushPendingTransactions();
+		if (status != B_OK) {
+			cache_abort_transaction(fVolume->BlockCache(), transactionID);
+			return status;
+		}
+	}
+
+	fPendingTransactions[fPendingTransactionCount++] = transactionID;
+	fPendingTransactionSize += transactionSize;
+
+	if (transactionSize >= fMaxTransactionSize) {
+		status_t status = _FlushPendingTransactions();
+		if (status != B_OK)
+			return status;
+	}
+
+	return B_OK;
 }
 
 
@@ -1201,7 +1186,7 @@ Journal::MoveLog(block_run newLog)
 	if (status != B_OK) {
 		fVolume->SuperBlock().log_blocks = oldLog;
 
-		Unlock(NULL, true);
+		recursive_lock_unlock(&fLock);
 
 		// if we had to allocate some blocks, try to free them
 		if (!allocatedRun.IsZero()) {
@@ -1221,7 +1206,7 @@ Journal::MoveLog(block_run newLog)
 	fLogSize = newLog.Length();
 	fMaxTransactionSize = fLogSize / 2 - 5;
 
-	Unlock(NULL, true);
+	recursive_lock_unlock(&fLock);
 	volumeLock.Unlock();
 
 	// at this point, the log is moved and functional in its new location
@@ -1258,15 +1243,10 @@ Journal::Dump()
 	kprintf("Journal %p\n", this);
 	kprintf("  log start:            %" B_PRId32 "\n", fVolume->LogStart());
 	kprintf("  log end:              %" B_PRId32 "\n", fVolume->LogEnd());
-	kprintf("  owner:                %p\n", fOwner);
 	kprintf("  log size:             %" B_PRIu32 "\n", fLogSize);
 	kprintf("  max transaction size: %" B_PRIu32 "\n", fMaxTransactionSize);
 	kprintf("  used:                 %" B_PRIu32 "\n", fUsed);
-	kprintf("  unwritten:            %" B_PRId32 "\n", fUnwrittenTransactions);
 	kprintf("  timestamp:            %" B_PRId64 "\n", fTimestamp);
-	kprintf("  transaction ID:       %" B_PRId32 "\n", fTransactionID);
-	kprintf("  has subtransaction:   %d\n", fHasSubtransaction);
-	kprintf("  separate sub-trans.:  %d\n", fSeparateSubTransactions);
 	kprintf("entries:\n");
 	kprintf("  address        id  start length\n");
 
@@ -1324,8 +1304,11 @@ Transaction::Start(Volume* volume, off_t refBlock)
 		return B_OK;
 
 	fJournal = volume->GetJournal(refBlock);
-	if (fJournal != NULL && fJournal->Lock(this, false) == B_OK)
-		return B_OK;
+	if (fJournal != NULL) {
+		fTransactionID = fJournal->StartTransaction(this);
+		if (fTransactionID >= B_OK)
+			return B_OK;
+	}
 
 	fJournal = NULL;
 	return B_ERROR;
@@ -1338,7 +1321,7 @@ Transaction::AddListener(TransactionListener* listener)
 	if (fJournal == NULL)
 		panic("Transaction is not running!");
 
-	fListeners.Add(listener);
+	fJournal->AddTransactionListener(this, listener);
 }
 
 
@@ -1359,17 +1342,5 @@ Transaction::NotifyListeners(bool success)
 	while (TransactionListener* listener = fListeners.RemoveHead()) {
 		listener->TransactionDone(success);
 		listener->RemovedFromTransaction();
-	}
-}
-
-
-/*!	Move the inodes into the parent transaction. This is needed only to make
-	sure they will still be reverted in case the transaction is aborted.
-*/
-void
-Transaction::MoveListenersTo(Transaction* transaction)
-{
-	while (TransactionListener* listener = fListeners.RemoveHead()) {
-		transaction->fListeners.Add(listener);
 	}
 }

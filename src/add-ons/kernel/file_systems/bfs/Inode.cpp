@@ -2023,20 +2023,20 @@ Inode::_GrowStream(Transaction& transaction, off_t size)
 		&& fVolume->FreeBlocks() > 128) {
 		off_t roundTo = 0;
 		if (IsFile()) {
+			off_t heuristicSize = max_c(size, Size());
+
 			// Request preallocated blocks depending on the file size and growth
-			// Use the logical size here to support delayed allocation better
-			off_t fileSize = max_c(size, Size());
-			if (fileSize < 1 * 1024 * 1024 && bytes < 512 * 1024) {
+			if (heuristicSize < 1 * 1024 * 1024 && bytes < 512 * 1024) {
 				// Preallocate 64 KB for file sizes <1 MB and grow rates <512 KB
 				roundTo = 65536 >> fVolume->BlockShift();
-			} else if (fileSize < 32 * 1024 * 1024 && bytes <= 1 * 1024 * 1024) {
+			} else if (heuristicSize < 32 * 1024 * 1024 && bytes <= 1 * 1024 * 1024) {
 				// Preallocate 512 KB for file sizes between 1 MB and 32 MB, and
 				// grow rates smaller than 1 MB
 				roundTo = (512 * 1024) >> fVolume->BlockShift();
 			} else {
 				// Preallocate 1/16 of the file size (ie. 4 MB for 64 MB,
 				// 64 MB for 1 GB)
-				roundTo = fileSize >> (fVolume->BlockShift() + 4);
+				roundTo = heuristicSize >> (fVolume->BlockShift() + 4);
 			}
 		} else if (IsIndex()) {
 			// Always preallocate 64 KB for index directories

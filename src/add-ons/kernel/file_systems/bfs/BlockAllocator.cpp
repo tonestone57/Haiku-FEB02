@@ -207,14 +207,10 @@ public:
 	uint32 NumBitmapBlocks() const { return fNumBitmapBlocks; }
 	int32 Start() const { return fStart; }
 
-	inline bool IsBlockFull(uint32 block) const;
-	inline void SetBlockFull(uint32 block, bool full);
-
 private:
 	friend class BlockAllocator;
 
 	recursive_lock fLock;
-	uint32*	fBlockBitmap;
 	uint32	fNumBits;
 	uint32	fNumBitmapBlocks;
 	int32	fStart;
@@ -374,7 +370,6 @@ AllocationBlock::Free(uint16 start, uint16 numBlocks)
 */
 AllocationGroup::AllocationGroup()
 	:
-	fBlockBitmap(NULL),
 	fFirstFree(-1),
 	fFreeBits(0),
 	fLargestValid(false)
@@ -386,30 +381,6 @@ AllocationGroup::AllocationGroup()
 AllocationGroup::~AllocationGroup()
 {
 	recursive_lock_destroy(&fLock);
-	delete[] fBlockBitmap;
-}
-
-
-inline bool
-AllocationGroup::IsBlockFull(uint32 block) const
-{
-	if (fBlockBitmap == NULL)
-		return false;
-
-	return (fBlockBitmap[block / 32] & (1UL << (block % 32))) != 0;
-}
-
-
-inline void
-AllocationGroup::SetBlockFull(uint32 block, bool full)
-{
-	if (fBlockBitmap == NULL)
-		return;
-
-	if (full)
-		fBlockBitmap[block / 32] |= 1UL << (block % 32);
-	else
-		fBlockBitmap[block / 32] &= ~(1UL << (block % 32));
 }
 
 
@@ -493,9 +464,6 @@ AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 
 		cached.Allocate(start, numBlocks);
 
-		if (cached.NextFree(0) >= cached.NumBlockBits())
-			SetBlockFull(block, true);
-
 		length -= numBlocks;
 		start = 0;
 		block++;
@@ -556,8 +524,6 @@ AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 			freeLength = cached.NumBlockBits() - start;
 
 		cached.Free(start, freeLength);
-
-		SetBlockFull(block, false);
 
 		length -= freeLength;
 		start = 0;
@@ -663,12 +629,6 @@ BlockAllocator::InitializeAndClearBitmap(Transaction& transaction)
 		fGroups[i].fFreeBits = fGroups[i].fLargestLength = fGroups[i].fNumBits;
 		fGroups[i].fLargestValid = true;
 
-		// allocate the summary bitmap
-		uint32 summarySize = (fGroups[i].NumBitmapBlocks() + 31) / 32;
-		fGroups[i].fBlockBitmap = new(std::nothrow) uint32[summarySize];
-		if (fGroups[i].fBlockBitmap != NULL)
-			memset(fGroups[i].fBlockBitmap, 0, summarySize * sizeof(uint32));
-
 		offset += fBlocksPerGroup;
 	}
 	free(buffer);
@@ -752,35 +712,10 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 		}
 		groups[i].fStart = offset;
 
-		int32 numBits = groups[i].fNumBits;
-		int32 count = (numBits + 31) / 32;
-
-		// allocate the summary bitmap
-		uint32 summarySize = (groups[i].NumBitmapBlocks() + 31) / 32;
-		groups[i].fBlockBitmap = new(std::nothrow) uint32[summarySize];
-		if (groups[i].fBlockBitmap != NULL)
-			memset(groups[i].fBlockBitmap, 0, summarySize * sizeof(uint32));
-
-		// populate the summary bitmap
-		if (groups[i].fBlockBitmap != NULL) {
-			uint32 intsPerBlock = volume->BlockSize() / 4;
-			uint32 numBitmapBlocks = groups[i].NumBitmapBlocks();
-			int32 k = 0;
-
-			for (uint32 block = 0; block < numBitmapBlocks; block++) {
-				bool full = true;
-				for (uint32 j = 0; j < intsPerBlock && k < count; j++, k++) {
-					if (buffer[k] != 0xffffffff)
-						full = false;
-				}
-				if (full)
-					groups[i].SetBlockFull(block, true);
-			}
-		}
-
 		// finds all free ranges in this allocation group
 		int32 start = -1, range = 0;
-		int32 bit = 0;
+		int32 numBits = groups[i].fNumBits, bit = 0;
+		int32 count = (numBits + 31) / 32;
 
 		for (int32 k = 0; k < count; k++) {
 			for (int32 j = 0; j < 32 && bit < numBits; j++, bit++) {
@@ -1012,9 +947,6 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 			lastBlockEndBit = bitsPerFullBlock;
 
 		for (; block <= lastBlock; block++) {
-			if (group.IsBlockFull(block))
-				continue;
-
 			if (cached.SetTo(group, block) < B_OK)
 				RETURN_ERROR(B_ERROR);
 
