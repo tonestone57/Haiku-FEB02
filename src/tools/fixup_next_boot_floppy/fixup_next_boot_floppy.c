@@ -48,6 +48,11 @@ int main(int argc, char **argv)
 	int numLabels = 1; // sizeof(labelOffsets) / sizeof(int);
 	uint32_t bootBlockStart = 0x8; // usually 0x20
 
+	if (argc < 2) {
+		fprintf(stderr, "usage: %s <file>\n", argv[0]);
+		return 1;
+	}
+
 	struct disk_label disklabel = {
 		H2B32(DL_V3),
 		H2B32(0),
@@ -123,8 +128,16 @@ int main(int argc, char **argv)
 		/* also write copies elsewhere, note we don't update the checksum */
 		disklabel.dl_label_blkno = H2B32(labelOffsets[i]);
 		/* oddly this field seems to use 512 bytes sectors */
-		lseek(fd, labelOffsets[i] * 0x200LL, SEEK_SET);
-		write(fd, &disklabel, DL_SIZE);
+		if (lseek(fd, labelOffsets[i] * 0x200LL, SEEK_SET) == -1) {
+			perror("lseek");
+			close(fd);
+			return 1;
+		}
+		if (write(fd, &disklabel, DL_SIZE) < (ssize_t)DL_SIZE) {
+			perror("write");
+			close(fd);
+			return 1;
+		}
 	}
 
 	// TODO: patch the bootblock text segment to include the tgz
