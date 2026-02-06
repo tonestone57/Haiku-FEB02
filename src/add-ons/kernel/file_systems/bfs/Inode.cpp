@@ -1883,18 +1883,6 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 				runs[last].length = HOST_ENDIAN_TO_BFS_INT16(
 					runs[last].Length() + run.Length());
 				merged = true;
-			} else if (free == 0 && i > 0) {
-				// Check if we can merge with the last run of the previous block
-				CachedBlock prevCached(fVolume);
-				if (prevCached.SetToWritable(transaction, block + i - 1) == B_OK) {
-					block_run* prevRuns = (block_run*)prevCached.Block();
-					int32 prevLast = numberOfRuns - 1;
-					if (prevRuns[prevLast].MergeableWith(run)) {
-						prevRuns[prevLast].length = HOST_ENDIAN_TO_BFS_INT16(
-							prevRuns[prevLast].Length() + run.Length());
-						merged = true;
-					}
-				}
 			}
 
 			if (!merged)
