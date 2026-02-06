@@ -172,10 +172,6 @@ PulseApp::MessageReceived(BMessage* message)
 			message->FindMessenger("settingsListener", &from);
 
 
-			if (fPrefsWindow != NULL) {
-				fPrefsWindow->Activate(true);
-				break;
-			}
 			// If the window is already open, bring it to the front
 			if (fPrefsWindow != NULL) {
 				fPrefsWindow->Activate(true);
@@ -298,12 +294,10 @@ bool
 LoadInDeskbar()
 {
 	PulseApp *pulseapp = (PulseApp *)be_app;
-	BDeskbar *deskbar = new BDeskbar();
+	BDeskbar deskbar;
 	// Don't allow two copies in the Deskbar at once
-	if (deskbar->HasItem("DeskbarPulseView")) {
-		delete deskbar;
+	if (deskbar.HasItem("DeskbarPulseView"))
 		return false;
-	}
 
 	// Must be 16 pixels high, the width is retrieved from the Prefs class
 	int width = pulseapp->fPrefs->deskbar_icon_width;
@@ -313,12 +307,11 @@ LoadInDeskbar()
 		width = min_width;
 	}
 
-	float height = deskbar->MaxItemHeight();
+	float height = deskbar.MaxItemHeight();
 	BRect rect(0, 0, width - 1, height - 1);
 	DeskbarPulseView *replicant = new DeskbarPulseView(rect);
-	status_t err = deskbar->AddItem(replicant);
+	status_t err = deskbar.AddItem(replicant);
 	delete replicant;
-	delete deskbar;
 	if (err != B_OK) {
 		BString message;
 		snprintf(message.LockBuffer(512), 512,
