@@ -27,8 +27,8 @@ if len(sys.argv) != 4:
 		+ "and a repo.info.template file (using $ARCH$)")
 	sys.exit(1)
 
-if subprocess.run(['package_repo'], stdin=subprocess.DEVNULL,
-		stderr=subprocess.PIPE).returncode != 1:
+if subprocess.run(['package_repo'], None, None, None,
+		subprocess.DEVNULL, subprocess.PIPE).returncode != 1:
 	print("package_repo command does not seem to exist.")
 	sys.exit(1)
 
@@ -132,11 +132,10 @@ packageFiles.sort()
 with open(repodir + 'package.list', 'w') as pkgl:
 	pkgl.write("\n".join(packageFiles))
 
-if subprocess.run(['package_repo', 'create', 'repo.info'] + packageFiles, cwd=repodir).returncode != 0:
+if os.system('cd ' + repodir + ' && package_repo create repo.info ' + " ".join(packageFiles)) != 0:
 	print("failed to create package repo.")
 	sys.exit(1)
 
-with open(repodir + 'repo.sha256', 'w') as f:
-	if subprocess.run(['sha256sum', 'repo'], cwd=repodir, stdout=f).returncode != 0:
-		print("failed to checksum package repo.")
-		sys.exit(1)
+if os.system('cd ' + repodir + ' && sha256sum repo >repo.sha256') != 0:
+	print("failed to checksum package repo.")
+	sys.exit(1)

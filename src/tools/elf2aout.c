@@ -190,7 +190,7 @@ elf2aout32(void *v, int fd)
 	phoff = xe32toh(e->e_phoff);
 	phnum = xe16toh(e->e_phnum);
 	p = (Elf32_Phdr *)((char *)e + phoff);
-	memset(&a, 0, sizeof(a));
+	bzero(&a, sizeof(a));
 	for (i = 0; i < phnum; i++) {
 		type = xe32toh(p[i].p_type);
 		switch (type) {
@@ -245,7 +245,7 @@ elf2aout64(void *v, int fd)
 	phoff = xe64toh(e->e_phoff);
 	phnum = xe16toh(e->e_phnum);
 	p = (Elf64_Phdr *)((char *)e + phoff);
-	memset(&a, 0, sizeof(a));
+	bzero(&a, sizeof(a));
 	for (i = 0; i < phnum; i++) {
 		type = xe32toh(p[i].p_type);
 		switch (type) {

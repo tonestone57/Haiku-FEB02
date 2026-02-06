@@ -13,8 +13,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
-#include <string.h>
-#include <ctype.h>
 
 
 static void
@@ -53,10 +51,6 @@ parse_quoted(const char* str, int* pos, char** currentArg, int* currentArgLen,
 		switch (c) {
 		case '\\':
 			(*pos)++;
-			if (str[*pos] == '\0') {
-				puts("exec: incomplete escape sequence");
-				exit(1);
-			}
 			// fall through
 		default:
 			append_char(str[*pos], currentArg, currentArgLen,
@@ -122,7 +116,7 @@ main(int argc, const char* argv[])
 				dollar = strstr(val, "$");
 				if (dollar != NULL) {
 					const char* oldVal;
-					size_t oldValLen, valLen, nameLen;
+					int oldValLen, valLen, nameLen;
 
 					if (dollar != val) {
 						puts("exec: environ expansion not at start of "
@@ -190,10 +184,6 @@ main(int argc, const char* argv[])
 
 		case '\\':
 			pos++;
-			if (str[pos] == '\0') {
-				puts("exec: incomplete escape sequence");
-				return 1;
-			}
 			// don't append newlines to the current argument
 			if (str[pos] == '\r' || str[pos] == '\n')
 				break;

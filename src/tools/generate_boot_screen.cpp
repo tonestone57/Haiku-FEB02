@@ -202,14 +202,8 @@ read_png(const char* filename, int& width, int& height, png_bytep*& rowPtrs,
 #endif
 
 	rowPtrs = (png_bytep*)malloc(sizeof(png_bytep) * height);
-	if (rowPtrs == NULL)
-		error("[read_png] Out of memory");
-
-	for (int y = 0; y < height; y++) {
+	for (int y = 0; y < height; y++)
 		rowPtrs[y] = (png_byte*)malloc(png_get_rowbytes(pngPtr, infoPtr));
-		if (rowPtrs[y] == NULL)
-			error("[read_png] Out of memory");
-	}
 
 	png_read_image(pngPtr, rowPtrs);
 }
