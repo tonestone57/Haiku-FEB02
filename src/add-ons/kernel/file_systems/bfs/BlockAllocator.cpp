@@ -961,6 +961,9 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 					bestLength = group.fLargestLength;
 
 					if (bestLength >= maximum) {
+						if (bestLength > maximum)
+							bestLength = maximum;
+
 						// Found a suitable range, allocate immediately
 						if (group.Allocate(transaction, bestStart, bestLength) == B_OK) {
 							groupLock.Unlock();
