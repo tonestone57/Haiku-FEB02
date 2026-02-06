@@ -1658,7 +1658,6 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		status_t status = SetFileSize(transaction, pos + length);
 		if (status != B_OK) {
 			*_length = 0;
-			WriteLockInTransaction(transaction);
 			RETURN_ERROR(status);
 		}
 		// TODO: In theory we would need to update the file size
@@ -1670,14 +1669,12 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		// is closed)
 		status = WriteBack(transaction);
 		if (status != B_OK) {
-			WriteLockInTransaction(transaction);
 			return status;
 		}
 
 		if (transaction.IsStarted()) {
 			status = transaction.Done();
 			if (status != B_OK) {
-				WriteLockInTransaction(transaction);
 				return status;
 			}
 
