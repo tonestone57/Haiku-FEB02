@@ -242,7 +242,7 @@ main(int argc, char *argv[])
 	if (!headerSize || !imageSize || !file)
 		print_usage();
 
-	char desc[1024];
+	char desc[4096];
 	SparseExtentHeader header;
 
 	if (headerSize < sizeof(desc) + sizeof(header)) {
@@ -320,8 +320,10 @@ main(int argc, char *argv[])
 		char fullPath[PATH_MAX + 6];
 		strcpy(fullPath, "Haiku");
 
-		if (realpath(file, fullPath + 5) == NULL)
+		if (realpath(file, fullPath + 5) == NULL) {
 			strncpy(fullPath + 5, file, sizeof(fullPath) - 5);
+			fullPath[sizeof(fullPath) - 1] = '\0';
+		}
 
 		size_t pathLength = strlen(fullPath);
 		for (size_t i = pathLength; i < 42; i++) {
@@ -345,12 +347,12 @@ main(int argc, char *argv[])
 		"CID=fffffffe\n"
 		"parentCID=ffffffff\n"
 		"createType=\"monolithicFlat\"\n");
-	sprintf(desc + strlen(desc),
+	snprintf(desc + strlen(desc), sizeof(desc) - strlen(desc),
 		"# Extent Description\n"
 		"RW %llu FLAT \"%s\" %llu\n",
 		(unsigned long long)actualImageSize / 512, name,
 		(unsigned long long)headerSize / 512);
-	sprintf(desc + strlen(desc),
+	snprintf(desc + strlen(desc), sizeof(desc) - strlen(desc),
 		"# Disk Data Base\n"
 		"ddb.toolsVersion = \"0\"\n"
 		"ddb.virtualHWVersion = \"3\"\n"
@@ -362,12 +364,12 @@ main(int argc, char *argv[])
 		(unsigned long long)cylinders);
 
 	if (uuid == NULL) {
-		sprintf(desc + strlen(desc),
+		snprintf(desc + strlen(desc), sizeof(desc) - strlen(desc),
 			"ddb.uuid.image=\"%08llx-%04llx-%04llx-%04llx-%012llx\"\n",
 			uuid1 & 0xffffffffLL, uuid2 & 0xffffLL, uuid3 & 0xffffLL,
 			uuid4 & 0xffffLL, uuid5 & 0xffffffffffffLL);
 	} else
-		sprintf(desc + strlen(desc), "ddb.uuid.image=\"%s\"\n", uuid);
+		snprintf(desc + strlen(desc), sizeof(desc) - strlen(desc), "ddb.uuid.image=\"%s\"\n", uuid);
 
 	int fd = open(file, O_RDWR | O_CREAT, 0666);
 	if (fd < 0) {

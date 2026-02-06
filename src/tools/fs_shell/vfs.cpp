@@ -3494,8 +3494,11 @@ dir_read(struct vnode *vnode, void *cookie, struct fssh_dirent *buffer,
 
 	// we need to adjust the read dirents
 	if (*_count > 0) {
-		// XXX: Currently reading only one dirent is supported. Make this a loop!
-		fix_dirent(vnode, buffer);
+		struct fssh_dirent *entry = buffer;
+		for (uint32_t i = 0; i < *_count; i++) {
+			fix_dirent(vnode, entry);
+			entry = (struct fssh_dirent *)((uint8_t *)entry + entry->d_reclen);
+		}
 	}
 
 	return error;
