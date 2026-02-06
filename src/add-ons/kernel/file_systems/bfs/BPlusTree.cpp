@@ -1942,6 +1942,94 @@ BPlusTree::_RemoveDuplicate(Transaction& transaction,
 		off_t right = duplicate->RightLink();
 		bool isLast = left == BPLUSTREE_NULL && right == BPLUSTREE_NULL;
 
+		// Check if we can merge with a sibling
+		if (!isLast && arrayCount < NUM_DUPLICATE_VALUES / 2) {
+			bplustree_node* sibling = NULL;
+			off_t siblingOffset = BPLUSTREE_NULL;
+
+			// Try to merge with the left sibling first
+			if (left != BPLUSTREE_NULL) {
+				sibling = cachedOther.SetToWritable(transaction, left, false);
+				if (sibling != NULL)
+					siblingOffset = left;
+			}
+
+			// If that failed, try the right sibling
+			if (sibling == NULL && right != BPLUSTREE_NULL) {
+				sibling = cachedOther.SetToWritable(transaction, right, false);
+				if (sibling != NULL)
+					siblingOffset = right;
+			}
+
+			if (sibling != NULL) {
+				duplicate_array* siblingArray = sibling->DuplicateArray();
+				int32 siblingCount = siblingArray->Count();
+
+				if (arrayCount + siblingCount <= NUM_DUPLICATE_VALUES) {
+					// We can merge!
+					// If we are merging with the left sibling, we move our contents there.
+					// If we are merging with the right sibling, we move their contents here.
+					// This simplifies the logic as we always empty 'duplicate' or 'sibling'
+					// and then free the empty one.
+
+					if (siblingOffset == left) {
+						// Merge into left sibling
+						memcpy(&siblingArray->values[siblingCount], &array->values[0],
+							arrayCount * sizeof(off_t));
+						siblingArray->count = HOST_ENDIAN_TO_BFS_INT64(siblingCount + arrayCount);
+						arrayCount = 0; // 'duplicate' is now empty and will be freed below
+					} else {
+						// Merge from right sibling
+						memcpy(&array->values[arrayCount], &siblingArray->values[0],
+							siblingCount * sizeof(off_t));
+						array->count = HOST_ENDIAN_TO_BFS_INT64(arrayCount + siblingCount);
+
+						// Now 'sibling' (the right one) is the one to be freed.
+						// We swap the pointers so that 'duplicate' points to the empty node
+						// (the former right sibling) which allows the standard free logic below to work.
+						// Note: We need to update duplicateOffset to point to the right sibling.
+						cachedDuplicate.Unset(); // Unmap the current 'duplicate' (which is now full)
+
+						// Remap 'duplicate' to be the right sibling (which we will empty)
+						duplicateOffset = siblingOffset;
+						// We can just reuse the pointer since we have it write locked via cachedOther,
+						// but to be safe and consistent with the loop variables, let's pretend we swaped roles.
+						// Actually, better: just mark the right sibling as empty and let the loop handle it
+						// if we were iterating. But we are inside a loop that expects 'duplicate' to be
+						// the node we are working on.
+
+						// Simpler approach: Free 'sibling' (right) immediately here, and update links.
+						siblingArray->count = 0;
+
+						// Update links of 'duplicate' (left of sibling) and sibling's right.
+						duplicate->right_link = sibling->right_link;
+
+						off_t siblingRight = sibling->RightLink();
+						if (siblingRight != BPLUSTREE_NULL) {
+							bplustree_node* nextRight = cachedOther.SetToWritable(transaction, siblingRight, false);
+							if (nextRight != NULL)
+								nextRight->left_link = HOST_ENDIAN_TO_BFS_INT64(duplicateOffset);
+						}
+
+						status = cachedOther.Free(transaction, siblingOffset);
+						if (status != B_OK)
+							return status;
+
+						// We successfully merged and freed the right sibling.
+						// We need to re-evaluate 'duplicate' (the left one) to see if it needs
+						// to be converted to a fragment, but we can break the loop or continue?
+						// The 'duplicate' node is now fuller, so it won't be freed.
+						// But it might be the only one left and small enough for a fragment.
+						arrayCount += siblingCount;
+						left = duplicate->LeftLink();
+						right = duplicate->RightLink();
+						isLast = left == BPLUSTREE_NULL && right == BPLUSTREE_NULL;
+						// Fall through to the fragment check
+					}
+				}
+			}
+		}
+
 		if ((isLast && arrayCount == 1) || arrayCount == 0) {
 			// Free empty duplicate page, link their siblings together, and
 			// update the duplicate link if needed (ie. when we either remove
