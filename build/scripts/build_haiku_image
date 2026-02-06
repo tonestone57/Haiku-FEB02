@@ -271,7 +271,7 @@ if [ $isImage ]; then
 		$makebootable $imageOffsetFlags "$imagePath"
 	fi
 
-	$bfsShell -n $imageOffsetFlags "$imagePath" > /dev/null &
+	$bfsShell -n $imageOffsetFlags "$imagePath" &
 	sleep 1
 
 	# Close FDs 5 and 6. Those represent the pipe ends that are used by the

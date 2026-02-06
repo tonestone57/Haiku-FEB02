@@ -515,6 +515,9 @@ Volume::CheckSuperBlock(const uint8* data, uint32* _offset)
 		}
 
 		FATAL(("invalid superblock at offset 512!\n"));
+	} else {
+		FATAL(("invalid superblock magic at offset 512! %08x %08x %08x\n",
+			superBlock->Magic1(), superBlock->Magic2(), superBlock->Magic3()));
 	}
 
 #ifndef BFS_LITTLE_ENDIAN_ONLY
