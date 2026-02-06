@@ -8,8 +8,6 @@
 
 #include "system_dependencies.h"
 
-#include <util/OpenHashTable.h>
-
 #include "Volume.h"
 #include "Utility.h"
 
@@ -17,6 +15,7 @@
 struct run_array;
 class Inode;
 class LogEntry;
+class Journal;
 typedef DoublyLinkedList<LogEntry> LogEntryList;
 
 
@@ -33,40 +32,82 @@ public:
 typedef DoublyLinkedList<TransactionListener> TransactionListeners;
 
 
-struct TransactionInfo {
-	thread_id		thread;
-	int32			transactionID;
-	int32			nesting;
-	bool			failed;
-	Transaction*	owner;
-	TransactionListeners listeners;
-	TransactionInfo* next;
-};
-
-
-struct TransactionMapHash {
-	typedef thread_id		KeyType;
-	typedef	TransactionInfo	ValueType;
-
-	size_t HashKey(KeyType key) const
+class Transaction {
+public:
+	Transaction(Volume* volume, off_t refBlock)
+		:
+		fJournal(NULL),
+		fParent(NULL),
+		fTransactionID(-1)
 	{
-		return key;
+		Start(volume, refBlock);
 	}
 
-	size_t Hash(ValueType* value) const
+	Transaction(Volume* volume, block_run refRun)
+		:
+		fJournal(NULL),
+		fParent(NULL),
+		fTransactionID(-1)
 	{
-		return HashKey(value->thread);
+		Start(volume, volume->ToBlock(refRun));
 	}
 
-	bool Compare(KeyType key, ValueType* value) const
+	Transaction()
+		:
+		fJournal(NULL),
+		fParent(NULL),
+		fTransactionID(-1)
 	{
-		return value->thread == key;
 	}
 
-	ValueType*& GetLink(ValueType* value) const
+	~Transaction();
+
+	status_t Start(Volume* volume, off_t refBlock);
+	bool IsStarted() const { return fJournal != NULL; }
+
+	status_t Done();
+
+	bool HasParent() const
 	{
-		return value->next;
+		return fParent != NULL;
 	}
+
+	bool IsTooLarge() const;
+
+	status_t WriteBlocks(off_t blockNumber, const uint8* buffer,
+		size_t numBlocks = 1);
+
+	Volume* GetVolume() const;
+	int32 ID() const
+		{ return fTransactionID; }
+
+	void AddListener(TransactionListener* listener);
+	void RemoveListener(TransactionListener* listener);
+
+	void NotifyListeners(bool success);
+	void MoveListenersTo(Transaction* transaction);
+
+	Transaction* Parent() const
+		{ return fParent; }
+
+	thread_id Thread() const
+		{ return fThread; }
+
+private:
+	friend class Journal;
+
+	status_t Unlock(bool success = false);
+
+	Transaction(const Transaction& other);
+	Transaction& operator=(const Transaction& other);
+		// no implementation
+
+	Journal*				fJournal;
+	TransactionListeners	fListeners;
+	Transaction*			fParent;
+	int32					fTransactionID;
+	thread_id				fThread;
+	DoublyLinkedListLink<Transaction> fActiveLink;
 };
 
 
@@ -77,17 +118,13 @@ public:
 
 			status_t		InitCheck();
 
-			int32			StartTransaction(Transaction* owner);
-			status_t		CommitTransaction(Transaction* owner, bool success);
-			void			AddTransactionListener(Transaction* owner,
-								TransactionListener* listener);
-
-			Transaction*	CurrentTransaction();
+			status_t		Lock(Transaction* owner);
+			status_t		Unlock(Transaction* owner, bool success);
 
 			status_t		ReplayLog();
 
-			size_t			TransactionSize(int32 transactionID) const;
-			bool			TransactionTooLarge(int32 transactionID) const;
+			size_t			CurrentTransactionSize(int32 transactionID) const;
+			bool			CurrentTransactionTooLarge(int32 transactionID) const;
 
 			status_t		FlushLogAndBlocks();
 			status_t		FlushLogAndLockJournal();
@@ -103,41 +140,28 @@ public:
 #endif
 
 private:
-			status_t		_FlushLog(bool canWait, bool flushBlocks,
-								bool alreadyLocked = false);
-			status_t		_FlushPendingTransactions();
+			status_t		_FlushLog(bool flushBlocks);
 			uint32			_TransactionSize(int32 transactionID) const;
+			status_t		_WriteTransactionToLog(int32 transactionID);
 			status_t		_CheckRunArray(const run_array* array);
 			status_t		_ReplayRunArray(int32* start);
-			status_t		_TransactionDone(int32 transactionID, bool success);
 
 	static	void			_TransactionWritten(int32 transactionID,
 								int32 event, void* _logEntry);
-	static	void			_TransactionIdle(int32 transactionID, int32 event,
-								void* _journal);
-	static	status_t		_LogFlusher(void* _journal);
 
 private:
 			Volume*			fVolume;
-			recursive_lock	fLock;
+			rw_lock			fTransactionLock;
+			recursive_lock	fLogLock;
 			uint32			fLogSize;
 			uint32			fMaxTransactionSize;
 			uint32			fUsed;
 			mutex			fEntriesLock;
 			LogEntryList	fEntries;
+			DoublyLinkedList<Transaction,
+				DoublyLinkedListMemberGetLink<Transaction,
+					&Transaction::fActiveLink> > fActiveTransactions;
 			bigtime_t		fTimestamp;
-
-			thread_id		fLogFlusher;
-			sem_id			fLogFlusherSem;
-			status_t		fInitStatus;
-
-			mutex			fTransactionMapLock;
-			BOpenHashTable<TransactionMapHash> fTransactionMap;
-
-			static const int32 kMaxPendingTransactions = 64;
-			int32			fPendingTransactions[kMaxPendingTransactions];
-			int32			fPendingTransactionCount;
-			uint32			fPendingTransactionSize;
 };
 
 
@@ -150,101 +174,42 @@ Journal::FreeLogBlocks() const
 }
 
 
-class Transaction {
-public:
-	friend class Journal;
+// Inline implementation of Transaction methods
 
-	Transaction(Volume* volume, off_t refBlock)
-		:
-		fJournal(NULL),
-		fTransactionID(-1)
-	{
-		Start(volume, refBlock);
-	}
+inline status_t
+Transaction::Unlock(bool success)
+{
+	status_t status = fJournal->Unlock(this, success);
+	fJournal = NULL;
+	fTransactionID = -1;
+	return status;
+}
 
-	Transaction(Volume* volume, block_run refRun)
-		:
-		fJournal(NULL),
-		fTransactionID(-1)
-	{
-		Start(volume, volume->ToBlock(refRun));
-	}
+inline Transaction::~Transaction()
+{
+	if (fJournal != NULL)
+		Unlock();
+}
 
-	Transaction()
-		:
-		fJournal(NULL),
-		fTransactionID(-1)
-	{
-	}
+inline status_t
+Transaction::Done()
+{
+	if (fJournal != NULL)
+		return Unlock(true);
+	return B_OK;
+}
 
-	~Transaction()
-	{
-		if (fJournal != NULL)
-			fJournal->CommitTransaction(this, false);
-	}
+inline bool
+Transaction::IsTooLarge() const
+{
+	return fJournal->CurrentTransactionTooLarge(ID());
+}
 
-	status_t Start(Volume* volume, off_t refBlock);
-	bool IsStarted() const { return fJournal != NULL; }
-
-	status_t Done()
-	{
-		status_t status = B_OK;
-		if (fJournal != NULL) {
-			status = fJournal->CommitTransaction(this, true);
-			if (status == B_OK)
-				fJournal = NULL;
-		}
-		return status;
-	}
-
-	bool IsTooLarge() const
-	{
-		return fJournal->TransactionTooLarge(fTransactionID);
-	}
-
-	status_t WriteBlocks(off_t blockNumber, const uint8* buffer,
-		size_t numBlocks = 1)
-	{
-		if (fJournal == NULL)
-			return B_NO_INIT;
-
-		void* cache = GetVolume()->BlockCache();
-		size_t blockSize = GetVolume()->BlockSize();
-
-		for (size_t i = 0; i < numBlocks; i++) {
-			void* block = block_cache_get_empty(cache, blockNumber + i,
-				ID());
-			if (block == NULL)
-				return B_ERROR;
-
-			memcpy(block, buffer, blockSize);
-			buffer += blockSize;
-
-			block_cache_put(cache, blockNumber + i);
-		}
-
-		return B_OK;
-	}
-
-	Volume* GetVolume() const
-		{ return fJournal != NULL ? fJournal->GetVolume() : NULL; }
-	int32 ID() const
-		{ return fTransactionID; }
-
-	void AddListener(TransactionListener* listener);
-	void RemoveListener(TransactionListener* listener);
-
-	void NotifyListeners(bool success);
-
-private:
-	Transaction(const Transaction& other);
-	Transaction& operator=(const Transaction& other);
-		// no implementation
-
-	Journal*				fJournal;
-	TransactionListeners	fListeners;
-	int32					fTransactionID;
-};
+inline Volume*
+Transaction::GetVolume() const
+{
+	return fJournal != NULL ? fJournal->GetVolume() : NULL;
+}
 
 
 #ifdef BFS_DEBUGGER_COMMANDS

@@ -207,6 +207,14 @@ public:
 	uint32 NumBitmapBlocks() const { return fNumBitmapBlocks; }
 	int32 Start() const { return fStart; }
 
+	bool IsBlockFull(uint32 block) const
+	{
+		if (fBlockBitmap == NULL)
+			return false;
+
+		return (fBlockBitmap[block / 64] & (1ULL << (block % 64))) != 0;
+	}
+
 private:
 	friend class BlockAllocator;
 
@@ -220,6 +228,8 @@ private:
 	int32	fLargestStart;
 	int32	fLargestLength;
 	bool	fLargestValid;
+
+	uint64*	fBlockBitmap;
 };
 
 
@@ -372,7 +382,8 @@ AllocationGroup::AllocationGroup()
 	:
 	fFirstFree(-1),
 	fFreeBits(0),
-	fLargestValid(false)
+	fLargestValid(false),
+	fBlockBitmap(NULL)
 {
 	recursive_lock_init(&fLock, "bfs allocation group");
 }
@@ -381,6 +392,7 @@ AllocationGroup::AllocationGroup()
 AllocationGroup::~AllocationGroup()
 {
 	recursive_lock_destroy(&fLock);
+	delete[] fBlockBitmap;
 }
 
 
@@ -464,6 +476,18 @@ AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 
 		cached.Allocate(start, numBlocks);
 
+		if (fBlockBitmap != NULL) {
+			// Check if the block became full
+			bool full = true;
+			// We only need to check if we can find a free bit
+			if (cached.NextFree(0) < cached.NumBlockBits())
+				full = false;
+
+			if (full) {
+				fBlockBitmap[block / 64] |= (1ULL << (block % 64));
+			}
+		}
+
 		length -= numBlocks;
 		start = 0;
 		block++;
@@ -524,6 +548,11 @@ AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 			freeLength = cached.NumBlockBits() - start;
 
 		cached.Free(start, freeLength);
+
+		if (fBlockBitmap != NULL) {
+			// Mark block as not full
+			fBlockBitmap[block / 64] &= ~(1ULL << (block % 64));
+		}
 
 		length -= freeLength;
 		start = 0;
@@ -712,12 +741,30 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 		}
 		groups[i].fStart = offset;
 
+		// Initialize summary index
+		uint32 numBitmapBlocks = groups[i].NumBitmapBlocks();
+		uint32 bitmapCount = (numBitmapBlocks + 63) / 64;
+		groups[i].fBlockBitmap = new(std::nothrow) uint64[bitmapCount];
+		if (groups[i].fBlockBitmap != NULL) {
+			// Initialize to all ones (full)
+			memset(groups[i].fBlockBitmap, 0xff, bitmapCount * sizeof(uint64));
+		}
+
+		uint32 wordsPerBlock = volume->BlockSize() / 4;
+
 		// finds all free ranges in this allocation group
 		int32 start = -1, range = 0;
 		int32 numBits = groups[i].fNumBits, bit = 0;
 		int32 count = (numBits + 31) / 32;
 
 		for (int32 k = 0; k < count; k++) {
+			if (groups[i].fBlockBitmap != NULL && buffer[k] != 0xffffffff) {
+				// Mark block as not full
+				uint32 blockIndex = k / wordsPerBlock;
+				groups[i].fBlockBitmap[blockIndex / 64]
+					&= ~(1ULL << (blockIndex % 64));
+			}
+
 			for (int32 j = 0; j < 32 && bit < numBits; j++, bit++) {
 				if (buffer[k] & (1UL << j)) {
 					// block is in use
@@ -947,6 +994,9 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 			lastBlockEndBit = bitsPerFullBlock;
 
 		for (; block <= lastBlock; block++) {
+			if (group.IsBlockFull(block))
+				continue;
+
 			if (cached.SetTo(group, block) < B_OK)
 				RETURN_ERROR(B_ERROR);
 
