@@ -430,4 +430,5 @@ ColorsView::_SetColor(color_which which, rgb_color color)
 		fCurrentColors.SetColor(ui_color_name(B_FAILURE_COLOR), failure.to_rgb());
 	}
 	set_ui_colors(&fCurrentColors);
+	_UpdatePreviews(fCurrentColors);
 }
