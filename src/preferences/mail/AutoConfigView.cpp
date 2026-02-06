@@ -106,8 +106,6 @@ AutoConfigView::MessageReceived(BMessage *msg)
 			BString text = fLoginNameView->Text();
 			if (text == "")
 				_ProposeUsername();
-			fLoginNameView->MakeFocus();
-			fLoginNameView->TextView()->SelectAll();
 
 			text = fAccountNameView->Text();
 			if (text == "")
@@ -505,7 +503,9 @@ ServerSettingsView::_GetAuthEncrMenu(entry_ref protocol,
 	authField = (BMenuField*)view->FindView("auth_method");
 	sslField = (BMenuField*)view->FindView("flavor");
 
-	view->RemoveChild(authField);
-	view->RemoveChild(sslField);
+	if (authField != NULL)
+		view->RemoveChild(authField);
+	if (sslField != NULL)
+		view->RemoveChild(sslField);
 	delete view;
 }
