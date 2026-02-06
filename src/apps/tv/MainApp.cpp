@@ -73,9 +73,9 @@ MainApp::NewWindow()
 	BRect rect(200, 200, 750, 300);
 	rect.OffsetBy(i * 25, i * 25);
 	i = (i + 1) % 15;
-	BWindow *win = new MainWin(rect);
-	win->Show();
-	return win;
+	fMainWindow = new MainWin(rect);
+	fMainWindow->Show();
+	return fMainWindow;
 }
 
 

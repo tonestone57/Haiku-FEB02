@@ -272,7 +272,10 @@ Controller::ConnectNodes()
 //	dvb_node = gDeviceRoster->DeviceNode(fCurrentInterface);
 
 	err = gMediaRoster->GetNodeFor(gDeviceRoster->DeviceNode(fCurrentInterface).node, &dvb_node);
-	HandleError("GetNodeFor failed", err);
+	if (err != B_OK) {
+		printf("Controller::ConnectNodes: GetNodeFor failed\n");
+		return err;
+	}
 
 	video_window_node = fVideoNode->Node();
 

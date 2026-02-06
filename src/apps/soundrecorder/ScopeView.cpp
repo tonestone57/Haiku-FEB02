@@ -9,7 +9,6 @@
 #include <new>
 #include <stdio.h>
 #include <string.h>
-#include <vector>
 
 #include <IconUtils.h>
 #include <MimeType.h>
@@ -386,4 +385,3 @@ ScopeView::RenderBitmap()
 
 	fBitmap->Unlock();
 }
-

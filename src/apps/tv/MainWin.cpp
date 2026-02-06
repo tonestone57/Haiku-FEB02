@@ -487,18 +487,8 @@ MainWin::MouseDown(BMessage *msg)
 
 	if ((buttons & 2) == 0)
 		return;
-	bigtime_t start = system_time();
-	bigtime_t delay = 200000;
-	BPoint location;
-	do {
-		fVideoView->GetMouse(&location, &buttons);
-		if ((buttons & 2) == 0)
-			break;
-		snooze(1000);
-	} while (system_time() - start < delay);
 
-	if (buttons & 2)
-		ShowContextMenu(screen_where);
+	ShowContextMenu(screen_where);
 }
 
 
@@ -655,11 +645,6 @@ MainWin::FrameResized(float new_width, float new_height)
 {
 	// called when the window got resized
 	fFrameResizedCalled = true;
-
-	if (new_width != Bounds().Width() || new_height != Bounds().Height()) {
-		debugger("size wrong\n");
-	}
-
 
 	printf("FrameResized enter: new_width %.0f, new_height %.0f, bounds width "
 		"%.0f, bounds height %.0f\n", new_width, new_height, Bounds().Width(),
