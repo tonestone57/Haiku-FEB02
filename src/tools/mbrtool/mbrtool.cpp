@@ -261,7 +261,8 @@ main(int argc, char *argv[])
 
 	if (!mbrValid(imageFileHandle)) {
 		INFO("MBR of image is invalid, creating a fresh one.\n");
-		mbrWipe(imageFileHandle);
+		ssize_t wiped = mbrWipe(imageFileHandle);
+		checkError(wiped != 66, "failed to wipe MBR");
 	}
 
 	// Just a warning. This is technically valid since MBR partition

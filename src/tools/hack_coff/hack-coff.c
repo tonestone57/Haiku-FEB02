@@ -42,8 +42,8 @@ main(int ac, char **av)
 	fprintf(stderr, "Usage: hack-coff coff-file\n");
 	exit(1);
     }
-    if ((fd = open(av[1], 2)) == -1) {
-	perror(av[2]);
+    if ((fd = open(av[1], O_RDWR)) == -1) {
+	perror(av[1]);
 	exit(1);
     }
     if (read(fd, &fhdr, sizeof(fhdr)) != sizeof(fhdr))

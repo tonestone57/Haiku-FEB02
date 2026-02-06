@@ -232,6 +232,8 @@ struct external_reloc {
 /* For new sections we havn't heard of before */
 #define DEFAULT_SECTION_ALIGNMENT 4
 
+typedef unsigned char bfd_byte;
+
 /* The ldhdr structure.  This appears at the start of the .loader
    section.  */
 
