@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -69,7 +70,7 @@ main(int argc, char *argv[])
 				else if (strchr(optarg, 'K') || strchr(optarg, 'k'))
 					size *= 1024;
 
-				if (size > (unsigned long long)LLONG_MAX) {
+				if (size > (unsigned long long)std::numeric_limits<off_t>::max()) {
 					fprintf(stderr, "Error: image size too large\n");
 					exit(EXIT_FAILURE);
 				}
