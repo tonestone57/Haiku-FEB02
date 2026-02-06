@@ -682,9 +682,6 @@ Journal::_TransactionWritten(int32 transactionID, int32 event, void* _logEntry)
 }
 
 
-/*!	Writes the blocks that are part of current transaction into the log,
-	and ends the current transaction.
-*/
 status_t
 Journal::_WriteTransactionToLog(int32 transactionID, bool* _transactionEnded)
 {
@@ -984,7 +981,6 @@ Journal::Lock(Transaction* owner)
 	return B_OK;
 }
 
-
 status_t
 Journal::Unlock(Transaction* owner, bool success)
 {
@@ -1032,7 +1028,6 @@ Journal::Unlock(Transaction* owner, bool success)
 
 	return status;
 }
-
 
 uint32
 Journal::_TransactionSize(int32 transactionID) const
