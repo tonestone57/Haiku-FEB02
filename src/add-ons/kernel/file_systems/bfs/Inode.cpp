@@ -337,6 +337,9 @@ bfs_inode::InitCheck(Volume* volume) const
 //	#pragma mark - Inode
 
 
+static const size_t kZeroFillChunkSize = 8 * 1024 * 1024;
+
+
 Inode::Inode(Volume* volume, ino_t id)
 	:
 	fVolume(volume),
@@ -1669,7 +1672,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	the log, even if the INODE_LOGGED flag is set.
 */
 status_t
-Inode::FillGapWithZeros(off_t pos, off_t newSize)
+Inode::FillGapWithZeros(Transaction& transaction, off_t pos, off_t newSize)
 {
 	while (pos < newSize) {
 		size_t size;
@@ -1678,11 +1681,25 @@ Inode::FillGapWithZeros(off_t pos, off_t newSize)
 		else
 			size = newSize - pos;
 
+		// Split the write into smaller chunks to avoid blocking the journal
+		// for too long.
+		if (transaction.IsStarted() && size > kZeroFillChunkSize)
+			size = kZeroFillChunkSize;
+
 		status_t status = file_cache_write(FileCache(), NULL, pos, NULL, &size);
 		if (status < B_OK)
 			return status;
 
 		pos += size;
+
+		if (transaction.IsStarted()) {
+			// Restart the transaction to allow other threads to progress
+			status = transaction.Done();
+			if (status != B_OK)
+				return status;
+
+			transaction.Start(fVolume, BlockNumber());
+		}
 	}
 
 	return B_OK;
@@ -1765,6 +1782,20 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 			data->size = cutSize ? HOST_ENDIAN_TO_BFS_INT64(targetSize)
 				: data->max_direct_range;
 			return B_OK;
+		} else {
+			// Check if we can merge with the last direct run
+			int32 last = NUM_DIRECT_BLOCKS - 1;
+			if (data->direct[last].MergeableWith(run)) {
+				data->direct[last].length = HOST_ENDIAN_TO_BFS_INT16(
+					data->direct[last].Length() + run.Length());
+
+				data->max_direct_range = HOST_ENDIAN_TO_BFS_INT64(
+					data->MaxDirectRange()
+					+ run.Length() * fVolume->BlockSize());
+				data->size = cutSize ? HOST_ENDIAN_TO_BFS_INT64(targetSize)
+					: data->max_direct_range;
+				return B_OK;
+			}
 		}
 	}
 
@@ -1821,10 +1852,26 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 			cached.MakeWritable(transaction);
 
 			int32 last = free - 1;
+			bool merged = false;
 			if (free > 0 && runs[last].MergeableWith(run)) {
 				runs[last].length = HOST_ENDIAN_TO_BFS_INT16(
 					runs[last].Length() + run.Length());
-			} else
+				merged = true;
+			} else if (free == 0 && i > 0) {
+				// Check if we can merge with the last run of the previous block
+				CachedBlock prevCached(fVolume);
+				if (prevCached.SetToWritable(transaction, block + i - 1) == B_OK) {
+					block_run* prevRuns = (block_run*)prevCached.Block();
+					int32 prevLast = numberOfRuns - 1;
+					if (prevRuns[prevLast].MergeableWith(run)) {
+						prevRuns[prevLast].length = HOST_ENDIAN_TO_BFS_INT16(
+							prevRuns[prevLast].Length() + run.Length());
+						merged = true;
+					}
+				}
+			}
+
+			if (!merged)
 				runs[free] = run;
 
 			data->max_indirect_range = HOST_ENDIAN_TO_BFS_INT64(

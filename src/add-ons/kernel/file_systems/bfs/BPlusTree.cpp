@@ -507,13 +507,14 @@ CachedNode::Free(Transaction& transaction, off_t offset)
 	if (header == NULL)
 		return B_IO_ERROR;
 
-#if 0
-	// TODO: temporarily disabled because CheckNode() doesn't like this...
-	// 		Also, it's such an edge case that it's almost useless, anyway.
 	// if the node is the last one in the tree, we shrink
 	// the tree and file size by one node
 	off_t lastOffset = header->MaximumSize() - fTree->fNodeSize;
 	if (offset == lastOffset) {
+		// We need to unmap the node before resizing the file, or else
+		// we might hold a reference to an invalid block.
+		Unset();
+
 		status_t status = fTree->fStream->SetFileSize(transaction, lastOffset);
 		if (status != B_OK)
 			return status;
@@ -521,7 +522,6 @@ CachedNode::Free(Transaction& transaction, off_t offset)
 		header->maximum_size = HOST_ENDIAN_TO_BFS_INT64(lastOffset);
 		return B_OK;
 	}
-#endif
 
 	// add the node to the free nodes list
 	fNode->left_link = header->free_node_pointer;
