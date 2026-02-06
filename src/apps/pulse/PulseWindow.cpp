@@ -164,7 +164,8 @@ PulseWindow::SetMode(int newmode)
 			// destructor needs to save the correct BRect. ~PulseApp()
 			// will handle launching the replicant after our prefs are saved.
 			pulseapp->fPrefs->window_mode = DESKBAR_MODE;
-			LoadInDeskbar();
+			if (LoadInDeskbar())
+				PostMessage(B_QUIT_REQUESTED);
 			break;
 	}
 }

@@ -371,7 +371,7 @@ ActivityWindow::_SetAlwaysOnTop(bool alwaysOnTop)
 		// Change the settings window feel to modal (via scripting)
 		BMessage toFront(B_SET_PROPERTY);
 		toFront.AddSpecifier("Feel");
-		toFront.AddInt32("data", B_MODAL_ALL_WINDOW_FEEL);
+		toFront.AddInt32("data", B_FLOATING_ALL_WINDOW_FEEL);
 		fSettingsWindow.SendMessage(&toFront);
 	}
 }

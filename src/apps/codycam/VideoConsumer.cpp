@@ -84,6 +84,9 @@ VideoConsumer::VideoConsumer(const char* name, BView* view,
 		fBufferMap[j] = NULL;
 	}
 
+	fFtpBitmap = NULL;
+	fFtpThread = -1;
+
 	strlcpy(fFileNameText, "", sizeof(fFileNameText));
 	strlcpy(fServerText, "", sizeof(fServerText));
 	strlcpy(fLoginText, "", sizeof(fLoginText));
@@ -108,17 +111,6 @@ VideoConsumer::~VideoConsumer()
 			fWindow = NULL;
 		}
 	}
-
-	// clean up ftp thread
-	// wait up to 30 seconds if ftp is in progress
-	int32 count = 0;
-	while (!fFtpComplete && count < 30) {
-		snooze(1000000);
-		count++;
-	}
-
-	if (count == 30)
-		kill_thread(fFtpThread);
 
 	DeleteBuffers();
 }
@@ -357,12 +349,30 @@ VideoConsumer::DeleteBuffers()
 {
 	FUNCTION("VideoConsumer::DeleteBuffers\n");
 
+	// clean up ftp thread
+	// wait up to 30 seconds if ftp is in progress
+	int32 count = 0;
+	while (!fFtpComplete && count < 30) {
+		snooze(1000000);
+		count++;
+	}
+
+	if (count == 30 && fFtpThread >= 0) {
+		kill_thread(fFtpThread);
+		fFtpThread = -1;
+	}
+
+	if (fFtpBitmap) {
+		delete fFtpBitmap;
+		fFtpBitmap = NULL;
+	}
+
 	if (fBuffers) {
 		delete fBuffers;
 		fBuffers = NULL;
 
 		for (uint32 j = 0; j < 3; j++)
-			if (fBitmap[j]->IsValid()) {
+			if (fBitmap[j] != NULL) {
 				delete fBitmap[j];
 				fBitmap[j] = NULL;
 			}
@@ -411,7 +421,7 @@ VideoConsumer::Disconnected(const media_source& producer,
 	if (where == fIn.destination && producer == fIn.source) {
 		// disconnect the connection
 		fIn.source = media_source::null;
-		delete fFtpBitmap;
+		DeleteBuffers();
 		fConnectionActive = false;
 	}
 

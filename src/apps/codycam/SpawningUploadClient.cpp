@@ -122,22 +122,23 @@ SpawningUploadClient::ParseReply()
 int
 SpawningUploadClient::getpty(char* pty, char* tty)
 {
-	static const char major[] = "pqrs";
-	static const char minor[] = "0123456789abcdef";
-	uint32 i, j;
-	int32 fd = -1;
+	int fd = posix_openpt(O_RDWR | O_NOCTTY);
+	if (fd < 0)
+		return -1;
 
-	for (i = 0; i < sizeof(major); i++)
-	{
-		for (j = 0; j < sizeof(minor); j++)
-		{
-			snprintf(pty, 20, "/dev/pt/%c%c", major[i], minor[j]);
-			snprintf(tty, 20, "/dev/tt/%c%c", major[i], minor[j]);
-			fd = open(pty, O_RDWR|O_NOCTTY);
-			if (fd >= 0)
-				return fd;
-		}
+	if (grantpt(fd) != 0 || unlockpt(fd) != 0) {
+		close(fd);
+		return -1;
 	}
+
+	char* ptsName = ptsname(fd);
+	if (ptsName == NULL) {
+		close(fd);
+		return -1;
+	}
+
+	strlcpy(pty, "ptmx", 20);
+	strlcpy(tty, ptsName, 20);
 
 	return fd;
 }

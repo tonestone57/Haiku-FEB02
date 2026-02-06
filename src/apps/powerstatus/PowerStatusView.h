@@ -98,7 +98,6 @@ private:
 
 private:
 			BWindow*		fExtendedWindow;
-			bool			fMessengerExist;
 			BMessenger*		fExtWindowMessenger;
 			bool			fReplicated;
 };

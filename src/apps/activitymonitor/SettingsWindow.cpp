@@ -106,7 +106,7 @@ SettingsWindow::SettingsWindow(ActivityWindow* target)
 		.SetInsets(B_USE_WINDOW_SPACING);
 
 	if (target->IsAlwaysOnTop())
-		SetFeel(B_MODAL_ALL_WINDOW_FEEL);
+		SetFeel(B_FLOATING_ALL_WINDOW_FEEL);
 
 	MoveOnScreen(B_MOVE_IF_PARTIALLY_OFFSCREEN);
 }

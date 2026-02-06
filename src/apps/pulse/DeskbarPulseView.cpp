@@ -193,8 +193,8 @@ void
 DeskbarPulseView::Remove()
 {
 	// Remove ourselves from the deskbar by name
-	BDeskbar *deskbar = new BDeskbar();
-	status_t err = deskbar->RemoveItem("DeskbarPulseView");
+	BDeskbar deskbar;
+	status_t err = deskbar.RemoveItem("DeskbarPulseView");
 	if (err != B_OK) {
 		BString str;
 		snprintf(str.LockBuffer(512), 512,
@@ -205,7 +205,6 @@ DeskbarPulseView::Remove()
 		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 		alert->Go(NULL);
 	}
-	delete deskbar;
 }
 
 

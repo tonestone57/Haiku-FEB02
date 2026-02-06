@@ -522,10 +522,14 @@ RecorderWindow::InitWindow()
 bad_mojo:
 	if (error >= 0)
 		error = B_ERROR;
-	if (fRecorder)
+	if (fRecorder) {
 		delete fRecorder;
+		fRecorder = NULL;
+	}
 
 	delete fPlayer;
+	fPlayer = NULL;
+
 	if (!fInputField)
 		delete popup;
 	return error;
@@ -1379,12 +1383,14 @@ RecorderWindow::CopyTarget(BMessage *msg)
 				file.Seek(0, SEEK_SET);
 				file.Write(&header, sizeof(header));
 
-				char *data = (char *)malloc(fPlayFormat.u.raw_audio.buffer_size);
+				char *data = new (std::nothrow) char[fPlayFormat.u.raw_audio.buffer_size];
+				if (data == NULL)
+					return;
 
 				fPlayTrack->SeekToTime(&start);
 				fPlayFrame = fPlayTrack->CurrentFrame();
 				while (framesToWrite > 0) {
-					int64 frames = 0;
+					int64 frames = fPlayFormat.u.raw_audio.buffer_size / frameSize;
 					status_t err = fPlayTrack->ReadFrames(data, &frames);
 					if (frames <= 0 || err != B_OK) {
 						if (err != B_OK)
@@ -1396,7 +1402,7 @@ RecorderWindow::CopyTarget(BMessage *msg)
 				}
 
 				file.Sync();
-				free(data);
+				delete[] data;
 				BNodeInfo nodeInfo(&file);
 				// set type
 			}
