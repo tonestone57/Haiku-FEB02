@@ -854,6 +854,9 @@ BPlusTree::MakeEmpty()
 {
 	// Put all nodes into the free list in order
 	Transaction transaction(fStream->GetVolume(), fStream->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
+
 	fStream->WriteLockInTransaction(transaction);
 
 	// Reset the header, and root node

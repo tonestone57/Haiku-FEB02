@@ -1053,6 +1053,8 @@ Journal::MoveLog(block_run newLog)
 			allocatedRun = newLog;
 
 		Transaction transaction(fVolume, 0);
+		if (!transaction.IsStarted())
+			return B_ERROR;
 
 		status = allocator.AllocateBlockRun(transaction, allocatedRun);
 		if (status != B_OK) {
@@ -1082,7 +1084,10 @@ Journal::MoveLog(block_run newLog)
 		// if we had to allocate some blocks, try to free them
 		if (!allocatedRun.IsZero()) {
 			Transaction transaction(fVolume, 0);
-			status_t freeStatus = allocator.Free(transaction, allocatedRun);
+			status_t freeStatus = B_ERROR;
+			if (transaction.IsStarted())
+				freeStatus = allocator.Free(transaction, allocatedRun);
+
 			if (freeStatus == B_OK)
 				freeStatus = transaction.Done();
 
@@ -1107,6 +1112,8 @@ Journal::MoveLog(block_run newLog)
 		block_run runToFree = block_run::Run(0, newEnd, oldEnd - newEnd);
 
 		Transaction transaction(fVolume, 0);
+		if (!transaction.IsStarted())
+			return B_ERROR;
 
 		status = allocator.Free(transaction, runToFree);
 		if (status == B_OK)

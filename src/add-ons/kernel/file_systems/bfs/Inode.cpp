@@ -753,7 +753,7 @@ Inode::_AddSmallData(Transaction& transaction, NodeGetter& nodeGetter,
 	// reject any requests that can't fit into the small_data section
 	uint32 nameLength = strlen(name);
 	if (pos < 0 || pos > fVolume->InodeSize()
-		|| length > fVolume->InodeSize() - pos)
+		|| length > (size_t)(fVolume->InodeSize() - pos))
 		return B_DEVICE_FULL;
 
 	uint32 spaceNeeded = sizeof(small_data) + nameLength + 3 + pos + length + 1;
