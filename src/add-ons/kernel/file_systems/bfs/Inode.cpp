@@ -1736,7 +1736,9 @@ Inode::FillGapWithZeros(Transaction& transaction, off_t pos, off_t newSize)
 			if (status != B_OK)
 				return status;
 
-			transaction.Start(fVolume, BlockNumber());
+			status = transaction.Start(fVolume, BlockNumber());
+			if (status != B_OK)
+				return status;
 		}
 	}
 
