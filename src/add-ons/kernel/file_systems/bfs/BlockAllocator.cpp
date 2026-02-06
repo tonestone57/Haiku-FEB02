@@ -1247,9 +1247,13 @@ BlockAllocator::AllocateBlockRun(Transaction& transaction, block_run run)
 	if (!IsCompletelyInsideAllowedRange(run))
 		return B_DEVICE_FULL;
 
+	lock.Unlock();
+
 	uint32 bitsPerBlock = fVolume->BlockSize() << 3;
 
 	AllocationGroup& group = fGroups[run.AllocationGroup()];
+	RecursiveLocker groupLock(group.fLock);
+
 	AllocationBlock cached(fVolume);
 
 	int32 end = run.Start() + run.Length();
@@ -1266,6 +1270,9 @@ BlockAllocator::AllocateBlockRun(Transaction& transaction, block_run run)
 	status_t status = group.Allocate(transaction, run.Start(), run.Length());
 	if (status != B_OK)
 		return status;
+
+	groupLock.Unlock();
+	lock.Lock();
 
 	fVolume->SuperBlock().used_blocks
 		= HOST_ENDIAN_TO_BFS_INT64(fVolume->UsedBlocks() + run.Length());
