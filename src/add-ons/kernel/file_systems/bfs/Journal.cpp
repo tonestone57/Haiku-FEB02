@@ -741,8 +741,9 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 				strerror(syncStatus));
 		}
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
-			panic("no space in log after sync (%ld for %ld blocks)!",
+			dprintf("bfs: no space in log after sync (%ld for %ld blocks)!",
 				(long)FreeLogBlocks(), (long)runArrays.LogEntryLength());
+			return B_DEVICE_FULL;
 		}
 	}
 
