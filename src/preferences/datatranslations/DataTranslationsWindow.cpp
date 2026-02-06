@@ -82,6 +82,8 @@ DataTranslationsWindow::~DataTranslationsWindow()
 {
 	BTranslatorRoster* roster = BTranslatorRoster::Default();
 	roster->StopWatching(this);
+	if (fRelease != NULL)
+		fRelease->Release();
 }
 
 
