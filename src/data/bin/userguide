@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 language=$(locale -l)
 # The locale can be a single 2 char language or in severall segments like en, se_SE or sr_Latn_ME
