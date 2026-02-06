@@ -752,6 +752,10 @@ Inode::_AddSmallData(Transaction& transaction, NodeGetter& nodeGetter,
 
 	// reject any requests that can't fit into the small_data section
 	uint32 nameLength = strlen(name);
+	if (pos < 0 || pos > fVolume->InodeSize()
+		|| length > fVolume->InodeSize() - pos)
+		return B_DEVICE_FULL;
+
 	uint32 spaceNeeded = sizeof(small_data) + nameLength + 3 + pos + length + 1;
 	if (spaceNeeded > fVolume->InodeSize() - sizeof(bfs_inode))
 		return B_DEVICE_FULL;
@@ -1651,10 +1655,9 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	if ((uint64)pos + (uint64)length > (uint64)oldSize) {
 		// let's grow the data stream to the size needed
-		status_t status = SetFileSize(transaction, pos + length, true);
+		status_t status = SetFileSize(transaction, pos + length);
 		if (status != B_OK) {
 			*_length = 0;
-			WriteLockInTransaction(transaction);
 			RETURN_ERROR(status);
 		}
 		// TODO: In theory we would need to update the file size
@@ -1666,8 +1669,18 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		// is closed)
 		status = WriteBack(transaction);
 		if (status != B_OK) {
-			WriteLockInTransaction(transaction);
 			return status;
+		}
+
+		if (transaction.IsStarted()) {
+			status = transaction.Done();
+			if (status != B_OK) {
+				return status;
+			}
+
+			status = transaction.Start(fVolume, BlockNumber());
+			if (status != B_OK)
+				return status;
 		}
 	}
 
@@ -1723,7 +1736,9 @@ Inode::FillGapWithZeros(Transaction& transaction, off_t pos, off_t newSize)
 			if (status != B_OK)
 				return status;
 
-			transaction.Start(fVolume, BlockNumber());
+			status = transaction.Start(fVolume, BlockNumber());
+			if (status != B_OK)
+				return status;
 		}
 	}
 
