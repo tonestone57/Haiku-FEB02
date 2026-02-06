@@ -2969,12 +2969,15 @@ vfs_free_io_context(void *_ioContext)
 fssh_status_t
 vfs_init(kernel_args *args)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
 	sVnodeTable = hash_init(VNODE_HASH_TABLE_SIZE, fssh_offsetof(struct vnode, next),
 		&vnode_compare, &vnode_hash);
 	if (sVnodeTable == NULL)
 		fssh_panic("vfs_init: error creating vnode hash table\n");
 
 	list_init_etc(&sUnusedVnodeList, fssh_offsetof(struct vnode, unused_link));
+#pragma GCC diagnostic pop
 
 	sMountsTable = hash_init(MOUNTS_HASH_TABLE_SIZE, fssh_offsetof(struct fs_mount, next),
 		&mount_compare, &mount_hash);
@@ -4648,7 +4651,10 @@ fs_mount(char *path, const char *device, const char *fsName, uint32_t flags,
 		return FSSH_B_NO_MEMORY;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
 	list_init_etc(&mount->vnodes, fssh_offsetof(struct vnode, mount_link));
+#pragma GCC diagnostic pop
 
 	mount->fs_name = get_file_system_name(fsName);
 	if (mount->fs_name == NULL) {

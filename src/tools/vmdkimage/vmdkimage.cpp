@@ -320,8 +320,10 @@ main(int argc, char *argv[])
 		char fullPath[PATH_MAX + 6];
 		strcpy(fullPath, "Haiku");
 
-		if (realpath(file, fullPath + 5) == NULL)
+		if (realpath(file, fullPath + 5) == NULL) {
 			strncpy(fullPath + 5, file, sizeof(fullPath) - 5);
+			fullPath[sizeof(fullPath) - 1] = '\0';
+		}
 
 		size_t pathLength = strlen(fullPath);
 		for (size_t i = pathLength; i < 42; i++) {

@@ -759,10 +759,14 @@ int checkdir(__G__ pathcomp, flag)
             }
             tmproot[rootlen++] = '/';
             tmproot[rootlen] = '\0';
-            if ((rootpath = (char *)realloc(tmproot, rootlen+1)) == NULL) {
-                free(tmproot);
-                rootlen = 0;
-                return MPN_NOMEM;
+            {
+                char *newroot = (char *)realloc(tmproot, rootlen+1);
+                if (newroot == NULL) {
+                    free(tmproot);
+                    rootlen = 0;
+                    return MPN_NOMEM;
+                }
+                rootpath = newroot;
             }
             Trace((stderr, "rootpath now = [%s]\n", FnFilter1(rootpath)));
         }
@@ -1321,7 +1325,7 @@ static void assign_MIME( const char *file )
     if( file[0] == '/' ) {
         fullname = (char *)file;
     } else {
-        sprintf( buff, "%s/%s", getcwd( cwd_buff, PATH_MAX ), file );
+        snprintf( buff, sizeof(buff), "%s/%s", getcwd( cwd_buff, PATH_MAX ), file );
         fullname = buff;
     }
 
