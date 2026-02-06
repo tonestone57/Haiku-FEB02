@@ -2304,9 +2304,32 @@ bfs_stat_index(fs_volume* _volume, const char* name, struct stat* stat)
 	stat->st_uid = node.UserID();
 	stat->st_gid = node.GroupID();
 
-	fill_stat_time(index.Node(), *stat);
+	fill_stat_time(node, *stat);
 
 	return B_OK;
+}
+
+
+static void
+fill_stat_time(const bfs_inode& node, struct stat& stat)
+{
+	bigtime_t now = real_time_clock_usecs();
+	stat.st_atim.tv_sec = now / 1000000LL;
+	stat.st_atim.tv_nsec = (now % 1000000LL) * 1000;
+
+	stat.st_mtim.tv_sec = bfs_inode::ToSecs(node.LastModifiedTime());
+	stat.st_mtim.tv_nsec = bfs_inode::ToNsecs(node.LastModifiedTime());
+	stat.st_crtim.tv_sec = bfs_inode::ToSecs(node.CreateTime());
+	stat.st_crtim.tv_nsec = bfs_inode::ToNsecs(node.CreateTime());
+
+	// For BeOS compatibility, if on-disk ctime is invalid, fall back to mtime:
+	bigtime_t changeTime = node.StatusChangeTime();
+	if (changeTime < node.LastModifiedTime())
+		stat.st_ctim = stat.st_mtim;
+	else {
+		stat.st_ctim.tv_sec = bfs_inode::ToSecs(changeTime);
+		stat.st_ctim.tv_nsec = bfs_inode::ToNsecs(changeTime);
+	}
 }
 
 
