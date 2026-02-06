@@ -363,6 +363,8 @@ Inode::Inode(Volume* volume, ino_t id)
 	// these two will help to maintain the indices
 	fLogicalSize = fNode.data.Size();
 	fOldSize = Size();
+	fLastModified = fNode.LastModifiedTime();
+	fStatusChangeTime = fNode.StatusChangeTime();
 	fOldLastModified = LastModified();
 
 	if (IsContainer())
@@ -417,6 +419,8 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 	// these two will help to maintain the indices
 	fLogicalSize = fNode.data.Size();
 	fOldSize = Size();
+	fLastModified = fNode.LastModifiedTime();
+	fStatusChangeTime = fNode.StatusChangeTime();
 	fOldLastModified = LastModified();
 }
 
@@ -523,6 +527,8 @@ Inode::UpdateNodeFromDisk()
 	memcpy(&fNode, node.Node(), sizeof(bfs_inode));
 	fNode.flags &= HOST_ENDIAN_TO_BFS_INT32(INODE_PERMANENT_FLAGS);
 	fLogicalSize = fNode.data.Size();
+	fLastModified = fNode.LastModifiedTime();
+	fStatusChangeTime = fNode.StatusChangeTime();
 	return B_OK;
 }
 
@@ -694,8 +700,8 @@ Inode::_RemoveSmallData(Transaction& transaction, NodeGetter& nodeGetter,
 
 	status = _RemoveSmallData(node, item, index);
 	if (status == B_OK) {
-		Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(
-			bfs_inode::ToInode(real_time_clock_usecs()));
+		fStatusChangeTime = bfs_inode::ToInode(real_time_clock_usecs());
+		Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(fStatusChangeTime);
 
 		status = WriteBack(transaction);
 	}
@@ -1167,8 +1173,8 @@ Inode::WriteAttribute(Transaction& transaction, const char* name, int32 type,
 			created = true;
 		} else if (status == B_OK) {
 			// Update status time on attribute write
-			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(
-				bfs_inode::ToInode(real_time_clock_usecs()));
+			fStatusChangeTime = bfs_inode::ToInode(real_time_clock_usecs());
+			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(fStatusChangeTime);
 
 			status = WriteBack(transaction);
 		}
@@ -1226,8 +1232,8 @@ Inode::WriteAttribute(Transaction& transaction, const char* name, int32 type,
 
 		if (status == B_OK) {
 			// Update status time on attribute write
-			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(
-				bfs_inode::ToInode(real_time_clock_usecs()));
+			fStatusChangeTime = bfs_inode::ToInode(real_time_clock_usecs());
+			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(fStatusChangeTime);
 
 			status = WriteBack(transaction);
 		}
@@ -1297,8 +1303,8 @@ Inode::RemoveAttribute(Transaction& transaction, const char* name)
 		// remove the attribute file if it exists
 		status = _RemoveAttribute(transaction, name, hasIndex, &index);
 		if (status == B_OK) {
-			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(
-				bfs_inode::ToInode(real_time_clock_usecs()));
+			fStatusChangeTime = bfs_inode::ToInode(real_time_clock_usecs());
+			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(fStatusChangeTime);
 			WriteBack(transaction);
 		}
 	}
@@ -1414,8 +1420,9 @@ Inode::ContainerContentsChanged(Transaction& transaction)
 {
 	ASSERT(!InLastModifiedIndex());
 
+	fLastModified = fStatusChangeTime = bfs_inode::ToInode(real_time_clock_usecs());
 	Node().last_modified_time = Node().status_change_time
-		= HOST_ENDIAN_TO_BFS_INT64(bfs_inode::ToInode(real_time_clock_usecs()));
+		= HOST_ENDIAN_TO_BFS_INT64(fLastModified);
 
 	return WriteBack(transaction);
 }
@@ -1592,9 +1599,8 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	// update the last modification time in memory, it will be written
 	// back to the inode, and the index when the file is closed
-	// TODO: should update the internal last modified time only at this point!
-	Node().last_modified_time = Node().status_change_time
-		= HOST_ENDIAN_TO_BFS_INT64(bfs_inode::ToInode(real_time_clock_usecs()));
+	fLastModified = fStatusChangeTime
+		= bfs_inode::ToInode(real_time_clock_usecs());
 
 	// TODO: support INODE_LOGGED!
 

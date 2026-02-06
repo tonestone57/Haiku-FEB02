@@ -45,20 +45,20 @@ extern void fill_stat_buffer(Inode* inode, struct stat& stat);
 
 
 static void
-fill_stat_time(const bfs_inode& node, struct stat& stat)
+fill_stat_time(Inode* inode, struct stat& stat)
 {
 	bigtime_t now = real_time_clock_usecs();
 	stat.st_atim.tv_sec = now / 1000000LL;
 	stat.st_atim.tv_nsec = (now % 1000000LL) * 1000;
 
-	stat.st_mtim.tv_sec = bfs_inode::ToSecs(node.LastModifiedTime());
-	stat.st_mtim.tv_nsec = bfs_inode::ToNsecs(node.LastModifiedTime());
-	stat.st_crtim.tv_sec = bfs_inode::ToSecs(node.CreateTime());
-	stat.st_crtim.tv_nsec = bfs_inode::ToNsecs(node.CreateTime());
+	stat.st_mtim.tv_sec = bfs_inode::ToSecs(inode->LastModified());
+	stat.st_mtim.tv_nsec = bfs_inode::ToNsecs(inode->LastModified());
+	stat.st_crtim.tv_sec = bfs_inode::ToSecs(inode->Node().CreateTime());
+	stat.st_crtim.tv_nsec = bfs_inode::ToNsecs(inode->Node().CreateTime());
 
 	// For BeOS compatibility, if on-disk ctime is invalid, fall back to mtime:
-	bigtime_t changeTime = node.StatusChangeTime();
-	if (changeTime < node.LastModifiedTime())
+	bigtime_t changeTime = inode->StatusChangeTime();
+	if (changeTime < inode->LastModified())
 		stat.st_ctim = stat.st_mtim;
 	else {
 		stat.st_ctim.tv_sec = bfs_inode::ToSecs(changeTime);
@@ -82,7 +82,7 @@ fill_stat_buffer(Inode* inode, struct stat& stat)
 	stat.st_mode = node.Mode();
 	stat.st_type = node.Type();
 
-	fill_stat_time(node, stat);
+	fill_stat_time(inode, stat);
 
 	if (inode->IsSymLink() && (inode->Flags() & INODE_LONG_SYMLINK) == 0) {
 		// symlinks report the size of the link here
@@ -1012,15 +1012,16 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 	}
 
 	if ((mask & B_STAT_MODIFICATION_TIME) != 0) {
+		bigtime_t newTime = bfs_inode::ToInode(stat->st_mtim);
 		if (!inode->InLastModifiedIndex()) {
 			// directory modification times are not part of the index
-			node.last_modified_time
-				= HOST_ENDIAN_TO_BFS_INT64(bfs_inode::ToInode(stat->st_mtim));
+			node.last_modified_time = HOST_ENDIAN_TO_BFS_INT64(newTime);
+			inode->SetLastModified(newTime);
 		} else if (!inode->IsDeleted()) {
 			// Index::UpdateLastModified() will set the new time in the inode
+			// and update the shadow copy
 			Index index(volume);
-			index.UpdateLastModified(transaction, inode,
-				bfs_inode::ToInode(stat->st_mtim));
+			index.UpdateLastModified(transaction, inode, newTime);
 		}
 	}
 
@@ -1032,6 +1033,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 			newTime = bfs_inode::ToInode(stat->st_ctim);
 
 		node.status_change_time = HOST_ENDIAN_TO_BFS_INT64(newTime);
+		inode->SetStatusChangeTime(newTime);
 	}
 
 	status_t status = inode->WriteBack(transaction);
@@ -1588,7 +1590,13 @@ bfs_free_cookie(fs_volume* _volume, fs_vnode* _node, void* _cookie)
 			if (inode->InLastModifiedIndex()) {
 				index.UpdateLastModified(transaction, inode,
 					inode->LastModified());
+			} else {
+				inode->Node().last_modified_time
+					= HOST_ENDIAN_TO_BFS_INT64(inode->LastModified());
 			}
+			inode->Node().status_change_time
+				= HOST_ENDIAN_TO_BFS_INT64(inode->StatusChangeTime());
+
 			changedTime = true;
 
 			// updating the index doesn't write back the inode
@@ -2296,7 +2304,7 @@ bfs_stat_index(fs_volume* _volume, const char* name, struct stat* stat)
 	stat->st_uid = node.UserID();
 	stat->st_gid = node.GroupID();
 
-	fill_stat_time(node, *stat);
+	fill_stat_time(index.Node(), *stat);
 
 	return B_OK;
 }

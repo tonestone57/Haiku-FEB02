@@ -95,7 +95,14 @@ public:
 			off_t				PhysicalSize() const { return fNode.data.Size(); }
 			off_t				AllocatedSize() const;
 			off_t				LastModified() const
-									{ return fNode.LastModifiedTime(); }
+									{ return fLastModified; }
+			off_t				StatusChangeTime() const
+									{ return fStatusChangeTime; }
+
+			void				SetLastModified(off_t time)
+									{ fLastModified = time; }
+			void				SetStatusChangeTime(off_t time)
+									{ fStatusChangeTime = time; }
 
 			const block_run&	BlockRun() const
 									{ return fNode.inode_num; }
@@ -280,6 +287,9 @@ private:
 			off_t				fLogicalSize;
 				// we need those values to ensure we will remove
 				// the correct keys from the indices
+
+			off_t				fLastModified;
+			off_t				fStatusChangeTime;
 
 			mutable recursive_lock fSmallDataLock;
 			SinglyLinkedList<AttributeIterator> fIterators;

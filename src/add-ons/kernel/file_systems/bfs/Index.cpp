@@ -389,6 +389,7 @@ Index::UpdateLastModified(Transaction& transaction, Inode* inode,
 		sizeof(int64), inode);
 
 	inode->Node().last_modified_time = HOST_ENDIAN_TO_BFS_INT64(modified);
+	inode->SetLastModified(modified);
 	// No matter if the index exists or not, we will update the old last
 	// modified field, since this is also being used to determine whether
 	// or not to send out notifications.
