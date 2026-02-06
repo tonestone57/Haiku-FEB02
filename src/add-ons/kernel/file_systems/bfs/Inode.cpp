@@ -337,6 +337,9 @@ bfs_inode::InitCheck(Volume* volume) const
 //	#pragma mark - Inode
 
 
+static const size_t kZeroFillChunkSize = 8 * 1024 * 1024;
+
+
 Inode::Inode(Volume* volume, ino_t id)
 	:
 	fVolume(volume),
@@ -1680,8 +1683,8 @@ Inode::FillGapWithZeros(Transaction& transaction, off_t pos, off_t newSize)
 
 		// Split the write into smaller chunks to avoid blocking the journal
 		// for too long.
-		if (transaction.IsStarted() && size > 8 * 1024 * 1024)
-			size = 8 * 1024 * 1024;
+		if (transaction.IsStarted() && size > kZeroFillChunkSize)
+			size = kZeroFillChunkSize;
 
 		status_t status = file_cache_write(FileCache(), NULL, pos, NULL, &size);
 		if (status < B_OK)
