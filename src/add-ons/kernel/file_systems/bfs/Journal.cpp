@@ -734,7 +734,12 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	// If necessary, flush the log, so that we have enough space for this
 	// transaction
 	if (runArrays.LogEntryLength() > FreeLogBlocks()) {
-		cache_sync_transaction(fVolume->BlockCache(), transactionID);
+		status_t syncStatus = cache_sync_transaction(fVolume->BlockCache(),
+			transactionID);
+		if (syncStatus != B_OK) {
+			dprintf("cache_sync_transaction failed: %s\n",
+				strerror(syncStatus));
+		}
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
 			panic("no space in log after sync (%ld for %ld blocks)!",
 				(long)FreeLogBlocks(), (long)runArrays.LogEntryLength());
@@ -844,8 +849,17 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	fUsed += logEntry->Length();
 	mutex_unlock(&fEntriesLock);
 
-	cache_end_transaction(fVolume->BlockCache(), transactionID,
-		_TransactionWritten, logEntry);
+	status_t endStatus = cache_end_transaction(fVolume->BlockCache(),
+		transactionID, _TransactionWritten, logEntry);
+	if (endStatus != B_OK) {
+		// If the transaction cannot be ended, we need to try to sync the
+		// previous transactions, so that we can free up some memory.
+		cache_sync_transaction(fVolume->BlockCache(), transactionID - 1);
+		endStatus = cache_end_transaction(fVolume->BlockCache(), transactionID,
+			_TransactionWritten, logEntry);
+		if (endStatus != B_OK)
+			panic("cache_end_transaction failed: %s", strerror(endStatus));
+	}
 
 	return status;
 }
