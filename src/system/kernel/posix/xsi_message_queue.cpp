@@ -40,7 +40,7 @@ namespace {
 struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 	queued_message(const void *_message, ssize_t _length)
 		:
-		fInitStatus(ENOMEM),
+		fInitStatus(B_NO_MEMORY),
 		length(_length)
 	{
 		message = (char *)malloc(sizeof(char) * _length);
@@ -51,7 +51,7 @@ struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 			|| user_memcpy(message, (void *)((char *)_message + sizeof(long)),
 			_length) != B_OK) {
 			free(message);
-			fInitStatus = EFAULT;
+			fInitStatus = B_BAD_ADDRESS;
 			return;
 		}
 		fInitStatus = B_OK;
@@ -625,7 +625,7 @@ _user_xsi_msgget(key_t key, int flags)
 				if (ipcKey == NULL) {
 					TRACE(("xsi_msgget: failed to create new Ipc object "
 						"for key %d\n", (int)key));
-					return ENOMEM;
+					return B_NO_MEMORY;
 				}
 				sIpcHashTable.Insert(ipcKey);
 			}
@@ -661,7 +661,7 @@ _user_xsi_msgget(key_t key, int flags)
 		if (messageQueue == NULL) {
 			TRACE_ERROR(("xsi_msgget: failed to allocate new xsi "
 				"message queue\n"));
-			return ENOMEM;
+			return B_NO_MEMORY;
 		}
 		atomic_add(&sXsiMessageQueueCount, 1);
 
@@ -813,7 +813,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 		= new(std::nothrow) queued_message(messagePointer, messageSize);
 	if (message == NULL) {
 		TRACE_ERROR(("xsi_msgsnd: failed to allocate new message\n"));
-		return ENOMEM;
+		return B_NO_MEMORY;
 	}
 	if (message->InitStatus() != B_OK) {
 		status_t status = message->InitStatus();
