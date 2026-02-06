@@ -55,7 +55,7 @@ hpet_get_priority()
 		return 0;
 
 	// HPET timers, being off-chip, are more expensive to setup
-	// than the LAPIC.
+	// than the LAPIC (priority 3), but better than the PIT (priority 1).
 	return 2;
 }
 

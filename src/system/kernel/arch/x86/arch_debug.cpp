@@ -1398,15 +1398,22 @@ arch_debug_snooze(bigtime_t duration)
 	if (delay == 0)
 		delay = 1;
 
+	uint64 start = __rdtsc();
+
 	if (sDebugSnooze != NULL) {
-		sDebugSnooze(delay);
+		while (true) {
+			uint64 now = __rdtsc();
+			if (now - start >= delay)
+				break;
+
+			sDebugSnooze(delay - (now - start));
+		}
 		return;
 	}
 
 	memory_read_barrier();
-	uint64 target = __rdtsc() + delay;
 
-	while (__rdtsc() < target)
+	while (__rdtsc() - start < delay)
 		arch_cpu_pause();
 }
 
