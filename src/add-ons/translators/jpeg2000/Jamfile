@@ -16,22 +16,24 @@ AddResources JPEG2000Translator : JPEG2000Translator.rdef ;
 local architectureObject ;
 for architectureObject in [ MultiArchSubDirSetup ] {
 	on $(architectureObject) {
-		UseBuildFeatureHeaders jasper ;
+		if [ FIsBuildFeatureEnabled jasper ] {
+			UseBuildFeatureHeaders jasper ;
 
-		Translator [ MultiArchDefaultGristFiles JPEG2000Translator ] :
+			Translator [ MultiArchDefaultGristFiles JPEG2000Translator ] :
 
-			# JPEG2000Translator
-			JPEG2000Translator.cpp
+				# JPEG2000Translator
+				JPEG2000Translator.cpp
 
-			: be translation 
-			[ MultiArchDefaultGristFiles libtranslatorsutils.a ]
-			[ BuildFeatureAttribute jasper : library ]
-			[ TargetLibsupc++ ] localestub
-			: true
-		;
+				: be translation
+				[ MultiArchDefaultGristFiles libtranslatorsutils.a ]
+				[ BuildFeatureAttribute jasper : library ]
+				[ TargetLibsupc++ ] localestub
+				: true
+			;
 
-		Includes [ FGristFiles JPEG2000Translator.cpp ]
-			: [ BuildFeatureAttribute jasper : headers ] ;
+			Includes [ FGristFiles JPEG2000Translator.cpp ]
+				: [ BuildFeatureAttribute jasper : headers ] ;
+		}
 	}
 }
 

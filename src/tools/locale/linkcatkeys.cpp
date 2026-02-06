@@ -46,7 +46,6 @@ int
 main(int argc, char **argv)
 {
 	bool showSummary = false;
-	bool showWarnings = false;
 	vector<const char *> inputFiles;
 	BString outputFile("default.catalog");
 	enum TargetType {
@@ -73,8 +72,6 @@ main(int argc, char **argv)
 					catalogLang = (++argv)[0];
 				} else if (c == 'v')
 					showSummary = true;
-				else if (c == 'w')
-					showWarnings = true;
 				else if (c == 'o') {
 					if (!argv[1])
 						usage();
