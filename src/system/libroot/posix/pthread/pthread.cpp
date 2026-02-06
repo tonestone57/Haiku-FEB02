@@ -8,9 +8,11 @@
 
 #include "pthread_private.h"
 
+#include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <TLS.h>
 
@@ -119,7 +121,15 @@ __pthread_init_creation_attributes(const pthread_attr_t* pthreadAttributes,
 
 	attributes->entry = entryFunction;
 	attributes->name = name;
-	attributes->priority = attr->sched_priority;
+	if (attr->inheritsched == PTHREAD_INHERIT_SCHED) {
+		struct thread_info info;
+		if (get_thread_info(find_thread(NULL), &info) == B_OK)
+			attributes->priority = info.priority;
+		else
+			attributes->priority = B_NORMAL_PRIORITY;
+	} else
+		attributes->priority = attr->sched_priority;
+
 	attributes->args1 = argument1;
 	attributes->args2 = argument2;
 	attributes->stack_address = attr->stack_address;
@@ -220,6 +230,15 @@ int
 pthread_equal(pthread_t t1, pthread_t t2)
 {
 	return t1 == t2;
+}
+
+
+int
+pthread_yield(void)
+{
+	if (sched_yield() != 0)
+		return errno;
+	return 0;
 }
 
 
