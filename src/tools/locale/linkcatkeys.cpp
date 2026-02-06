@@ -63,15 +63,21 @@ main(int argc, char **argv)
 			char *arg = argv[0] + 1;
 			char c;
 			while ((c = *arg++) != '\0') {
-				if (c == 's')
+				if (c == 's') {
+					if (!argv[1])
+						usage();
 					catalogSig = (++argv)[0];
-				else if (c == 'l')
+				} else if (c == 'l') {
+					if (!argv[1])
+						usage();
 					catalogLang = (++argv)[0];
-				else if (c == 'v')
+				} else if (c == 'v')
 					showSummary = true;
 				else if (c == 'w')
 					showWarnings = true;
 				else if (c == 'o') {
+					if (!argv[1])
+						usage();
 					outputFile = (++argv)[0];
 					break;
 				}

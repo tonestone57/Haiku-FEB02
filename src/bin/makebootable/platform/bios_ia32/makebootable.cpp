@@ -183,7 +183,11 @@ static bool
 is_bfs_partition(int fd, off_t offset)
 {
 	unsigned char bootblock[512];
-	read_pos(fd, offset + 512, &bootblock, sizeof(bootblock));
+	if (read_pos(fd, offset + 512, &bootblock, sizeof(bootblock))
+			!= sizeof(bootblock)) {
+		return false;
+	}
+
 	uint32 magic1 = *(uint32*)(bootblock + 0x20);
 	uint32 magic2 = *(uint32*)(bootblock + 0x44);
 	uint32 magic3 = *(uint32*)(bootblock + 0x70);
@@ -203,7 +207,8 @@ static bool
 is_bootcode_installed(int fd, off_t offset, const uint8* bootCode, int64* out_partition_offset)
 {
 	unsigned char bootblock[kBootCodeSize];
-	read_pos(fd, offset, &bootblock, kBootCodeSize);
+	if (read_pos(fd, offset, &bootblock, kBootCodeSize) != kBootCodeSize)
+		return false;
 
 	// Check if first part of bootcode is identical up until the partition offset
 	if (memcmp(bootblock, bootCode, kPartitionOffsetOffset) != 0)

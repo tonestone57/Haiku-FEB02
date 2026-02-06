@@ -381,7 +381,7 @@ main(int argc, char *argv[])
 	if (write(fd, desc, sizeof(desc)) != sizeof(desc))
 		goto write_err;
 
-	if ((uint64_t)lseek(fd, headerSize - 1, SEEK_SET) != headerSize - 1)
+	if (lseek(fd, headerSize - 1, SEEK_SET) == (off_t)-1)
 		goto write_err;
 
 	if (1 != write(fd, "", 1))

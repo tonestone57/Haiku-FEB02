@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -60,14 +61,22 @@ main(int argc, char *argv[])
 				break;
 
 			case 'i':
-				imageSize = strtoull(optarg, NULL, 10);
+			{
+				unsigned long long size = strtoull(optarg, NULL, 10);
 				if (strchr(optarg, 'G') || strchr(optarg, 'g'))
-					imageSize *= 1024 * 1024 * 1024;
+					size *= 1024 * 1024 * 1024;
 				else if (strchr(optarg, 'M') || strchr(optarg, 'm'))
-					imageSize *= 1024 * 1024;
+					size *= 1024 * 1024;
 				else if (strchr(optarg, 'K') || strchr(optarg, 'k'))
-					imageSize *= 1024;
+					size *= 1024;
+
+				if (size > (unsigned long long)std::numeric_limits<off_t>::max()) {
+					fprintf(stderr, "Error: image size too large\n");
+					exit(EXIT_FAILURE);
+				}
+				imageSize = (off_t)size;
 				break;
+			}
 
 			case 'f':
 				file = optarg;
@@ -136,11 +145,10 @@ main(int argc, char *argv[])
 			while ((written = write(fd, buffer, sizeof(buffer))) > 0)
 				totalWritten += written;
 
-			// Only fail, if an error occurs and we haven't written anything at
-			// all yet.
+			// We expect ENOSPC when writing until the end of the device.
 			// TODO: We should probably first determine the size of the device
 			// and try to write only that much.
-			if (totalWritten == 0 && written < 0) {
+			if (written < 0 && errno != ENOSPC) {
 				fprintf(stderr, "Error: writing to device file %s failed "
 					"(%s)\n", file, strerror(errno));
 				exit(EXIT_FAILURE);

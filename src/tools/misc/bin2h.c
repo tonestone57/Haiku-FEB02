@@ -16,8 +16,13 @@ int main(int argc, char **argv)
 	while(!feof(infp)) {
 		int err;
 		err = fread(&c, sizeof(c), 1, infp);
-		if(err != 1)
+		if(err != 1) {
+			if (ferror(infp)) {
+				fprintf(stderr, "Error reading from input\n");
+				return 1;
+			}
 			break;
+		}
 
 		printf("0x%02x,", ((int)c) & 0xff);
 		if((++column % NUM_COLUMNS) == 0) {
