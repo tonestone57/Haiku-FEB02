@@ -854,6 +854,9 @@ BPlusTree::MakeEmpty()
 {
 	// Put all nodes into the free list in order
 	Transaction transaction(fStream->GetVolume(), fStream->BlockNumber());
+	if (!transaction.IsStarted())
+		return B_ERROR;
+
 	fStream->WriteLockInTransaction(transaction);
 
 	// Reset the header, and root node
@@ -899,7 +902,9 @@ BPlusTree::MakeEmpty()
 		// make sure it doesn't get too large
 		if (offset % (1024 * 1024) == 0) {
 			transaction.Done();
-			transaction.Start(fStream->GetVolume(), fStream->BlockNumber());
+			status_t status = transaction.Start(fStream->GetVolume(), fStream->BlockNumber());
+			if (status != B_OK)
+				return status;
 			fStream->WriteLockInTransaction(transaction);
 		}
 	}

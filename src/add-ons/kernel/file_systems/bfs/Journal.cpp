@@ -734,7 +734,12 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	// If necessary, flush the log, so that we have enough space for this
 	// transaction
 	if (runArrays.LogEntryLength() > FreeLogBlocks()) {
-		cache_sync_transaction(fVolume->BlockCache(), transactionID);
+		status_t syncStatus = cache_sync_transaction(fVolume->BlockCache(),
+			transactionID);
+		if (syncStatus != B_OK) {
+			dprintf("cache_sync_transaction failed: %s\n",
+				strerror(syncStatus));
+		}
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
 			panic("no space in log after sync (%ld for %ld blocks)!",
 				(long)FreeLogBlocks(), (long)runArrays.LogEntryLength());
@@ -844,8 +849,17 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	fUsed += logEntry->Length();
 	mutex_unlock(&fEntriesLock);
 
-	cache_end_transaction(fVolume->BlockCache(), transactionID,
-		_TransactionWritten, logEntry);
+	status_t endStatus = cache_end_transaction(fVolume->BlockCache(),
+		transactionID, _TransactionWritten, logEntry);
+	if (endStatus != B_OK) {
+		// If the transaction cannot be ended, we need to try to sync the
+		// previous transactions, so that we can free up some memory.
+		cache_sync_transaction(fVolume->BlockCache(), transactionID - 1);
+		endStatus = cache_end_transaction(fVolume->BlockCache(), transactionID,
+			_TransactionWritten, logEntry);
+		if (endStatus != B_OK)
+			panic("cache_end_transaction failed: %s", strerror(endStatus));
+	}
 
 	return status;
 }
@@ -1039,6 +1053,8 @@ Journal::MoveLog(block_run newLog)
 			allocatedRun = newLog;
 
 		Transaction transaction(fVolume, 0);
+		if (!transaction.IsStarted())
+			return B_ERROR;
 
 		status = allocator.AllocateBlockRun(transaction, allocatedRun);
 		if (status != B_OK) {
@@ -1068,7 +1084,10 @@ Journal::MoveLog(block_run newLog)
 		// if we had to allocate some blocks, try to free them
 		if (!allocatedRun.IsZero()) {
 			Transaction transaction(fVolume, 0);
-			status_t freeStatus = allocator.Free(transaction, allocatedRun);
+			status_t freeStatus = B_ERROR;
+			if (transaction.IsStarted())
+				freeStatus = allocator.Free(transaction, allocatedRun);
+
 			if (freeStatus == B_OK)
 				freeStatus = transaction.Done();
 
@@ -1093,6 +1112,8 @@ Journal::MoveLog(block_run newLog)
 		block_run runToFree = block_run::Run(0, newEnd, oldEnd - newEnd);
 
 		Transaction transaction(fVolume, 0);
+		if (!transaction.IsStarted())
+			return B_ERROR;
 
 		status = allocator.Free(transaction, runToFree);
 		if (status == B_OK)

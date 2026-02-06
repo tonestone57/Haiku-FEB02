@@ -796,7 +796,10 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 				"(volume is mounted read-only)!\n"));
 		} else {
 			Transaction transaction(volume, 0);
-			if (groups[0].Allocate(transaction, 0, reservedBlocks) != B_OK) {
+			if (!transaction.IsStarted()) {
+				FATAL(("Could not start transaction for checking reserved space!\n"));
+				volume->Panic();
+			} else if (groups[0].Allocate(transaction, 0, reservedBlocks) != B_OK) {
 				FATAL(("Could not allocate reserved space for block "
 					"bitmap/log!\n"));
 				volume->Panic();
@@ -1378,6 +1381,8 @@ BlockAllocator::Fragment()
 
 		for (uint32 block = 0; block < group.NumBlocks(); block++) {
 			Transaction transaction(fVolume, 0);
+			if (!transaction.IsStarted())
+				return;
 
 			if (cached.SetToWritable(transaction, group, block) != B_OK)
 				return;
