@@ -1678,7 +1678,9 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 				return status;
 			}
 
-			transaction.Start(fVolume, BlockNumber());
+			status = transaction.Start(fVolume, BlockNumber());
+			if (status != B_OK)
+				return status;
 		}
 	}
 
