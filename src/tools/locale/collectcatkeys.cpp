@@ -310,6 +310,7 @@ main(int argc, char **argv)
 				fprintf(stderr, "no keys found\n");
 		}
 		delete catalog;
+		catalog = NULL;
 	}
 
 //	BEntry inEntry(inputFile);
