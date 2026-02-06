@@ -1206,10 +1206,8 @@ BlockAllocator::Allocate(Transaction& transaction, Inode* inode,
 
 	// Are there already allocated blocks? (then just try to allocate near the
 	// last one)
-	if (inode->Size() > 0) {
+	if (inode->PhysicalSize() > 0) {
 		const data_stream& data = inode->Node().data;
-		// TODO: we currently don't care for when the data stream
-		// is already grown into the indirect ranges
 		if (data.max_double_indirect_range == 0
 			&& data.max_indirect_range == 0) {
 			// Since size > 0, there must be a valid block run in this stream
@@ -1220,6 +1218,16 @@ BlockAllocator::Allocate(Transaction& transaction, Inode* inode,
 
 			group = data.direct[last].AllocationGroup();
 			start = data.direct[last].Start() + data.direct[last].Length();
+		} else {
+			// The data stream has already grown into the indirect ranges,
+			// find the last allocated run.
+			block_run lastRun;
+			off_t offset;
+			if (inode->FindBlockRun(inode->PhysicalSize() - 1, lastRun, offset)
+					== B_OK) {
+				group = lastRun.AllocationGroup();
+				start = lastRun.Start() + lastRun.Length();
+			}
 		}
 	} else if (inode->IsContainer() || inode->IsSymLink()) {
 		// directory and symbolic link data will go in the same allocation

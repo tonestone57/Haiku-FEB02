@@ -524,6 +524,9 @@ Inode::WriteBack(Transaction& transaction)
 	if (status != B_OK)
 		return status;
 
+	Node().last_modified_time = HOST_ENDIAN_TO_BFS_INT64(fLastModified);
+	Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(fStatusChangeTime);
+
 	memcpy(node.WritableNode(), &Node(), sizeof(bfs_inode));
 	return B_OK;
 }
@@ -1903,24 +1906,6 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 			data->size = cutSize ? HOST_ENDIAN_TO_BFS_INT64(targetSize)
 				: data->max_indirect_range;
 			return B_OK;
-		} else {
-			// Check if we can merge with the last run of the last indirect block
-			CachedBlock lastCached(fVolume);
-			if (i > 0 && lastCached.SetToWritable(transaction, block + i - 1) == B_OK) {
-				block_run* lastRuns = (block_run*)lastCached.Block();
-				int32 lastIndex = numberOfRuns - 1;
-				if (lastRuns[lastIndex].MergeableWith(run)) {
-					lastRuns[lastIndex].length = HOST_ENDIAN_TO_BFS_INT16(
-						lastRuns[lastIndex].Length() + run.Length());
-
-					data->max_indirect_range = HOST_ENDIAN_TO_BFS_INT64(
-						data->MaxIndirectRange()
-						+ (run.Length() << fVolume->BlockShift()));
-					data->size = cutSize ? HOST_ENDIAN_TO_BFS_INT64(targetSize)
-						: data->max_indirect_range;
-					return B_OK;
-				}
-			}
 		}
 	}
 
