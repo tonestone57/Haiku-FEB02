@@ -458,7 +458,7 @@ bfs_read_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 			pos += bytesZeroed;
 			bytesLeft -= bytesZeroed;
 			break;
-		} else if (pos + bytes > physicalSize) {
+		} else if (pos + (off_t)bytes > physicalSize) {
 			bytes = physicalSize - pos;
 		}
 
@@ -513,7 +513,7 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 		bool needsAllocation = false;
 
 		rw_lock_read_lock(&inode->Lock());
-		if (pos + bytesLeft > inode->PhysicalSize())
+		if (pos + (off_t)bytesLeft > inode->PhysicalSize())
 			needsAllocation = true;
 		rw_lock_read_unlock(&inode->Lock());
 
@@ -976,7 +976,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 			// We must not keep the inode locked during a write operation,
 			// or else we might deadlock.
 			rw_lock_write_unlock(&inode->Lock());
-			inode->FillGapWithZeros(oldSize, inode->Size());
+			inode->FillGapWithZeros(transaction, oldSize, inode->Size());
 			rw_lock_write_lock(&inode->Lock());
 		}
 

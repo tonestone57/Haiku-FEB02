@@ -318,7 +318,7 @@ get_partition_offset(int deviceFD, off_t deviceStart, off_t deviceSize,
 		// try again using GPT instead
 		EFI::Header gptHeader(deviceFD, deviceSize, blockSize);
 		error = gptHeader.InitCheck();
-		if (error == B_OK && partitionIndex < gptHeader.EntryCount()) {
+		if (error == B_OK && (uint32)partitionIndex < gptHeader.EntryCount()) {
 			gpt_partition_entry partition = gptHeader.EntryAt(partitionIndex - 1);
 
 			static_guid bfs_uuid = {0x42465331, 0x3BA3, 0x10F1,
@@ -422,6 +422,7 @@ main(int argc, const char *const *argv)
 		}
 
 		bool noPartition = false;
+		(void)noPartition;
 		int64 partitionOffset = 0;
 		fs_info info;	// needs to be here (we use the device name later)
 		if (S_ISDIR(st.st_mode)) {

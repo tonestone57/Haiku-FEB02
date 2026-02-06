@@ -422,7 +422,9 @@ Header::_DumpPartitions()
 		dprintf("      attributes: %" B_PRIx64 "\n", entry.Attributes());
 
 		char name[64];
-		to_utf8(entry.name, EFI_PARTITION_NAME_LENGTH, name, sizeof(name));
+		uint16 utf16Name[EFI_PARTITION_NAME_LENGTH];
+		memcpy(utf16Name, entry.name, sizeof(utf16Name));
+		to_utf8(utf16Name, EFI_PARTITION_NAME_LENGTH, name, sizeof(name));
 		dprintf("      name: %s\n", name);
 	}
 }

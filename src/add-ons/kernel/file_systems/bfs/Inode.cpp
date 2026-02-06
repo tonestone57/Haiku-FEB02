@@ -1649,7 +1649,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	writeLocker.Unlock();
 
 	if (oldSize < pos)
-		FillGapWithZeros(oldSize, pos);
+		FillGapWithZeros(transaction, oldSize, pos);
 
 	// If we don't want to write anything, we can now return (we may
 	// just have changed the file size using the position parameter)
@@ -1808,6 +1808,9 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 		uint32 free = 0;
 		off_t block;
 
+		uint32 numberOfRuns = fVolume->BlockSize() / sizeof(block_run);
+		int32 i = 0;
+
 		// if there is no indirect block yet, create one
 		if (data->indirect.IsZero()) {
 			status = _AllocateBlockArray(transaction, data->indirect,
@@ -1823,11 +1826,9 @@ Inode::_AddBlockRun(Transaction& transaction, data_stream* data, block_run run,
 
 			runs = (block_run*)cached.Block();
 		} else {
-			uint32 numberOfRuns = fVolume->BlockSize() / sizeof(block_run);
 			block = fVolume->ToBlock(data->indirect);
 
 			// search first empty entry
-			int32 i = 0;
 			for (; i < data->indirect.Length(); i++) {
 				status = cached.SetTo(block + i);
 				if (status != B_OK)
@@ -2310,11 +2311,10 @@ Inode::_ShrinkStream(Transaction& transaction, off_t size)
 	status_t status;
 
 	if (data->MaxDoubleIndirectRange() > size) {
-		off_t* maxDoubleIndirect = &data->max_double_indirect_range;
-			// gcc 4 work-around: "error: cannot bind packed field
-			// 'data->data_stream::max_double_indirect_range' to 'off_t&'"
+		off_t maxDoubleIndirect = data->max_double_indirect_range;
 		status = _FreeStaticStreamArray(transaction, 0, data->double_indirect,
-			size, data->MaxIndirectRange(), *maxDoubleIndirect);
+			size, data->MaxIndirectRange(), maxDoubleIndirect);
+		data->max_double_indirect_range = maxDoubleIndirect;
 		if (status != B_OK)
 			return status;
 
@@ -2337,12 +2337,11 @@ Inode::_ShrinkStream(Transaction& transaction, off_t size)
 
 			block_run* array = (block_run*)cached.WritableBlock();
 
-			off_t* maxIndirect = &data->max_indirect_range;
-				// gcc 4 work-around: "error: cannot bind packed field
-				// 'data->data_stream::max_indirect_range' to 'off_t&'"
+			off_t maxIndirect = data->max_indirect_range;
 			if (_FreeStreamArray(transaction, array, fVolume->BlockSize()
-					/ sizeof(block_run), size, offset, *maxIndirect) != B_OK)
+					/ sizeof(block_run), size, offset, maxIndirect) != B_OK)
 				return B_IO_ERROR;
+			data->max_indirect_range = maxIndirect;
 		}
 		if (data->max_direct_range == data->max_indirect_range) {
 			fVolume->Free(transaction, data->indirect);
@@ -2353,11 +2352,10 @@ Inode::_ShrinkStream(Transaction& transaction, off_t size)
 
 	if (data->MaxDirectRange() > size) {
 		off_t offset = 0;
-		off_t *maxDirect = &data->max_direct_range;
-			// gcc 4 work-around: "error: cannot bind packed field
-			// 'data->data_stream::max_direct_range' to 'off_t&'"
+		off_t maxDirect = data->max_direct_range;
 		status = _FreeStreamArray(transaction, data->direct, NUM_DIRECT_BLOCKS,
-			size, offset, *maxDirect);
+			size, offset, maxDirect);
+		data->max_direct_range = maxDirect;
 		if (status != B_OK)
 			return status;
 	}
