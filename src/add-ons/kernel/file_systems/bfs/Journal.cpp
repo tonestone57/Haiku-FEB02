@@ -720,6 +720,7 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 		status = runArrays.Insert(blockNumber);
 		if (status < B_OK) {
 			FATAL(("filling log entry failed!"));
+			dprintf("BFS: _WriteTransactionToLog failed! status: %s\n", strerror(status));
 			return status;
 		}
 	}
