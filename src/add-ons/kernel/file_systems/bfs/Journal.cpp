@@ -735,7 +735,7 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	// transaction
 	if (runArrays.LogEntryLength() > FreeLogBlocks()) {
 		status_t syncStatus = cache_sync_transaction(fVolume->BlockCache(),
-			transactionID);
+			transactionID - 1);
 		if (syncStatus != B_OK) {
 			dprintf("cache_sync_transaction failed: %s\n",
 				strerror(syncStatus));
