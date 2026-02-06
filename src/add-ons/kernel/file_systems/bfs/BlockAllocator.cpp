@@ -1310,24 +1310,33 @@ BlockAllocator::Free(Transaction& transaction, block_run run)
 		DEBUGGER(("tried to free reserved block"));
 		return B_BAD_VALUE;
 	}
+
+	lock.Unlock();
+
+	{
+		RecursiveLocker groupLock(fGroups[group].fLock);
+
 #ifdef DEBUG
-	if (CheckBlockRun(run) != B_OK)
-		return B_BAD_DATA;
+		if (CheckBlockRun(run) != B_OK)
+			return B_BAD_DATA;
 #endif
 
-	CHECK_ALLOCATION_GROUP(group);
+		CHECK_ALLOCATION_GROUP(group);
 
-	if (fGroups[group].Free(transaction, start, length) != B_OK)
-		RETURN_ERROR(B_IO_ERROR);
+		if (fGroups[group].Free(transaction, start, length) != B_OK)
+			RETURN_ERROR(B_IO_ERROR);
 
-	CHECK_ALLOCATION_GROUP(group);
+		CHECK_ALLOCATION_GROUP(group);
 
 #ifdef DEBUG
-	if (CheckBlockRun(run, NULL, false) != B_OK) {
-		DEBUGGER(("CheckBlockRun() reports allocated blocks (which were just "
-			"freed)\n"));
+		if (CheckBlockRun(run, NULL, false) != B_OK) {
+			DEBUGGER(("CheckBlockRun() reports allocated blocks (which were just "
+				"freed)\n"));
+		}
+#endif
 	}
-#endif
+
+	lock.Lock();
 
 	fVolume->SuperBlock().used_blocks =
 		HOST_ENDIAN_TO_BFS_INT64(fVolume->UsedBlocks() - run.Length());
@@ -1371,7 +1380,7 @@ void
 BlockAllocator::_CheckGroup(int32 groupIndex) const
 {
 	AllocationBlock cached(fVolume);
-	ASSERT_LOCKED_RECURSIVE(&fLock);
+	ASSERT_LOCKED_RECURSIVE(&fGroups[groupIndex].fLock);
 
 	AllocationGroup& group = fGroups[groupIndex];
 
