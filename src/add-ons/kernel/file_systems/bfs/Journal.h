@@ -191,6 +191,14 @@ inline Transaction::~Transaction()
 		Unlock();
 }
 
+inline status_t
+Transaction::Done()
+{
+	if (fJournal != NULL)
+		return Unlock(true);
+	return B_OK;
+}
+
 inline bool
 Transaction::IsTooLarge() const
 {
