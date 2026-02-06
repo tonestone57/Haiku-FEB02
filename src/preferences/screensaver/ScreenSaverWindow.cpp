@@ -958,7 +958,7 @@ ModulesView::_RemoveScreenSaverFromList(const char* name)
 	ScreenSaverItem* selectedItem = (ScreenSaverItem*)fScreenSaversListView->ItemAt(
 		oldSelected);
 
-	if (strcasecmp(selectedItem->Text(), name) == 0) {
+	if (selectedItem != NULL && strcasecmp(selectedItem->Text(), name) == 0) {
 		fScreenSaversListView->RemoveItem(selectedItem);
 		fScreenSaversListView->SortItems(_CompareScreenSaverItems);
 		fScreenSaversListView->Select(0);
@@ -1091,11 +1091,8 @@ ScreenSaverWindow::~ScreenSaverWindow()
 {
 	Hide();
 	fFadeView->UpdateStatus();
+	fModulesView->SaveState();
 	fSettings.SetWindowTab(fTabView->Selection());
-
-	delete fTabView->RemoveTab(1);
-		// We delete this here in order to make sure the module view saves its
-		// state while the window is still intact.
 
 	fSettings.Save();
 }
