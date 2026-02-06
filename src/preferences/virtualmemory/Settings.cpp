@@ -22,6 +22,7 @@
 #include <File.h>
 #include <FindDirectory.h>
 #include <Path.h>
+#include <String.h>
 #include <VolumeRoster.h>
 
 #include <driver_settings.h>
@@ -206,6 +207,33 @@ Settings::ReadSwapSettings()
 }
 
 
+static void
+_EscapeSpecials(BString& string)
+{
+	string.ReplaceAll("\\", "\\\\");
+	string.ReplaceAll("\"", "\\\"");
+
+	bool needsQuoting = false;
+	if (string.Length() == 0)
+		needsQuoting = true;
+	else {
+		for (int32 i = 0; i < string.Length(); i++) {
+			char c = string[i];
+			if (c == ' ' || c == '\t' || c == '\n' || c == '#' || c == ';'
+				|| c == '=' || c == '{' || c == '}') {
+				needsQuoting = true;
+				break;
+			}
+		}
+	}
+
+	if (needsQuoting) {
+		string.Prepend("\"");
+		string.Append("\"");
+	}
+}
+
+
 status_t
 Settings::WriteSwapSettings()
 {
@@ -225,15 +253,27 @@ Settings::WriteSwapSettings()
 	if (fs_stat_dev(SwapVolume(), &info) != 0)
 		return B_ERROR;
 
-	char buffer[1024];
-	snprintf(buffer, sizeof(buffer), "vm %s\nswap_auto %s\nswap_size %"
-		B_PRIdOFF "\nswap_volume_name %s\nswap_volume_device %s\n"
-		"swap_volume_filesystem %s\nswap_volume_capacity %" B_PRIdOFF "\n",
-		SwapEnabled() ? "on" : "off", SwapAutomatic() ? "yes" : "no",
-		SwapSize(), info.volume_name, info.device_name, info.fsh_name,
-		info.total_blocks * info.block_size);
+	BString buffer;
+	buffer << "vm " << (SwapEnabled() ? "on" : "off") << "\n";
+	buffer << "swap_auto " << (SwapAutomatic() ? "yes" : "no") << "\n";
+	buffer << "swap_size " << SwapSize() << "\n";
 
-	file.Write(buffer, strlen(buffer));
+	BString volumeName(info.volume_name);
+	_EscapeSpecials(volumeName);
+	buffer << "swap_volume_name " << volumeName << "\n";
+
+	BString deviceName(info.device_name);
+	_EscapeSpecials(deviceName);
+	buffer << "swap_volume_device " << deviceName << "\n";
+
+	BString fshName(info.fsh_name);
+	_EscapeSpecials(fshName);
+	buffer << "swap_volume_filesystem " << fshName << "\n";
+
+	buffer << "swap_volume_capacity " << (info.total_blocks * info.block_size)
+		<< "\n";
+
+	file.Write(buffer.String(), buffer.Length());
 	return B_OK;
 }
 
