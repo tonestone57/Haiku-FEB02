@@ -113,7 +113,7 @@ COMPILER_FLAGS =
 LINKER_FLAGS =
 
 #	Specify the version of this binary. Example:
-#		-app 3 4 0 d 0 -short 340 -long "340 "`echo -n -e '\302\251'`"1999 GNU GPL"
+#		-app 3 4 0 d 0 -short 340 -long "340 "`echo -n -e '\302\251'`"2026 GNU GPL"
 #	This may also be specified in a resource.
 APP_VERSION :=
 
