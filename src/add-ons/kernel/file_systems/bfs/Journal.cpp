@@ -686,17 +686,14 @@ Journal::_TransactionWritten(int32 transactionID, int32 event, void* _logEntry)
 	and ends the current transaction.
 */
 status_t
-Journal::_WriteTransactionToLog(int32 transactionID)
+Journal::_WriteTransactionToLog(int32 transactionID, bool* _transactionEnded)
 {
-	// TODO: in case of a failure, we need a backup plan like writing all
-	//	changed blocks back to disk immediately (hello disk corruption!)
+	if (_transactionEnded)
+		*_transactionEnded = false;
 
 	RecursiveLocker locker(fLogLock);
 
 	if (_TransactionSize(transactionID) > fLogSize) {
-		// We created a transaction larger than one we can write back to
-		// disk - the only option we have (besides risking disk corruption
-		// by writing it back anyway), is to let it fail.
 		dprintf("transaction too large (%d blocks, log size %d)!\n",
 			(int)_TransactionSize(transactionID), (int)fLogSize);
 		return B_BUFFER_OVERFLOW;
@@ -708,7 +705,6 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	off_t logPosition = logStart;
 
 	// Write log entries to disk
-
 	RunArrays runArrays(this);
 	status_t status = B_OK;
 
@@ -720,26 +716,24 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 		status = runArrays.Insert(blockNumber);
 		if (status < B_OK) {
 			FATAL(("filling log entry failed!"));
-			dprintf("BFS: _WriteTransactionToLog failed! status: %s\n", strerror(status));
 			return status;
 		}
 	}
 
 	if (runArrays.CountBlocks() == 0) {
 		// nothing has changed during this transaction
-		cache_end_transaction(fVolume->BlockCache(), transactionID, NULL,
-			NULL);
+		if (_transactionEnded) *_transactionEnded = true;
+
+		cache_end_transaction(fVolume->BlockCache(), transactionID, NULL, NULL);
 		return B_OK;
 	}
 
-	// If necessary, flush the log, so that we have enough space for this
-	// transaction
+	// Check space and flush if necessary
 	if (runArrays.LogEntryLength() > FreeLogBlocks()) {
 		status_t syncStatus = cache_sync_transaction(fVolume->BlockCache(),
 			transactionID - 1);
 		if (syncStatus != B_OK) {
-			dprintf("cache_sync_transaction failed: %s\n",
-				strerror(syncStatus));
+			dprintf("cache_sync_transaction failed: %s\n", strerror(syncStatus));
 		}
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
 			dprintf("bfs: no space in log after sync (%ld for %ld blocks)!",
@@ -749,13 +743,9 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	}
 
 	int32 maxVecs = runArrays.MaxArrayLength() + 1;
-		// one extra for the index block
-
 	BStackOrHeapArray<iovec, 8> vecs(maxVecs);
-	if (!vecs.IsValid()) {
-		// TODO: write back log entries directly?
+	if (!vecs.IsValid())
 		return B_NO_MEMORY;
-	}
 
 	for (int32 k = 0; k < runArrays.CountArrays(); k++) {
 		run_array* array = runArrays.ArrayAt(k);
@@ -764,18 +754,14 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 
 		add_to_iovec(vecs, index, maxVecs, (void*)array, fVolume->BlockSize());
 
-		// add block runs
-
 		for (int32 i = 0; i < array->CountRuns(); i++) {
 			const block_run& run = array->RunAt(i);
 			off_t blockNumber = fVolume->ToBlock(run);
 
 			for (int32 j = 0; j < run.Length(); j++) {
 				if (count >= wrap) {
-					// We need to write back the first half of the entry
-					// directly as the log wraps around
 					if (writev_pos(fVolume->Device(), logOffset
-						+ (logStart << blockShift), vecs, index) < 0)
+							+ (logStart << blockShift), vecs, index) < 0)
 						FATAL(("could not write log area!\n"));
 
 					logPosition = logStart + count;
@@ -785,7 +771,6 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 					index = 0;
 				}
 
-				// make blocks available in the cache
 				const void* data = block_cache_get(fVolume->BlockCache(),
 					blockNumber + j);
 				if (data == NULL)
@@ -796,7 +781,6 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 			}
 		}
 
-		// write back the rest of the log entry
 		if (count > 0) {
 			logPosition = logStart + count;
 			if (writev_pos(fVolume->Device(), logOffset
@@ -804,14 +788,11 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 				FATAL(("could not write log area: %s!\n", strerror(errno)));
 		}
 
-		// release blocks again
 		for (int32 i = 0; i < array->CountRuns(); i++) {
 			const block_run& run = array->RunAt(i);
 			off_t blockNumber = fVolume->ToBlock(run);
-
-			for (int32 j = 0; j < run.Length(); j++) {
+			for (int32 j = 0; j < run.Length(); j++)
 				block_cache_put(fVolume->BlockCache(), blockNumber + j);
-			}
 		}
 
 		logStart = logPosition % fLogSize;
@@ -828,8 +809,6 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	logEntry->SetTransactionID(transactionID);
 #endif
 
-	// Update the log end pointer in the superblock
-
 	fVolume->SuperBlock().flags = SUPER_BLOCK_DISK_DIRTY;
 	fVolume->SuperBlock().log_end = HOST_ENDIAN_TO_BFS_INT64(logPosition);
 
@@ -837,32 +816,26 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	if (writeStatus != B_OK) {
 		FATAL(("_WriteTransactionToLog: could not write back superblock: %s\n",
 			strerror(writeStatus)));
-		// We must not return the error here if cache_end_transaction() succeeds
-		// later, because the caller would try to abort the transaction even
-		// though it has already been ended.
 	}
 
 	fVolume->LogEnd() = logPosition;
 	T(LogEntry(logEntry, fVolume->LogEnd(), true));
 
-	// We need to flush the drives own cache here to ensure
-	// disk consistency.
-	// If that call fails, we can't do anything about it anyway
 	ioctl(fVolume->Device(), B_FLUSH_DRIVE_CACHE);
-
-	// at this point, we can finally end the transaction - we're in
-	// a guaranteed valid state
 
 	mutex_lock(&fEntriesLock);
 	fEntries.Add(logEntry);
 	fUsed += logEntry->Length();
 	mutex_unlock(&fEntriesLock);
 
+	// CRITICAL: We are about to end the transaction.
+	// Even if this fails, the ID is consumed by the cache.
+	if (_transactionEnded) *_transactionEnded = true;
+
 	status_t endStatus = cache_end_transaction(fVolume->BlockCache(),
 		transactionID, _TransactionWritten, logEntry);
+
 	if (endStatus != B_OK) {
-		// If the transaction cannot be ended, we need to try to sync the
-		// previous transactions, so that we can free up some memory.
 		cache_sync_transaction(fVolume->BlockCache(), transactionID - 1);
 		endStatus = cache_end_transaction(fVolume->BlockCache(), transactionID,
 			_TransactionWritten, logEntry);
@@ -994,13 +967,23 @@ Journal::Unlock(Transaction* owner, bool success)
 	mutex_unlock(&fEntriesLock);
 
 	status_t status = B_OK;
-	if (success)
-		status = _WriteTransactionToLog(owner->ID());
+	bool transactionEnded = false;
 
-	if (status != B_OK)
+	if (success) {
+		// We pass the address of transactionEnded so _WriteTransactionToLog
+		// can tell us if it actually called cache_end_transaction()
+		status = _WriteTransactionToLog(owner->ID(), &transactionEnded);
+	}
+
+	// Only abort if the transaction was NOT ended by the write attempt.
+	// If _WriteTransactionToLog failed but set transactionEnded to true,
+	// the ID is already dead and we must not abort.
+	if (status != B_OK && !transactionEnded) {
 		cache_abort_transaction(fVolume->BlockCache(), owner->ID());
-	else if (!success)
+	} else if (!success && !transactionEnded) {
+		// Standard abort case: user requested failure (success == false)
 		cache_abort_transaction(fVolume->BlockCache(), owner->ID());
+	}
 
 	rw_lock_read_unlock(&fTransactionLock);
 
