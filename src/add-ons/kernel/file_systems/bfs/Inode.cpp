@@ -308,21 +308,37 @@ InodeAllocator::_TransactionListener(int32 id, int32 event, void* _inode)
 status_t
 bfs_inode::InitCheck(Volume* volume) const
 {
-	if (Magic1() != INODE_MAGIC1
-		|| !(Flags() & INODE_IN_USE)
-		|| inode_num.Length() != 1
-		// matches inode size?
-		|| (uint32)InodeSize() != volume->InodeSize()
-		// parent resides on disk?
-		|| parent.AllocationGroup() > int32(volume->AllocationGroups())
+	if (Magic1() != INODE_MAGIC1) {
+		FATAL(("InitCheck: Invalid Magic1 0x%08" B_PRIx32 " (expected 0x%08x)\n",
+			Magic1(), INODE_MAGIC1));
+		return B_BAD_DATA;
+	}
+	if (!(Flags() & INODE_IN_USE)) {
+		FATAL(("InitCheck: Inode not in use\n"));
+		return B_BAD_DATA;
+	}
+	if (inode_num.Length() != 1) {
+		FATAL(("InitCheck: Invalid inode_num length %d\n", inode_num.Length()));
+		return B_BAD_DATA;
+	}
+	if ((uint32)InodeSize() != volume->InodeSize()) {
+		FATAL(("InitCheck: Invalid inode size %" B_PRIu32 " (expected %" B_PRIu32 ")\n",
+			(uint32)InodeSize(), volume->InodeSize()));
+		return B_BAD_DATA;
+	}
+	if (parent.AllocationGroup() > int32(volume->AllocationGroups())
 		|| parent.AllocationGroup() < 0
 		|| parent.Start() > (1L << volume->AllocationGroupShift())
-		|| parent.Length() != 1
-		// attributes, too?
-		|| attributes.AllocationGroup() > int32(volume->AllocationGroups())
+		|| parent.Length() != 1) {
+		FATAL(("InitCheck: Invalid parent run\n"));
+		return B_BAD_DATA;
+	}
+	if (attributes.AllocationGroup() > int32(volume->AllocationGroups())
 		|| attributes.AllocationGroup() < 0
-		|| attributes.Start() > (1L << volume->AllocationGroupShift()))
-		RETURN_ERROR(B_BAD_DATA);
+		|| attributes.Start() > (1L << volume->AllocationGroupShift())) {
+		FATAL(("InitCheck: Invalid attributes run\n"));
+		return B_BAD_DATA;
+	}
 
 	if (Flags() & INODE_DELETED)
 		return B_NOT_ALLOWED;
