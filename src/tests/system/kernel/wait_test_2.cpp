@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <assert.h>
 
 
 /*!
@@ -51,6 +52,7 @@ main(int argc, char** argv)
 		return child1();
 
 	pid_t pid;
+	int count = 0;
 	do {
 		int childStatus = -1;
 		if (waitForGroup)
@@ -58,9 +60,16 @@ main(int argc, char** argv)
 		else
 			pid = wait(&childStatus);
 		printf("wait() returned %ld (%s), child status %d\n",
-			pid, strerror(errno), childStatus);
+			(long)pid, strerror(errno), childStatus);
+
+		if (pid >= 0) {
+			assert(pid == child);
+			count++;
+		}
 	} while (pid >= 0);
+
+	assert(count == 1);
+	assert(errno == ECHILD);
 
 	return 0;
 }
-

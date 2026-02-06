@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <assert.h>
 
 
 /*!
@@ -19,9 +20,9 @@
 int
 child2()
 {
-	printf("child 2 1. parent id = %ld\n", getppid());
+	printf("child 2 1. parent id = %ld\n", (long)getppid());
 	sleep(2);
-	printf("child 2 2. parent id = %ld\n", getppid());
+	printf("child 2 2. parent id = %ld\n", (long)getppid());
 	return 2;
 }
 
@@ -30,7 +31,7 @@ child2()
 int
 child1()
 {
-	printf("child 1 process group: %ld\n", getpgrp());
+	printf("child 1 process group: %ld\n", (long)getpgrp());
 
 	pid_t child = fork();
 	if (child == 0)
@@ -44,18 +45,25 @@ child1()
 int
 main()
 {
-	printf("main process group: %ld\n", getpgrp());
+	printf("main process group: %ld\n", (long)getpgrp());
 	pid_t child = fork();
 	if (child == 0)
 		return child1();
 
 	pid_t pid;
+	int count = 0;
 	do {
 		int childStatus = -1;
 		pid = waitpid(0, &childStatus, 0);
-		printf("waitpid() returned %ld (%s), child status %d\n", pid, strerror(errno), childStatus);
+		printf("waitpid() returned %ld (%s), child status %d\n", (long)pid, strerror(errno), childStatus);
+		if (pid >= 0) {
+			assert(pid == child);
+			count++;
+		}
 	} while (pid >= 0);
+
+	assert(count == 1);
+	assert(errno == ECHILD);
 
 	return 0;
 }
-
