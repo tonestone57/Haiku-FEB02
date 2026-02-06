@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <assert.h>
 
 
 /*!
@@ -20,17 +21,24 @@ main()
 {
 	int childStatus;
 	pid_t pid = wait(&childStatus);
-	printf("wait() returned %ld (%s)\n", pid, strerror(errno));
+	printf("wait() returned %ld (%s)\n", (long)pid, strerror(errno));
+	assert(pid == -1);
+	assert(errno == ECHILD);
 
 	pid = waitpid(-1, &childStatus, 0);
-	printf("waitpid(-1, ...) returned %ld (%s)\n", pid, strerror(errno));
+	printf("waitpid(-1, ...) returned %ld (%s)\n", (long)pid, strerror(errno));
+	assert(pid == -1);
+	assert(errno == ECHILD);
 
 	pid = waitpid(0, &childStatus, 0);
-	printf("waitpid(0, ...) returned %ld (%s)\n", pid, strerror(errno));
+	printf("waitpid(0, ...) returned %ld (%s)\n", (long)pid, strerror(errno));
+	assert(pid == -1);
+	assert(errno == ECHILD);
 
 	pid = waitpid(getpgrp(), &childStatus, 0);
-	printf("waitpid(%ld, ...) returned %ld (%s)\n", getpgrp(), pid, strerror(errno));
+	printf("waitpid(%ld, ...) returned %ld (%s)\n", (long)getpgrp(), (long)pid, strerror(errno));
+	assert(pid == -1);
+	assert(errno == ECHILD);
 
 	return 0;
 }
-
