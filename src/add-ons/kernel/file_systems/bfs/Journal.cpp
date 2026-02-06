@@ -832,7 +832,14 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	fVolume->SuperBlock().flags = SUPER_BLOCK_DISK_DIRTY;
 	fVolume->SuperBlock().log_end = HOST_ENDIAN_TO_BFS_INT64(logPosition);
 
-	status = fVolume->WriteSuperBlock();
+	status_t writeStatus = fVolume->WriteSuperBlock();
+	if (writeStatus != B_OK) {
+		FATAL(("_WriteTransactionToLog: could not write back superblock: %s\n",
+			strerror(writeStatus)));
+		// We must not return the error here if cache_end_transaction() succeeds
+		// later, because the caller would try to abort the transaction even
+		// though it has already been ended.
+	}
 
 	fVolume->LogEnd() = logPosition;
 	T(LogEntry(logEntry, fVolume->LogEnd(), true));
@@ -862,7 +869,7 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 			panic("cache_end_transaction failed: %s", strerror(endStatus));
 	}
 
-	return status;
+	return endStatus;
 }
 
 
