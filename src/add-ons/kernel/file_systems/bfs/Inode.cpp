@@ -1669,6 +1669,16 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 			WriteLockInTransaction(transaction);
 			return status;
 		}
+
+		if (transaction.IsStarted()) {
+			status = transaction.Done();
+			if (status != B_OK) {
+				WriteLockInTransaction(transaction);
+				return status;
+			}
+
+			transaction.Start(fVolume, BlockNumber());
+		}
 	}
 
 	writeLocker.Unlock();
