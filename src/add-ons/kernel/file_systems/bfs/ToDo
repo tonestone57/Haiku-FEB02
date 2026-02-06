@@ -8,8 +8,6 @@ BlockAllocator
 
 DataStream
 
- - Inode::GrowStream(): merging of block_runs doesn't work between range/block boundaries
-
 
 Queries
 
@@ -19,8 +17,6 @@ Queries
 
 BPlusTree
 
- - BPlusTree::Remove() could trigger CachedNode::Free() to go through the free nodes list and free all pages at the end of the data stream
- - BPlusTree::Remove() could let the tree shrink (simple kind of reorganization)
  - updating the TreeIterators doesn't work yet for duplicates (which may be a problem if a duplicate node will go away after a remove)
  - BPlusTree::RemoveDuplicate() could merge the contents of duplicate node with only a few entries to save some space (right now, only empty nodes are freed)
 
