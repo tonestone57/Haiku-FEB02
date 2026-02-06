@@ -1669,7 +1669,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	the log, even if the INODE_LOGGED flag is set.
 */
 status_t
-Inode::FillGapWithZeros(off_t pos, off_t newSize)
+Inode::FillGapWithZeros(Transaction& transaction, off_t pos, off_t newSize)
 {
 	while (pos < newSize) {
 		size_t size;
@@ -1678,11 +1678,26 @@ Inode::FillGapWithZeros(off_t pos, off_t newSize)
 		else
 			size = newSize - pos;
 
+		// Split the write into smaller chunks to avoid blocking the journal
+		// for too long.
+		if (transaction.IsStarted() && size > 8 * 1024 * 1024)
+			size = 8 * 1024 * 1024;
+
 		status_t status = file_cache_write(FileCache(), NULL, pos, NULL, &size);
 		if (status < B_OK)
 			return status;
 
 		pos += size;
+
+		if (transaction.IsStarted()) {
+			// Restart the transaction to allow other threads to progress
+			status = transaction.Done();
+			if (status != B_OK)
+				return status;
+
+			transaction.Start(fVolume, BlockNumber());
+			WriteLockInTransaction(transaction);
+		}
 	}
 
 	return B_OK;
