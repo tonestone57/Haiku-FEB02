@@ -1687,7 +1687,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	writeLocker.Unlock();
 
 	if (oldSize < pos) {
-		status = FillGapWithZeros(transaction, oldSize, pos);
+		status_t status = FillGapWithZeros(transaction, oldSize, pos);
 		if (status != B_OK) {
 			// TODO: fixing this bug (returning the error) causes a crash in
 			// bfs_shell (invalid transaction ID) during build. For now, we
