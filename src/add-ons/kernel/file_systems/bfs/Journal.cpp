@@ -774,8 +774,10 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 					// We need to write back the first half of the entry
 					// directly as the log wraps around
 					if (writev_pos(fVolume->Device(), logOffset
-						+ (logStart << blockShift), vecs, index) < 0)
-						FATAL(("could not write log area!\n"));
+							+ (logStart << blockShift), vecs, index) < 0) {
+						FATAL(("could not write log area: %s!\n", strerror(errno)));
+						status = B_IO_ERROR;
+					}
 
 					logPosition = logStart + count;
 					logStart = 0;
@@ -799,8 +801,10 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 		if (count > 0) {
 			logPosition = logStart + count;
 			if (writev_pos(fVolume->Device(), logOffset
-					+ (logStart << blockShift), vecs, index) < 0)
+					+ (logStart << blockShift), vecs, index) < 0) {
 				FATAL(("could not write log area: %s!\n", strerror(errno)));
+				status = B_IO_ERROR;
+			}
 		}
 
 		// release blocks again
@@ -815,6 +819,9 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 
 		logStart = logPosition % fLogSize;
 	}
+
+	if (status != B_OK)
+		return status;
 
 	LogEntry* logEntry = new(std::nothrow) LogEntry(this, fVolume->LogEnd(),
 		runArrays.LogEntryLength(), 1);
@@ -833,6 +840,13 @@ Journal::_WriteTransactionToLog(int32 transactionID)
 	fVolume->SuperBlock().log_end = HOST_ENDIAN_TO_BFS_INT64(logPosition);
 
 	status = fVolume->WriteSuperBlock();
+	if (status != B_OK) {
+		FATAL(("WriteSuperBlock failed: %s\n", strerror(status)));
+		fVolume->SuperBlock().log_end
+			= HOST_ENDIAN_TO_BFS_INT64(fVolume->LogEnd());
+		delete logEntry;
+		return status;
+	}
 
 	fVolume->LogEnd() = logPosition;
 	T(LogEntry(logEntry, fVolume->LogEnd(), true));
