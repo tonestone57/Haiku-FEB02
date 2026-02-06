@@ -1696,7 +1696,6 @@ Inode::FillGapWithZeros(Transaction& transaction, off_t pos, off_t newSize)
 				return status;
 
 			transaction.Start(fVolume, BlockNumber());
-			WriteLockInTransaction(transaction);
 		}
 	}
 
