@@ -341,6 +341,26 @@ pthread_setschedparam(pthread_t thread, int policy,
 	status_t status = _kern_set_thread_priority(thread->id, param->sched_priority);
 	if (status == B_BAD_THREAD_ID)
 		return ESRCH;
+	if (status == B_NOT_ALLOWED)
+		return EPERM;
+	if (status == B_BAD_VALUE)
+		return EINVAL;
+	if (status < B_OK)
+		return status;
+	return 0;
+}
+
+
+int
+pthread_setschedprio(pthread_t thread, int priority)
+{
+	status_t status = _kern_set_thread_priority(thread->id, priority);
+	if (status == B_BAD_THREAD_ID)
+		return ESRCH;
+	if (status == B_NOT_ALLOWED)
+		return EPERM;
+	if (status == B_BAD_VALUE)
+		return EINVAL;
 	if (status < B_OK)
 		return status;
 	return 0;
