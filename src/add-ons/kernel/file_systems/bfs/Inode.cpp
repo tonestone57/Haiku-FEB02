@@ -1105,7 +1105,7 @@ Inode::ReadAttribute(const char* name, int32 type, off_t pos, uint8* buffer,
 	size_t* _length)
 {
 	if (pos < 0)
-		pos = 0;
+		return B_BAD_VALUE;
 
 	// search in the small_data section (which has to be locked first)
 	{
@@ -1535,6 +1535,9 @@ Inode::AllocatedSize() const
 status_t
 Inode::FindBlockRun(off_t pos, block_run& run, off_t& offset)
 {
+	if (pos < 0)
+		return B_BAD_VALUE;
+
 	data_stream* data = &Node().data;
 
 	// find matching block run
@@ -1638,6 +1641,9 @@ Inode::FindBlockRun(off_t pos, block_run& run, off_t& offset)
 status_t
 Inode::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 {
+	if (pos < 0)
+		return B_BAD_VALUE;
+
 	return file_cache_read(FileCache(), NULL, pos, buffer, _length);
 }
 
@@ -2875,6 +2881,9 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 
 			if ((openMode & O_TRUNC) != 0) {
 				// truncate the existing file
+				if ((openMode & O_RWMASK) == O_RDONLY)
+					return B_NOT_ALLOWED;
+
 				inode->WriteLockInTransaction(transaction);
 
 				status_t status = inode->SetFileSize(transaction, 0);
@@ -3074,8 +3083,7 @@ AttributeIterator::AttributeIterator(Inode* inode)
 	fCurrentSmallData(0),
 	fInode(inode),
 	fAttributes(NULL),
-	fIterator(NULL),
-	fBuffer(NULL)
+	fIterator(NULL)
 {
 	inode->_AddIterator(this);
 }

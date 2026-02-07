@@ -643,6 +643,9 @@ bfs_get_file_map(fs_volume* _volume, fs_vnode* _node, off_t offset, size_t size,
 	block_run run;
 	off_t fileOffset;
 
+	if (max == 0)
+		return B_BAD_VALUE;
+
 	//FUNCTION_START(("offset = %lld, size = %lu\n", offset, size));
 
 	while (true) {

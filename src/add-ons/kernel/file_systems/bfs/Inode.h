@@ -483,7 +483,6 @@ private:
 			Inode*			fInode;
 			Inode*			fAttributes;
 			TreeIterator*	fIterator;
-			void*			fBuffer;
 };
 
 #endif	// INODE_H

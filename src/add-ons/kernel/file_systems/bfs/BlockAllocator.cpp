@@ -662,21 +662,29 @@ BlockAllocator::InitializeAndClearBitmap(Transaction& transaction)
 	}
 	free(buffer);
 
-	// reserve the boot block, the log area, and the block bitmap itself
-	uint32 reservedBlocks = fVolume->ToBlock(fVolume->Log()) + fVolume->Log().Length();
+	// reserve the boot block, the block bitmap itself, and the log area
+	// (we reserve the log area separately, as it might not be contiguous
+	// with the other reserved blocks)
+	uint32 reservedBlocks = 1 + fNumBitmapBlocks;
 	uint32 blocksToReserve = reservedBlocks;
 	for (int32 i = 0; i < fNumGroups; i++) {
 		int32 reservedBlocksInGroup = min_c(blocksToReserve, numBits);
 		if (fGroups[i].Allocate(transaction, 0, reservedBlocksInGroup) < B_OK) {
-			FATAL(("could not allocate reserved space for block bitmap/log!\n"));
+			FATAL(("could not allocate reserved space for block bitmap!\n"));
 			return B_ERROR;
 		}
 		blocksToReserve -= reservedBlocksInGroup;
 		if (blocksToReserve == 0)
 			break;
 	}
+
+	if (allocator->AllocateBlockRun(transaction, fVolume->Log()) != B_OK) {
+		FATAL(("could not allocate reserved space for log!\n"));
+		return B_ERROR;
+	}
+
 	fVolume->SuperBlock().used_blocks
-		= HOST_ENDIAN_TO_BFS_INT64(reservedBlocks);
+		= HOST_ENDIAN_TO_BFS_INT64(reservedBlocks + fVolume->Log().Length());
 
 	return B_OK;
 }
