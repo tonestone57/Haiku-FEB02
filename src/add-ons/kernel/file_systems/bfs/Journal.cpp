@@ -404,10 +404,10 @@ RunArrays::MaxArrayLength()
 Journal::Journal(Volume* volume)
 	:
 	fVolume(volume),
+	fOwner(-1),
 	fLogSize(volume->Log().Length()),
 	fMaxTransactionSize(fLogSize / 2 - 5),
-	fUsed(0),
-	fOwner(-1)
+	fUsed(0)
 {
 	rw_lock_init(&fTransactionLock, "bfs journal transaction");
 	recursive_lock_init(&fLogLock, "bfs journal log");
