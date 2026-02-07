@@ -17,6 +17,7 @@
 #include <real_time_data.h>
 #include <syscalls.h>
 #include <thread.h>
+#include <util/AutoLock.h>
 
 #include <stdlib.h>
 

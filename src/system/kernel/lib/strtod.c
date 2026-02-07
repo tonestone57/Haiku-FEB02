@@ -967,6 +967,8 @@ d2b(double d, int *e, int *bits)
 #else
 	b = Balloc(2);
 #endif
+	if (b == NULL)
+		return NULL;
 	x = b->x;
 
 	z = d0 & Frac_mask;
@@ -1133,7 +1135,7 @@ static double tinytens[] = { 1e-16, 1e-32 };
 double
 strtod(const char * __restrict s00, char ** __restrict se)
 {
-	int bb2, bb5, bbe, bd2, bd5, bbbits, bs2, c, dsign,
+	int bb2, bb5, bbe = 0, bd2, bd5, bbbits = 0, bs2, c, dsign,
 		 e, e1, esign, i, j, k, nd, nd0, nf, nz, nz0, sign;
 	const char *s, *s0, *s1;
 	double aadj, aadj1, adj, rv, rv0;
@@ -1382,6 +1384,11 @@ strtod(const char * __restrict s00, char ** __restrict se)
 		bd = Balloc(bd0->k);
 		Bcopy(bd, bd0);
 		bb = d2b(rv, &bbe, &bbbits);	/* rv = bb * 2^bbe */
+		if (bb == NULL) {
+			Bfree(bd);
+			Bfree(bd0);
+			return sign ? -rv : rv;
+		}
 		bs = i2b(1);
 
 		if (e >= 0) {
