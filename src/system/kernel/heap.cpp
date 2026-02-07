@@ -1530,6 +1530,8 @@ heap_memalign(heap_allocator *heap, size_t alignment, size_t size)
 #endif
 
 #if KERNEL_HEAP_LEAK_CHECK
+	if (size + sizeof(heap_leak_check_info) < size)
+		return NULL;
 	size += sizeof(heap_leak_check_info);
 #endif
 
@@ -1542,6 +1544,8 @@ heap_memalign(heap_allocator *heap, size_t alignment, size_t size)
 			// bin could possibly be selected. We should pick the best bin and
 			// check if there is an aligned block in the free list or if a new
 			// (page aligned) page has to be allocated anyway.
+			if (size + alignment < size)
+				return NULL;
 			size = ROUNDUP(size, alignment);
 			for (uint32 i = 0; i < heap->bin_count; i++) {
 				if (size <= heap->bins[i].element_size

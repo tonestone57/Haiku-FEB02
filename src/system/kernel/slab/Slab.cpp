@@ -1010,6 +1010,9 @@ object_cache_low_memory(void* dummy, uint32 resources, int32 level)
 	// one of the caches that will never be deleted and thus we use it as a
 	// marker.
 	ObjectCache* firstCache = sObjectCaches.RemoveHead();
+	if (firstCache == NULL)
+		return;
+
 	sObjectCaches.Add(firstCache);
 	cacheListLocker.Unlock();
 

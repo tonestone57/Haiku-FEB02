@@ -615,8 +615,11 @@ VMKernelAddressSpace::_AllocateRange(
 
 		case B_ANY_KERNEL_BLOCK_ADDRESS:
 			// align the memory to the next power of two of the size
-			while (alignment < size)
+			while (alignment < size) {
 				alignment <<= 1;
+				if (alignment == 0)
+					return B_NO_MEMORY;
+			}
 
 			// fall through...
 

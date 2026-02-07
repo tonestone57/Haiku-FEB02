@@ -339,8 +339,10 @@ VMCache::Init(const char* name, uint32 cacheType, uint32 allocationFlags)
 #endif
 
 	fCacheRef = new(gCacheRefObjectCache, allocationFlags) VMCacheRef(this);
-	if (fCacheRef == NULL)
+	if (fCacheRef == NULL) {
+		mutex_destroy(&fLock);
 		return B_NO_MEMORY;
+	}
 
 #if DEBUG_CACHE_LIST
 	rw_lock_write_lock(&sCacheListLock);
@@ -858,6 +860,8 @@ VMCache::Resize(off_t newSize, int priority)
 
 	page_num_t oldPageCount = (page_num_t)((virtual_end + B_PAGE_SIZE - 1)
 		>> PAGE_SHIFT);
+	if (newSize > (off_t)((uint64)PAGE_MAX_COUNT << PAGE_SHIFT))
+		return B_BAD_VALUE;
 	page_num_t newPageCount = (page_num_t)((newSize + B_PAGE_SIZE - 1)
 		>> PAGE_SHIFT);
 

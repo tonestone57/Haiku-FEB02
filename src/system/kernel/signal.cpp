@@ -1919,9 +1919,7 @@ send_signal_internal(pid_t id, uint signalNumber, union sigval userValue,
 	// If id == -1, send the signal to all teams the calling team has permission
 	// to send signals to.
 	if (id == -1) {
-		// TODO: Implement correctly!
-		// currently only send to the current team
-		return send_signal_to_team_id(thread->team->id, signal, flags);
+		return team_send_signal_to_all(signal, flags);
 	}
 
 	// Send a signal to the specified process group (the absolute value of the

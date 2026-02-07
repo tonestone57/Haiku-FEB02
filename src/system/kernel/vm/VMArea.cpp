@@ -53,6 +53,9 @@ VMArea::Init(const char* name, uint32 allocationFlags)
 	strlcpy(this->name, name, B_OS_NAME_LENGTH);
 
 	id = atomic_add(&sNextAreaID, 1);
+	if (id < 0)
+		return B_NO_MEMORY;
+
 	return B_OK;
 }
 

@@ -83,7 +83,11 @@ struct Allocator {
 		fAlignedSize = 0;
 		fStringSize = 0;
 
-		fAligned = (uint8*)malloc(fAlignedCapacity + fStringCapacity);
+		size_t totalCapacity = fAlignedCapacity + fStringCapacity;
+		if (totalCapacity < fAlignedCapacity)
+			return false;
+
+		fAligned = (uint8*)malloc(totalCapacity);
 		if (fAligned == NULL)
 			return false;
 		fStrings = (char*)(fAligned + fAlignedCapacity);

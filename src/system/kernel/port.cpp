@@ -1628,6 +1628,7 @@ writev_port_etc(port_id id, int32 msgCode, const iovec* msgVecs,
 	if (status != B_OK) {
 		if (status == B_BAD_PORT_ID) {
 			// the port had to be unlocked and is now no longer there
+			locker.Detach();
 			T(Write(id, 0, 0, 0, 0, B_BAD_PORT_ID));
 			return B_BAD_PORT_ID;
 		}

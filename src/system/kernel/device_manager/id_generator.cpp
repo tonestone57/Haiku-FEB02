@@ -142,13 +142,13 @@ get_generator(const char* name)
 }
 
 
-/*! Decrease ref_count, deleting generator if not used anymore */
+/*! Decrease ref_count, deleting generator if not used anymore.
+	sLock must be held.
+*/
 static void
-release_generator(id_generator *generator)
+release_generator_locked(id_generator *generator)
 {
 	TRACE(("release_generator(name: %s)\n", generator->name));
-
-	MutexLocker _(sLock);
 
 	if (--generator->ref_count == 0) {
 		// no one messes with generator
@@ -159,6 +159,15 @@ release_generator(id_generator *generator)
 			delete generator;
 		}
 	}
+}
+
+
+/*! Decrease ref_count, deleting generator if not used anymore */
+static void
+release_generator(id_generator *generator)
+{
+	MutexLocker _(sLock);
+	release_generator_locked(generator);
 }
 
 
@@ -208,12 +217,9 @@ dm_free_id(const char* name, uint32 id)
 {
 	TRACE(("dm_free_id(name: %s, id: %ld)\n", name, id));
 
-	// find generator
-	mutex_lock(&sLock);
+	MutexLocker locker(sLock);
 
 	id_generator* generator = get_generator(name);
-
-	mutex_unlock(&sLock);
 
 	if (generator == NULL) {
 		TRACE(("  Generator %s doesn't exist\n", name));
@@ -223,7 +229,7 @@ dm_free_id(const char* name, uint32 id)
 	// free ID
 
 	if (id >= GENERATOR_MAX_ID) {
-		release_generator(generator);
+		release_generator_locked(generator);
 		return B_BAD_VALUE;
 	}
 
@@ -233,13 +239,13 @@ dm_free_id(const char* name, uint32 id)
 		dprintf("id %" B_PRIu32 " of generator %s wasn't allocated\n", id,
 			generator->name);
 
-		release_generator(generator);
+		release_generator_locked(generator);
 		return B_BAD_VALUE;
 	}
 
 	generator->alloc_map[id / 8] &= ~(1 << (id & 7));
 	generator->num_ids--;
 
-	release_generator(generator);
+	release_generator_locked(generator);
 	return B_OK;
 }

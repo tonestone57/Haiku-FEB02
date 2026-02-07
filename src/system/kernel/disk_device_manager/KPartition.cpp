@@ -1615,5 +1615,12 @@ KPartition::_UpdateChildIndices(int32 start, int32 end)
 int32
 KPartition::_NextID()
 {
-	return atomic_add(&sNextID, 1);
+	int32 id = atomic_add(&sNextID, 1);
+	if (id < 0) {
+		// we are running out of IDs
+		// TODO: handle this gracefully
+		atomic_add(&sNextID, -1);
+		return -1;
+	}
+	return id;
 }
