@@ -421,7 +421,8 @@ Volume::CreateVolumeID(Transaction& transaction)
 		uint64_t id;
 		size_t length = sizeof(id);
 		id = ((uint64_t)rand() << 32) | rand();
-		attr.Write(transaction, cookie, 0, (uint8_t *)&id, &length, NULL);
+		status = attr.Write(transaction, cookie, 0, (uint8_t *)&id, &length, NULL);
+		delete (attr_cookie*)cookie;
 	}
 	return status;
 }

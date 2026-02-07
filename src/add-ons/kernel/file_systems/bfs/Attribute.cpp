@@ -258,7 +258,11 @@ Attribute::_Truncate()
 			return status;
 		}
 
-		transaction.Done();
+		status = transaction.Done();
+		if (status < B_OK) {
+			fAttribute->UpdateNodeFromDisk();
+			return status;
+		}
 	}
 
 	return B_OK;
