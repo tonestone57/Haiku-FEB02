@@ -671,7 +671,11 @@ Journal::_TransactionWritten(int32 transactionID, int32 event, void* _logEntry)
 		if (superBlock.log_start == superBlock.log_end)
 			superBlock.flags = HOST_ENDIAN_TO_BFS_INT32(SUPER_BLOCK_DISK_CLEAN);
 
-		status_t status = journal->fVolume->WriteSuperBlock();
+		status_t status;
+		{
+			MutexLocker locker(journal->fVolume->Lock());
+			status = journal->fVolume->WriteSuperBlock();
+		}
 		if (status != B_OK) {
 			FATAL(("_TransactionWritten: could not write back superblock: %s\n",
 				strerror(status)));
@@ -839,7 +843,11 @@ Journal::_WriteTransactionToLog(int32 transactionID, bool* _transactionEnded)
 	fVolume->SuperBlock().flags = SUPER_BLOCK_DISK_DIRTY;
 	fVolume->SuperBlock().log_end = HOST_ENDIAN_TO_BFS_INT64(logPosition);
 
-	status_t writeStatus = fVolume->WriteSuperBlock();
+	status_t writeStatus;
+	{
+		MutexLocker locker(fVolume->Lock());
+		writeStatus = fVolume->WriteSuperBlock();
+	}
 	if (writeStatus != B_OK) {
 		FATAL(("_WriteTransactionToLog: could not write back superblock: %s\n",
 			strerror(writeStatus)));
