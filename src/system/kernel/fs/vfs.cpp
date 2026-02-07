@@ -4517,6 +4517,9 @@ vfs_get_module_path(const char* basePath, const char* moduleName,
 
 		if (S_ISDIR(file->Type())) {
 			// goto the next directory
+			if (length + 2 > bufferSize)
+				return B_BUFFER_OVERFLOW;
+
 			path[length] = '/';
 			path[length + 1] = '\0';
 			path += length + 1;
