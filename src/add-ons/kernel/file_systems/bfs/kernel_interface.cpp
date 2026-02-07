@@ -902,6 +902,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 			// (a test for the BlockAllocator)!
 			BlockAllocator& allocator = volume->Allocator();
 			Transaction transaction(volume, 0);
+			if (!transaction.IsStarted())
+				return B_ERROR;
+
 			CachedBlock cached(volume);
 			block_run run;
 			while (allocator.AllocateBlocks(transaction, 8, 0, 64, 1, run)
