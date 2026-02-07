@@ -765,7 +765,7 @@ void AudioFilterNode::Connect(
 	}
 	
 	// connection established:
-	strncpy(ioName, m_output.name, B_MEDIA_NAME_LENGTH);
+	strlcpy(ioName, m_output.name, B_MEDIA_NAME_LENGTH);
 	m_output.destination = destination;
 	
 	// figure downstream latency
@@ -1099,7 +1099,7 @@ status_t AudioFilterNode::PrepareToConnect(
 	
 	// pass back source & output name
 	*outSource = m_output.source;
-	strncpy(outName, m_output.name, B_MEDIA_NAME_LENGTH);
+	strlcpy(outName, m_output.name, B_MEDIA_NAME_LENGTH);
 	
 	return B_OK;
 }

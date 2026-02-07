@@ -77,6 +77,9 @@ UninstallPackageProcess::RunInternal()
 		PackageManager(static_cast<BPackageInstallationLocation>(InstallLocation()));
 	ObjectDeleter<PackageManager> solverDeleter(packageManager);
 
+	if (packageManager == NULL)
+		return B_NO_MEMORY;
+
 	packageManager->Init(BPackageManager::B_ADD_INSTALLED_REPOSITORIES);
 
 	PackageInfoRef package = FindPackageByName(fPackageName);

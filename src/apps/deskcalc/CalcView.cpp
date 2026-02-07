@@ -960,9 +960,11 @@ CalcView::Evaluate()
 		BMessage message(kMsgCalculating);
 		fEvaluateMessageRunner = new (std::nothrow) BMessageRunner(
 			BMessenger(this), &message, kCalculatingInterval, 1);
-		status_t runnerStatus = fEvaluateMessageRunner->InitCheck();
-		if (runnerStatus != B_OK)
-			printf("Evaluate Message Runner: %s\n", strerror(runnerStatus));
+		if (fEvaluateMessageRunner != NULL) {
+			status_t runnerStatus = fEvaluateMessageRunner->InitCheck();
+			if (runnerStatus != B_OK)
+				printf("Evaluate Message Runner: %s\n", strerror(runnerStatus));
+		}
 	}
 }
 

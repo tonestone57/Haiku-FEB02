@@ -400,7 +400,7 @@ AudioProducer::PrepareToConnect(const media_source& what,
 		fSupplier->SetFormat(fOutput.format);
 
 	*_source = fOutput.source;
-	strncpy(_name, fOutput.name, B_MEDIA_NAME_LENGTH);
+	strlcpy(_name, fOutput.name, B_MEDIA_NAME_LENGTH);
 	TRACE("  -> B_OK\n");
 	return B_OK;
 }
@@ -426,7 +426,7 @@ AudioProducer::Connect(status_t error, const media_source& source,
 	// format that we agreed on, and report our connection name again.
 	fOutput.destination = destination;
 	fOutput.format = format;
-	strncpy(_name, fOutput.name, B_MEDIA_NAME_LENGTH);
+	strlcpy(_name, fOutput.name, B_MEDIA_NAME_LENGTH);
 
 	// tell our audio supplier about the format
 	if (fSupplier) {

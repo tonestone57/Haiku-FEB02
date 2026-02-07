@@ -49,7 +49,13 @@ FontDemoView::FontDemoView(BRect rect)
 
 FontDemoView::~FontDemoView()
 {
-	free(fShapes);
+	if (fShapes != NULL) {
+		const size_t size = fString.CountChars();
+		for (size_t i = 0; i < size; i++)
+			delete fShapes[i];
+
+		free(fShapes);
+	}
 }
 
 
@@ -78,10 +84,12 @@ FontDemoView::Draw(BRect updateRect)
 	const size_t size = fString.CountChars();
 	BStackOrHeapArray<BRect, 64> boundBoxes(size);
 
-	if (OutLineLevel())
-		fFont.GetGlyphShapes(fString, size, fShapes);
-	else
+	if (OutLineLevel()) {
+		if (fShapes != NULL)
+			fFont.GetGlyphShapes(fString, size, fShapes);
+	} else {
 		fFont.GetBoundingBoxesAsGlyphs(fString, size, B_SCREEN_METRIC, boundBoxes);
+	}
 
 	float escapementArray[size];
 	//struct escapement_delta escapeDeltas[size];
@@ -126,10 +134,12 @@ FontDemoView::Draw(BRect updateRect)
 		boundBoxes[i].OffsetBy(xCoordArray[i], yCoordArray[i]);
 
 		if (OutLineLevel()) {
-			MovePenTo(xCoordArray[i], yCoordArray[i]);
-			FillShape(fShapes[i]);
-			SetPenSize(OutLineLevel());
-			StrokeShape(fShapes[i]);
+			if (fShapes != NULL) {
+				MovePenTo(xCoordArray[i], yCoordArray[i]);
+				FillShape(fShapes[i]);
+				SetPenSize(OutLineLevel());
+				StrokeShape(fShapes[i]);
+			}
 		} else {
 			SetDrawingMode(fDrawingMode);
 			int32 charLength;
@@ -331,8 +341,15 @@ FontDemoView::MessageReceived(BMessage* msg)
 void
 FontDemoView::SetString(BString string)
 {
+	if (fShapes != NULL) {
+		const size_t size = fString.CountChars();
+		for (size_t i = 0; i < size; i++)
+			delete fShapes[i];
+
+		free(fShapes);
+	}
+
 	fString = string;
-	free(fShapes);
 	_AddShapes(fString);
 }
 
@@ -398,6 +415,8 @@ FontDemoView::_AddShapes(BString string)
 {
 	const size_t size = string.CountChars();
 	fShapes = (BShape**)malloc(sizeof(BShape*) * size);
+	if (fShapes == NULL)
+		return;
 
 	for (size_t i = 0; i < size; i++) {
 		fShapes[i] = new BShape();

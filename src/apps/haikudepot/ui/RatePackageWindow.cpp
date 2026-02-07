@@ -337,7 +337,8 @@ RatePackageWindow::MessageReceived(BMessage* message)
 				B_TRANSLATE("Your rating was uploaded successfully. You can update or remove it at "
 							"the HaikuDepot Server website."),
 				B_TRANSLATE("Close"), NULL, NULL, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
-			alert->Go();
+			if (alert != NULL)
+				alert->Go();
 			_RefreshPackageData();
 			break;
 		}
@@ -347,7 +348,8 @@ RatePackageWindow::MessageReceived(BMessage* message)
 			BAlert* alert = new(std::nothrow)
 				BAlert(B_TRANSLATE("User rating"), B_TRANSLATE("Your rating was updated."),
 					B_TRANSLATE("Close"), NULL, NULL, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
-			alert->Go();
+			if (alert != NULL)
+				alert->Go();
 			_RefreshPackageData();
 			break;
 		}

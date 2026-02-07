@@ -22,6 +22,9 @@ ThreadBarMenu::ThreadBarMenu(const char *title, team_id team, int32 threadCount)
 {
 	SetFont(be_plain_font);
 	fThreadsRec = (ThreadRec*) malloc(sizeof(ThreadRec) * fThreadsRecCount);
+	if (fThreadsRec == NULL)
+		fThreadsRecCount = 0;
+
 	Init();
 	fRound = 0;	// for syslog
 	AddNew();
@@ -94,8 +97,13 @@ ThreadBarMenu::AddNew()
 			while (k < fThreadsRecCount && !(fThreadsRec[k].thread == -1 || fThreadsRec[k].last_round+1 < fRound))
 				k++;
 			if (k == fThreadsRecCount) {
+				ThreadRec* newThreadsRec = (ThreadRec*)realloc(fThreadsRec,
+					sizeof(ThreadRec) * (fThreadsRecCount + EXTRA));
+				if (newThreadsRec == NULL)
+					continue;
+
 				fThreadsRecCount += EXTRA;
-				fThreadsRec = (ThreadRec*) realloc(fThreadsRec, sizeof(ThreadRec)*fThreadsRecCount);
+				fThreadsRec = newThreadsRec;
 				lastk = k;
 				while (lastk < fThreadsRecCount)
 					fThreadsRec[lastk++].thread = -1;

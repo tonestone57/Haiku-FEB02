@@ -58,8 +58,8 @@ get_team_name_and_icon(info_pack& infoPack, bool icon)
 		}
 	}
 
-	strncpy(infoPack.team_name, nameFromArgs ? infoPack.team_info.args : info.ref.name,
-		B_PATH_NAME_LENGTH - 1);
+	strlcpy(infoPack.team_name, nameFromArgs ? infoPack.team_info.args : info.ref.name,
+		B_PATH_NAME_LENGTH);
 
 	if (icon) {
 		infoPack.team_icon = new BBitmap(BRect(BPoint(0, 0),

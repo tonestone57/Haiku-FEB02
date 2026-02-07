@@ -545,8 +545,10 @@ App::_CheckTestFile()
 		BAlert* alert = new(std::nothrow) BAlert(B_TRANSLATE("Problem with working files"), msg,
 			B_TRANSLATE("Quit"), B_TRANSLATE("Continue"));
 
-		if (alert->Go() == 0)
-			return false;
+		if (alert != NULL) {
+			if (alert->Go() == 0)
+				return false;
+		}
 	}
 
 	return true;
