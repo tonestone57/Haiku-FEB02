@@ -222,6 +222,11 @@ dm_free_id(const char* name, uint32 id)
 
 	// free ID
 
+	if (id >= GENERATOR_MAX_ID) {
+		release_generator(generator);
+		return B_BAD_VALUE;
+	}
+
 	// make sure it's really allocated
 	// (very important to keep <num_ids> in sync
 	if ((generator->alloc_map[id / 8] & (1 << (id & 7))) == 0) {

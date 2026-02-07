@@ -382,8 +382,17 @@ Balloc(int k)
 	int x;
 	Bigint *rv;
 
+	if (k < 0 || k >= (int)(sizeof(int) * 8 - 1))
+		return NULL;
+
 	x = 1 << k;
+	if (x > (int)((SIZE_MAX - sizeof(Bigint)) / sizeof(Long) + 1))
+		return NULL;
+
 	rv = (Bigint *)malloc(sizeof(Bigint) + (x-1)*sizeof(Long));
+	if (rv == NULL)
+		return NULL;
+
 	rv->k = k;
 	rv->maxwds = x;
 	rv->sign = rv->wds = 0;
