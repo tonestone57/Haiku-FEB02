@@ -574,11 +574,11 @@ Journal::ReplayLog()
 		return B_READ_ONLY_DEVICE;
 
 	// Check if the log start and end pointers are valid
-	if (fVolume->LogStart() < 0 || fVolume->LogStart() > fLogSize
-		|| fVolume->LogEnd() < 0 || fVolume->LogEnd() > fLogSize) {
+	if (fVolume->LogStart() < 0 || (uint32)fVolume->LogStart() > fLogSize
+		|| fVolume->LogEnd() < 0 || (uint32)fVolume->LogEnd() > fLogSize) {
 		FATAL(("Log pointers are invalid (start = %" B_PRIdOFF
 			", end = %" B_PRIdOFF ", size = %" B_PRIu32 ")\n",
-			fVolume->LogStart(), fVolume->LogEnd(), fLogSize));
+			(off_t)fVolume->LogStart(), (off_t)fVolume->LogEnd(), fLogSize));
 		return B_BAD_VALUE;
 	}
 

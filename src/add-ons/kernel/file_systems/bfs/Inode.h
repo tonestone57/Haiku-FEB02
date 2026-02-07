@@ -145,7 +145,7 @@ public:
 
 			// for directories only:
 			BPlusTree*			Tree() const { return fTree; }
-			bool				IsEmpty();
+			status_t			IsEmpty(bool& isEmpty);
 			status_t			ContainerContentsChanged(
 									Transaction& transaction);
 
