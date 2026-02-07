@@ -868,7 +868,7 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 			uint32 minOffset = offsetof(disk_super_block, pad_to_block);
 			if (update.offset < minOffset
 				|| update.offset >= 512 || update.length > 512 - minOffset
-				|| update.length + update.offset > 512) {
+				|| update.length > 512 - update.offset) {
 				return B_BAD_VALUE;
 			}
 

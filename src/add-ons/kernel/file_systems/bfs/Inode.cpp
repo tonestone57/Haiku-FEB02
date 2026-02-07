@@ -200,7 +200,7 @@ InodeAllocator::~InodeAllocator()
 			fInode = NULL;
 
 			remove_vnode(volume->FSVolume(), id);
-		} else
+		} else if (!fRun.IsZero())
 			volume->Free(*fTransaction, fRun);
 	}
 

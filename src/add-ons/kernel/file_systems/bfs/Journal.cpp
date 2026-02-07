@@ -24,8 +24,7 @@ struct run_array {
 	void Insert(block_run& run);
 
 	int32 CountRuns() const { return BFS_ENDIAN_TO_HOST_INT32(count); }
-	int32 MaxRuns() const { return BFS_ENDIAN_TO_HOST_INT32(max_runs) - 1; }
-		// that -1 accounts for an off-by-one error in Be's BFS implementation
+	int32 MaxRuns() const { return BFS_ENDIAN_TO_HOST_INT32(max_runs); }
 	const block_run& RunAt(int32 i) const { return runs[i]; }
 
 	static int32 MaxRuns(int32 blockSize);
@@ -439,9 +438,7 @@ Journal::InitCheck()
 status_t
 Journal::_CheckRunArray(const run_array* array)
 {
-	int32 maxRuns = run_array::MaxRuns(fVolume->BlockSize()) - 1;
-		// the -1 works around an off-by-one bug in Be's BFS implementation,
-		// same as in run_array::MaxRuns()
+	int32 maxRuns = run_array::MaxRuns(fVolume->BlockSize());
 	if (array->MaxRuns() != maxRuns
 		|| array->CountRuns() > maxRuns
 		|| array->CountRuns() <= 0) {
