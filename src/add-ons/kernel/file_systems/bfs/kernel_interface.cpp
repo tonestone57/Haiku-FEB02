@@ -549,7 +549,10 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 			if (!transaction.IsStarted())
 				return B_ERROR;
 
+			rw_lock_write_lock(&inode->Lock());
 			status = inode->AllocateForRange(pos, bytesLeft, transaction);
+			rw_lock_write_unlock(&inode->Lock());
+
 			if (status == B_OK)
 				status = transaction.Done();
 			else
