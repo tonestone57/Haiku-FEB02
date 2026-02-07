@@ -1549,7 +1549,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 		{
 		/* Special case for absolute paths. */
 		httpd_realloc_str( &checked, &maxchecked, checkedlen + 1 );
-		(void) strncpy( &checked[checkedlen], r, 1 );
+		(void) strlcpy( &checked[checkedlen], r, maxchecked + 1 - checkedlen );
 		checkedlen += 1;
 		}
 	    else if ( strncmp( r, "..", MAX( i, 2 ) ) == 0 )
@@ -1571,7 +1571,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 		httpd_realloc_str( &checked, &maxchecked, checkedlen + 1 + i );
 		if ( checkedlen > 0 && checked[checkedlen-1] != '/' )
 		    checked[checkedlen++] = '/';
-		(void) strncpy( &checked[checkedlen], r, i );
+		(void) strlcpy( &checked[checkedlen], r, maxchecked + 1 - checkedlen );
 		checkedlen += i;
 		}
 	    checked[checkedlen] = '\0';
@@ -2865,8 +2865,8 @@ mode  links    bytes  last-changed  name\n\
 			nameptrs[i] = &names[i * ( MAXPATHLEN + 1 )];
 		    }
 		namlen = NAMLEN(de);
-		(void) strncpy( nameptrs[nnames], de->d_name, namlen );
-		nameptrs[nnames][namlen] = '\0';
+		(void) strlcpy( nameptrs[nnames], de->d_name, MAXPATHLEN + 1 );
+		//nameptrs[nnames][namlen] = '\0'; // strlcpy null terminates
 		++nnames;
 		}
 	    closedir( dirp );

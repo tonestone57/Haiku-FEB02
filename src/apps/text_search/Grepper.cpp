@@ -433,7 +433,7 @@ Grepper::_RunnerThread()
 					if (strcmp(fileName, currentFileName) != 0) {
 						fTarget.SendMessage(&message);
 
-						strncpy(currentFileName, fileName,
+						strlcpy(currentFileName, fileName,
 							sizeof(currentFileName));
 
 						message.MakeEmpty();

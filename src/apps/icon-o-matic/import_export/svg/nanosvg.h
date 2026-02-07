@@ -1777,8 +1777,7 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 	} else if (strcmp(name, "offset") == 0) {
 		attr->stopOffset = nsvg__parseCoordinate(p, value, 0.0f, 1.0f);
 	} else if (strcmp(name, "id") == 0) {
-		strncpy(attr->id, value, 63);
-		attr->id[63] = '\0';
+		strlcpy(attr->id, value, 64);
 	} else {
 		return 0;
 	}
@@ -2571,8 +2570,7 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 
 	for (i = 0; attr[i]; i += 2) {
 		if (strcmp(attr[i], "id") == 0) {
-			strncpy(grad->id, attr[i+1], 63);
-			grad->id[63] = '\0';
+			strlcpy(grad->id, attr[i+1], 64);
 		} else if (!nsvg__parseAttr(p, attr[i], attr[i + 1])) {
 			if (strcmp(attr[i], "gradientUnits") == 0) {
 				if (strcmp(attr[i+1], "objectBoundingBox") == 0)
@@ -2608,8 +2606,7 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 					grad->spread = NSVG_SPREAD_REPEAT;
 			} else if (strcmp(attr[i], "xlink:href") == 0) {
 				const char *href = attr[i+1];
-				strncpy(grad->ref, href+1, 62);
-				grad->ref[62] = '\0';
+				strlcpy(grad->ref, href+1, 63);
 			}
 		}
 	}

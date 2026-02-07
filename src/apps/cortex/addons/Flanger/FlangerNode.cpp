@@ -544,7 +544,7 @@ void FlangerNode::Connect(
 	}
 
 	// connection established:
-	strncpy(pioName, m_output.name, B_MEDIA_NAME_LENGTH);
+	strlcpy(pioName, m_output.name, B_MEDIA_NAME_LENGTH);
 	m_output.destination = destination;
 	m_format = format;
 
@@ -827,7 +827,7 @@ status_t FlangerNode::PrepareToConnect(
 
 	// pass back source & output name
 	*poSource = m_output.source;
-	strncpy(poName, m_output.name, B_MEDIA_NAME_LENGTH);
+	strlcpy(poName, m_output.name, B_MEDIA_NAME_LENGTH);
 
 	return B_OK;
 }

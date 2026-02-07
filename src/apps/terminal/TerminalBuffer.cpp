@@ -340,6 +340,9 @@ TerminalBuffer::PutHyperLink(const char* id, BString& uri)
 		hyperLink = fHyperLinkForID.Get(id);
 	if (hyperLink == NULL) {
 		hyperLink = new (std::nothrow) HyperLink(uri, fNextOSCRef++, id);
+		if (hyperLink == NULL)
+			return 0;
+
 		if (id != NULL)
 			fHyperLinkForID.Put(id, hyperLink);
 		HyperLink* oldHyperLink = fHyperLinkForRef.Get(hyperLink->OSCRef());

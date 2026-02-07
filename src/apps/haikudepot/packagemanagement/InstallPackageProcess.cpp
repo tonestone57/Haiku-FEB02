@@ -157,6 +157,9 @@ InstallPackageProcess::RunInternal()
 
 	SetPackageState(fPackageName, PENDING);
 
+	if (packageManager == NULL)
+		return B_NO_MEMORY;
+
 	packageManager->Init(BPackageManager::B_ADD_INSTALLED_REPOSITORIES
 		| BPackageManager::B_ADD_REMOTE_REPOSITORIES | BPackageManager::B_REFRESH_REPOSITORIES);
 

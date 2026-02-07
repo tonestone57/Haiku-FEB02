@@ -27,15 +27,22 @@ TeamBarMenu::TeamBarMenu(const char* title, info_pack* infos, int32 teamCount)
 {
 	SetFlags(Flags() | B_PULSE_NEEDED);
 	fTeamList = (team_id*)malloc(sizeof(team_id) * fTeamCount);
-	int	k;
-	for (k = 0; k < teamCount; k++) {
-		fTeamList[k] = infos[k].team_info.team;
-	}
-	while (k < fTeamCount) {
-		fTeamList[k++] = -1;
-	}
+	if (fTeamList != NULL) {
+		int	k;
+		for (k = 0; k < teamCount; k++) {
+			fTeamList[k] = infos[k].team_info.team;
+		}
+		while (k < fTeamCount) {
+			fTeamList[k++] = -1;
+		}
+	} else
+		fTeamCount = 0;
+
 	fRecycleCount = EXTRA;
 	fRecycleList = (TRecycleItem*)malloc(sizeof(TRecycleItem) * fRecycleCount);
+	if (fRecycleList == NULL)
+		fRecycleCount = 0;
+
 	SetFont(be_plain_font);
 	gCurrentThreadBarMenu = NULL;
 	fLastTotalTime = system_time();

@@ -30,15 +30,17 @@ MemoryBarMenu::MemoryBarMenu(const char* name, info_pack* infos, system_info& sy
 	SetFlags(Flags() | B_PULSE_NEEDED);
 
 	fTeamList = (team_id*)malloc(sizeof (team_id) * fTeamCount);
+	if (fTeamList != NULL) {
+		unsigned int k;
+		for (k = 0; k < systemInfo.used_teams; k++) {
+			fTeamList[k] = infos[k].team_info.team;
+		}
 
-	unsigned int k;
-	for (k = 0; k < systemInfo.used_teams; k++) {
-		fTeamList[k] = infos[k].team_info.team;
-	}
-
-	while (k < fTeamCount) {
-		fTeamList[k++] = -1;
-	}
+		while (k < fTeamCount) {
+			fTeamList[k++] = -1;
+		}
+	} else
+		fTeamCount = 0;
 
 	char buffer[64];
 	string_for_size(99999999.9, buffer, sizeof(buffer));
@@ -46,6 +48,9 @@ MemoryBarMenu::MemoryBarMenu(const char* name, info_pack* infos, system_info& sy
 
 	fRecycleCount = EXTRA;
 	fRecycleList = (MRecycleItem*)malloc(sizeof(MRecycleItem) * fRecycleCount);
+	if (fRecycleList == NULL)
+		fRecycleCount = 0;
+
 	SetFont(be_plain_font);
 	AddItem(new KernelMemoryBarMenuItem(systemInfo));
 }

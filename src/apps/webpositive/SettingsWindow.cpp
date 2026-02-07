@@ -886,6 +886,10 @@ SettingsWindow::_ChooseDownloadFolder(const BMessage* message)
 		fOpenFilePanel = new (std::nothrow) BFilePanel(B_OPEN_PANEL,
 			&target, NULL, B_DIRECTORY_NODE);
 	}
+
+	if (fOpenFilePanel == NULL)
+		return;
+
 	BMessage panelMessage(MSG_HANDLE_DOWNLOAD_FOLDER);
 	fOpenFilePanel->SetMessage(&panelMessage);
 	fOpenFilePanel->Show();
