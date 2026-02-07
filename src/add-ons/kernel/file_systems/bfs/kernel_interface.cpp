@@ -1011,7 +1011,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 
 		off_t oldSize = inode->Size();
 
-		status_t status = inode->SetFileSize(transaction, stat->st_size);
+		status = inode->SetFileSize(transaction, stat->st_size);
 		if (status != B_OK) {
 			inode->UpdateNodeFromDisk();
 			return status;
