@@ -830,6 +830,7 @@ BlockAllocator::Uninitialize()
 	// We only have to make sure that the initializer thread isn't running
 	// anymore.
 	recursive_lock_lock(&fLock);
+	recursive_lock_unlock(&fLock);
 }
 
 
