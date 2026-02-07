@@ -1084,7 +1084,9 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 		inode->SetStatusChangeTime(newTime);
 	}
 
-	status_t status = inode->WriteBack(transaction);
+	if (status == B_OK)
+		status = inode->WriteBack(transaction);
+
 	if (status == B_OK)
 		status = transaction.Done();
 
