@@ -65,7 +65,7 @@ LocalTargetHostInterface::Init(Settings* settings)
 	if (error != B_OK)
 		return error;
 
-	char buffer[128];
+	char buffer[sizeof(hostname) + 64];
 	snprintf(buffer, sizeof(buffer), "LocalTargetHostInterface %" B_PRId32,
 		info.team);
 

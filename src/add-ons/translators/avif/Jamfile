@@ -7,24 +7,26 @@ AddResources AVIFTranslator : AVIFTranslator.rdef ;
 local architectureObject ;
 for architectureObject in [ MultiArchSubDirSetup ] {
 	on $(architectureObject) {
-		UseBuildFeatureHeaders libavif ;
+		if [ FIsBuildFeatureEnabled libavif ] {
+			UseBuildFeatureHeaders libavif ;
 
-		Translator [ MultiArchDefaultGristFiles AVIFTranslator ] :
+			Translator [ MultiArchDefaultGristFiles AVIFTranslator ] :
 
-			main.cpp
+				main.cpp
 
-			AVIFTranslator.cpp
-			ConfigView.cpp
+				AVIFTranslator.cpp
+				ConfigView.cpp
 
-			:
-			be translation [ MultiArchDefaultGristFiles libtranslatorsutils.a ]
-			[ BuildFeatureAttribute libavif : library ]
-			[ TargetLibsupc++ ]	localestub
-			: true
-		;
+				:
+				be translation [ MultiArchDefaultGristFiles libtranslatorsutils.a ]
+				[ BuildFeatureAttribute libavif : library ]
+				[ TargetLibsupc++ ]	localestub
+				: true
+			;
 
-		Includes [ FGristFiles ConfigView.cpp AVIFTranslator.cpp ]
-			: [ BuildFeatureAttribute libavif : headers ] ;
+			Includes [ FGristFiles ConfigView.cpp AVIFTranslator.cpp ]
+				: [ BuildFeatureAttribute libavif : headers ] ;
+		}
 	}
 }
 
