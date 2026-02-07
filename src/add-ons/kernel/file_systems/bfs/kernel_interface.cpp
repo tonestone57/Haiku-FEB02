@@ -549,6 +549,9 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 			if (!transaction.IsStarted())
 				return B_ERROR;
 
+			// AllocateForRange() might change the inode's block map, so we
+			// need to hold the write lock. The transaction lock is already
+			// held, so the lock order is preserved.
 			rw_lock_write_lock(&inode->Lock());
 			status = inode->AllocateForRange(pos, bytesLeft, transaction);
 			rw_lock_write_unlock(&inode->Lock());
@@ -870,6 +873,8 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 				return B_BAD_VALUE;
 			}
 
+			// We need to protect the superblock modification with the volume
+			// lock to prevent race conditions.
 			MutexLocker locker(volume->Lock());
 			if (user_memcpy((uint8*)&volume->SuperBlock() + update.offset,
 					update.data, update.length) != B_OK) {
