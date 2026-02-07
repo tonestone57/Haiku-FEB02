@@ -235,6 +235,7 @@ pthread_exit(void* value)
 {
 	pthread_self()->exit_value = value;
 	exit_thread(B_OK);
+	while(true);
 }
 
 

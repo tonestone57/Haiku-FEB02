@@ -39,6 +39,8 @@ const fenv_t __fe_dfl_env = {
 	    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff }
 	},
 	__INITIAL_MXCSR__
+int __feenableexcept(int mask);
+int __fedisableexcept(int mask);
 };
 
 int
