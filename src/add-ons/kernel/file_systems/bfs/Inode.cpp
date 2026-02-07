@@ -1714,6 +1714,16 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		if (status != B_OK) {
 			// Note: If FillGapWithZeros fails (e.g. B_DEVICE_FULL), we must
 			// propagate the error to avoid file corruption or inconsistency.
+			if (transaction.IsStarted()) {
+				WriteLocker revertLocker(fLock);
+				// We need to revert the file size change to avoid exposing
+				// uninitialized data.
+				if (SetFileSize(transaction, oldSize) == B_OK) {
+					transaction.Done();
+					transaction.Start(fVolume, BlockNumber());
+				}
+			}
+
 			UpdateNodeFromDisk();
 			return status;
 		}
