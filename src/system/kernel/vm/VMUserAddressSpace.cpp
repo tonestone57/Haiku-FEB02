@@ -460,13 +460,21 @@ VMUserAddressSpace::_RandomizeAddress(addr_t start, addr_t end,
 		return start;
 
 	addr_t range = end - start + 1;
-	if (initial)
-		range = std::min(range, kMaxInitialRandomize);
-	else
-		range = std::min(range, kMaxRandomize);
+	if (range != 0) {
+		if (initial)
+			range = std::min(range, kMaxInitialRandomize);
+		else
+			range = std::min(range, kMaxRandomize);
+	} else {
+		if (initial)
+			range = kMaxInitialRandomize;
+		else
+			range = kMaxRandomize;
+	}
 
 	addr_t random = secure_get_random<addr_t>();
-	random %= range;
+	if (range > 0)
+		random %= range;
 	random &= ~addr_t(alignment - 1);
 
 	return start + random;
@@ -577,11 +585,17 @@ VMUserAddressSpace::_InsertAreaSlot(addr_t start, addr_t size, addr_t end,
 		alignment = B_PAGE_SIZE;
 	if (addressSpec == B_ANY_KERNEL_BLOCK_ADDRESS) {
 		// align the memory to the next power of two of the size
-		while (alignment < size)
+		while (alignment < size) {
 			alignment <<= 1;
+			if (alignment == 0)
+				return B_BAD_VALUE;
+		}
 	}
 
-	start = align_address(start, alignment);
+	addr_t alignedStart = align_address(start, alignment);
+	if (alignedStart < start)
+		return B_BAD_VALUE;
+	start = alignedStart;
 
 	bool useHint = addressSpec != B_EXACT_ADDRESS
 		&& !is_base_address_spec(addressSpec)
