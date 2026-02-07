@@ -157,8 +157,8 @@ private:
 			thread_id		fOwner;
 			uint32			fLogSize;
 			uint32			fMaxTransactionSize;
-			uint32			fUsed;
 			mutex			fEntriesLock;
+			uint32			fUsed;
 			LogEntryList	fEntries;
 			DoublyLinkedList<Transaction,
 				DoublyLinkedListMemberGetLink<Transaction,

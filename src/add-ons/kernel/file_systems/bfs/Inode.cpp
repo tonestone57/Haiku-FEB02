@@ -16,6 +16,10 @@
 #	include <vm/vm.h>
 #endif
 
+#ifdef FS_SHELL
+#	define IS_USER_ADDRESS(x) (false)
+#endif
+
 
 #if BFS_TRACING && !defined(FS_SHELL) && !defined(_BOOT_MODE)
 namespace BFSInodeTracing {
