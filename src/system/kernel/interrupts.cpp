@@ -573,21 +573,22 @@ remove_io_interrupt_handler(int32 vector, interrupt_handler handler, void *data)
 			SpinLocker locker;
 			cpu_ent* cpu;
 
-			do {
+			while (true) {
 				locker.Unlock();
 
 				oldCPU = sVectors[vector].assigned_cpu->cpu;
 
-				if (oldCPU < 0) {
-					oldCPU = -2;
+				if (oldCPU < 0)
 					continue;
-				}
 
 				ASSERT(oldCPU != -1);
 				cpu = &gCPU[oldCPU];
 
 				locker.SetTo(cpu->irqs_lock, false);
-			} while (sVectors[vector].assigned_cpu->cpu != oldCPU);
+
+				if (sVectors[vector].assigned_cpu->cpu == oldCPU)
+					break;
+			}
 
 			sVectors[vector].assigned_cpu->cpu = -1;
 			list_remove_item(&cpu->irqs, sVectors[vector].assigned_cpu);
