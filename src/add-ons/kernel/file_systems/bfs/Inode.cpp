@@ -301,10 +301,9 @@ InodeAllocator::Keep(fs_vnode_ops* vnodeOps, uint32 publishFlags)
 	if (status == B_OK) {
 		cache_add_transaction_listener(volume->BlockCache(), fTransaction->ID(),
 			TRANSACTION_ABORTED, &_TransactionListener, fInode);
+		fTransaction = NULL;
+		fInode = NULL;
 	}
-
-	fTransaction = NULL;
-	fInode = NULL;
 
 	return status;
 }

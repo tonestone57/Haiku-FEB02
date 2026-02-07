@@ -1487,14 +1487,18 @@ BlockAllocator::_CheckGroup(int32 groupIndex) const
 status_t
 BlockAllocator::Trim(uint64 offset, uint64 size, uint64& trimmedSize)
 {
-	// TODO: Remove this check when offset and size handling is implemented
-	if (offset != 0
-		|| fVolume->NumBlocks() < 0
-		|| size < (uint64)fVolume->NumBlocks() * fVolume->BlockSize()) {
-		INFORM(("BFS Trim: Ranges smaller than the file system size"
-			" are not supported yet.\n"));
-		return B_UNSUPPORTED;
-	}
+	uint32 blockShift = fVolume->BlockShift();
+	uint64 blockSize = fVolume->BlockSize();
+
+	// Align range to blocks
+	uint64 startBlock = (offset + blockSize - 1) >> blockShift;
+	uint64 endBlock = (offset + size) >> blockShift;
+
+	if (startBlock >= endBlock)
+		return B_OK;
+
+	if (endBlock > (uint64)fVolume->NumBlocks())
+		endBlock = fVolume->NumBlocks();
 
 	const uint32 kTrimRanges = 128;
 	fs_trim_data* trimData = (fs_trim_data*)malloc(sizeof(fs_trim_data)
@@ -1505,13 +1509,12 @@ BlockAllocator::Trim(uint64 offset, uint64 size, uint64& trimmedSize)
 	MemoryDeleter deleter(trimData);
 	RecursiveLocker locker(fLock);
 
-	// TODO: take given offset and size into account!
-	int32 lastGroup = fNumGroups - 1;
-	uint32 firstBlock = 0;
-	uint32 firstBit = 0;
-	uint64 currentBlock = 0;
-	uint32 blockShift = fVolume->BlockShift();
+	int32 allocationGroupShift = fVolume->AllocationGroupShift();
+	int32 startGroup = startBlock >> allocationGroupShift;
+	int32 endGroup = (endBlock - 1) >> allocationGroupShift;
+	uint32 bitsPerBlock = blockSize << 3;
 
+	uint64 currentBlock = (uint64)startGroup << allocationGroupShift;
 	uint64 firstFree = 0;
 	uint64 freeLength = 0;
 
@@ -1519,13 +1522,47 @@ BlockAllocator::Trim(uint64 offset, uint64 size, uint64& trimmedSize)
 	trimmedSize = 0;
 
 	AllocationBlock cached(fVolume);
-	for (int32 groupIndex = 0; groupIndex <= lastGroup; groupIndex++) {
+	for (int32 groupIndex = startGroup; groupIndex <= endGroup; groupIndex++) {
 		AllocationGroup& group = fGroups[groupIndex];
 
-		for (uint32 block = firstBlock; block < group.NumBitmapBlocks(); block++) {
+		uint32 groupStart = 0;
+		uint32 groupEnd = group.NumBits();
+
+		if (groupIndex == startGroup)
+			groupStart = startBlock - currentBlock;
+		if (groupIndex == endGroup)
+			groupEnd = endBlock - ((uint64)groupIndex << allocationGroupShift);
+
+		uint32 startBitmapBlock = groupStart / bitsPerBlock;
+		uint32 startBit = groupStart % bitsPerBlock;
+		uint32 endBitmapBlock = (groupEnd + bitsPerBlock - 1) / bitsPerBlock;
+
+		for (uint32 block = startBitmapBlock;
+				block < endBitmapBlock && block < group.NumBitmapBlocks();
+				block++) {
 			cached.SetTo(group, block);
 
-			for (uint32 i = firstBit; i < cached.NumBlockBits(); i++) {
+			uint32 loopStartBit = (block == startBitmapBlock) ? startBit : 0;
+			uint32 loopEndBit = cached.NumBlockBits();
+
+			if (block == endBitmapBlock - 1) {
+				uint32 bitsInThisBlock = groupEnd - (block * bitsPerBlock);
+				if (bitsInThisBlock < loopEndBit)
+					loopEndBit = bitsInThisBlock;
+			}
+
+			// Adjust currentBlock to match the start of the loop
+			uint64 blockStart = ((uint64)groupIndex << allocationGroupShift)
+				+ block * bitsPerBlock + loopStartBit;
+			if (currentBlock < blockStart) {
+				// We skipped some blocks (e.g. startBit > 0), so reset currentBlock
+				currentBlock = blockStart;
+			} else if (currentBlock > blockStart) {
+				// Should not happen if logic is correct
+				currentBlock = blockStart;
+			}
+
+			for (uint32 i = loopStartBit; i < loopEndBit; i++) {
 				if (cached.IsUsed(i)) {
 					// Block is in use
 					if (freeLength > 0) {
@@ -1554,9 +1591,6 @@ BlockAllocator::Trim(uint64 offset, uint64 size, uint64& trimmedSize)
 				currentBlock++;
 			}
 		}
-
-		firstBlock = 0;
-		firstBit = 0;
 	}
 
 	return _TrimNext(*trimData, kTrimRanges, firstFree << blockShift,

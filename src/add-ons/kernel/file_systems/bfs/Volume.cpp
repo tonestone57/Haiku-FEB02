@@ -176,10 +176,10 @@ Volume::Volume(fs_volume* volume)
 Volume::~Volume()
 {
 	// These are only deleted if Mount() failed, or if Unmount() wasn't called.
+	fBlockAllocator.Uninitialize();
 	delete fJournal;
 	delete fIndicesNode;
 	delete fCheckVisitor;
-	fBlockAllocator.Uninitialize();
 
 	mutex_destroy(&fQueryLock);
 	mutex_destroy(&fLock);
@@ -198,7 +198,24 @@ Volume::IsValidSuperBlock() const
 bool
 Volume::IsValidInodeBlock(off_t block) const
 {
-	return block > fSuperBlock.LogEnd() && block < NumBlocks();
+	if (block < 0 || block >= NumBlocks())
+		return false;
+
+	// Check reserved area (Boot block + Bitmap)
+	// Bitmap starts at block 1.
+	uint32 blockSize = BlockSize();
+	uint32 bitsPerBlock = blockSize << 3;
+	off_t bitmapBlocks = (NumBlocks() + bitsPerBlock - 1) / bitsPerBlock;
+	if (block < 1 + bitmapBlocks)
+		return false;
+
+	// Check Log area
+	off_t logStart = ToBlock(Log());
+	off_t logLength = Log().Length();
+	if (block >= logStart && block < logStart + logLength)
+		return false;
+
+	return true;
 }
 
 
