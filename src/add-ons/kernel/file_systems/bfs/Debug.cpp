@@ -228,8 +228,8 @@ dump_bplustree_node(const bplustree_node* node, const bplustree_header* header,
 		buffer[length] = '\0';
 
 		Unaligned<off_t>* value = node->Values() + i;
-		if ((addr_t)value < (addr_t)node
-			|| (addr_t)value > (addr_t)node + header->node_size)
+		if ((uint8*)value < (uint8*)node
+			|| (uint8*)value > (uint8*)node + header->node_size)
 			kprintf("  %2d. Invalid Offset!!\n", (int)i);
 		else {
 			kprintf("  %2d. ", (int)i);
