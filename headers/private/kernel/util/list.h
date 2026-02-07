@@ -64,6 +64,7 @@ extern void list_insert_item_before(struct list *list, void *before, void *item)
 extern void *list_remove_head_item(struct list *list);
 extern void *list_remove_tail_item(struct list *list);
 extern void list_move_to_list(struct list *sourceList, struct list *targetList);
+extern int32 list_count_items(struct list *list);
 
 static inline bool
 list_is_empty(struct list *list)

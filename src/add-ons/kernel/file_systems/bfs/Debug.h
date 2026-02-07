@@ -5,7 +5,9 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#if !defined(_BOOT_MODE)
 #define DEBUG 1
+#endif
 
 #include "system_dependencies.h"
 

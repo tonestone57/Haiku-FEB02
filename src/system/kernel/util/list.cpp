@@ -264,3 +264,16 @@ list_move_to_list(struct list *sourceList, struct list *targetList)
 }
 
 
+int32
+list_count_items(struct list *list)
+{
+	int32 count = 0;
+	list_link *link = list->link.next;
+
+	while (link != &list->link) {
+		count++;
+		link = link->next;
+	}
+
+	return count;
+}

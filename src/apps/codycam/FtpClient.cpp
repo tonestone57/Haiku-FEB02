@@ -476,7 +476,7 @@ FtpClient::_GetReplyLine(string& line)
 	if (fControl != NULL) {
 		rc = true;
 		while (done == false && fControl->Receive(&c, 1) > 0) {
-			if (c == EOF || c == xEOF || c == '\n') {
+			if (c == xEOF || c == '\n') {
 				done = true;
 			} else {
 				if (c == IAC) {
@@ -501,7 +501,6 @@ FtpClient::_GetReplyLine(string& line)
 							fControl->Send(treply, 3);
 						break;
 
-						case EOF:
 						case xEOF:
 							done = true;
 						break;
