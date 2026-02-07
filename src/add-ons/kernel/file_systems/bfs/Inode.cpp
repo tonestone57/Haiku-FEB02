@@ -388,6 +388,8 @@ Inode::Inode(Volume* volume, ino_t id)
 	rw_lock_init(&fLock, "bfs inode");
 	recursive_lock_init(&fSmallDataLock, "bfs inode small data");
 
+	memset(&fNode, 0, sizeof(bfs_inode));
+
 	if (UpdateNodeFromDisk() != B_OK) {
 		// TODO: the error code gets eaten
 		return;
@@ -425,6 +427,8 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 	rw_lock_init(&fLock, "bfs inode");
 	recursive_lock_init(&fSmallDataLock, "bfs inode small data");
 
+	memset(&fNode, 0, sizeof(bfs_inode));
+
 	NodeGetter node(volume);
 	status_t status = node.SetToWritable(transaction, this, true);
 	if (status != B_OK) {
@@ -432,8 +436,6 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 			strerror(status)));
 		return;
 	}
-
-	memset(&fNode, 0, sizeof(bfs_inode));
 
 	// Initialize the bfs_inode structure -- it's not written back to disk
 	// here, because it will be done so already when the inode could be

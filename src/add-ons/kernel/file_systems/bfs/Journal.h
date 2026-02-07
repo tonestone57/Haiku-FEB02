@@ -154,6 +154,7 @@ private:
 			Volume*			fVolume;
 			rw_lock			fTransactionLock;
 			recursive_lock	fLogLock;
+			thread_id		fOwner;
 			uint32			fLogSize;
 			uint32			fMaxTransactionSize;
 			uint32			fUsed;

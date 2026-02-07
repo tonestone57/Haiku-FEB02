@@ -1505,7 +1505,7 @@ BlockAllocator::Trim(uint64 offset, uint64 size, uint64& trimmedSize)
 	// TODO: Remove this check when offset and size handling is implemented
 	if (offset != 0
 		|| fVolume->NumBlocks() < 0
-		|| size < (uint64)fVolume->NumBlocks() * fVolume->BlockSize()) {
+		|| size / fVolume->BlockSize() < (uint64)fVolume->NumBlocks()) {
 		INFORM(("BFS Trim: Ranges smaller than the file system size"
 			" are not supported yet.\n"));
 		return B_UNSUPPORTED;
@@ -1626,6 +1626,9 @@ BlockAllocator::CheckBlocks(off_t start, off_t length, bool allocated,
 		if (++groupBlock >= fGroups[group].NumBitmapBlocks()) {
 			groupBlock = 0;
 			group++;
+
+			if (group >= fNumGroups && length > 0)
+				return B_BAD_VALUE;
 		}
 	}
 

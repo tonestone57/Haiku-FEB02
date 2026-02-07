@@ -407,7 +407,8 @@ Journal::Journal(Volume* volume)
 	fVolume(volume),
 	fLogSize(volume->Log().Length()),
 	fMaxTransactionSize(fLogSize / 2 - 5),
-	fUsed(0)
+	fUsed(0),
+	fOwner(-1)
 {
 	rw_lock_init(&fTransactionLock, "bfs journal transaction");
 	recursive_lock_init(&fLogLock, "bfs journal log");
@@ -933,10 +934,14 @@ Journal::FlushLogAndLockJournal()
 	if (status != B_OK)
 		return status;
 
+	fOwner = find_thread(NULL);
+
 	status = _FlushLog(true);
 
-	if (status != B_OK)
+	if (status != B_OK) {
+		fOwner = -1;
 		rw_lock_write_unlock(&fTransactionLock);
+	}
 
 	return status;
 }
@@ -963,6 +968,22 @@ Journal::Lock(Transaction* owner)
 			mutex_unlock(&fEntriesLock);
 			return B_OK;
 		}
+	}
+
+	if (fOwner == thread) {
+		// We already own the journal lock (via FlushLogAndLockJournal)
+		// we can just proceed and pretend we have a transaction, but we
+		// shouldn't try to acquire the rw_lock again.
+		owner->fTransactionID = cache_start_transaction(fVolume->BlockCache());
+		if (owner->fTransactionID < B_OK) {
+			mutex_unlock(&fEntriesLock);
+			return owner->fTransactionID;
+		}
+
+		owner->fThread = thread;
+		fActiveTransactions.Add(owner);
+		mutex_unlock(&fEntriesLock);
+		return B_OK;
 	}
 
 	mutex_unlock(&fEntriesLock);
@@ -1000,6 +1021,7 @@ Journal::Unlock(Transaction* owner, bool success)
 	// Unlock(NULL, ...) implies unlocking the global journal lock
 	// acquired by FlushLogAndLockJournal()
 	if (owner == NULL) {
+		fOwner = -1;
 		rw_lock_write_unlock(&fTransactionLock);
 		return B_OK;
 	}
@@ -1034,7 +1056,8 @@ Journal::Unlock(Transaction* owner, bool success)
 		cache_abort_transaction(fVolume->BlockCache(), owner->ID());
 	}
 
-	rw_lock_read_unlock(&fTransactionLock);
+	if (fOwner != find_thread(NULL))
+		rw_lock_read_unlock(&fTransactionLock);
 
 	owner->NotifyListeners(success && status == B_OK);
 	fTimestamp = system_time();

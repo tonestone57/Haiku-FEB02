@@ -2091,7 +2091,7 @@ BPlusTree::_RemoveKey(bplustree_node* node, uint16 index)
 	uint8* keys = node->Keys();
 
 	node->all_key_count = HOST_ENDIAN_TO_BFS_INT16(node->NumKeys() - 1);
-	node->all_key_length = HOST_ENDIAN_TO_BFS_INT64(
+	node->all_key_length = HOST_ENDIAN_TO_BFS_INT16(
 		node->AllKeyLength() - length);
 
 	Unaligned<off_t>* newValues = node->Values();

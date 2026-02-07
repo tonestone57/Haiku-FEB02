@@ -160,6 +160,9 @@ struct Query::QueryPolicy {
 	static status_t IndexIteratorFind(IndexIterator* iterator,
 		const void* value, size_t size)
 	{
+		if (value == NULL)
+			return B_BAD_VALUE;
+
 		int64 shiftedTime;
 		if (iterator->isSpecialTime) {
 			// int64 time index; convert value.

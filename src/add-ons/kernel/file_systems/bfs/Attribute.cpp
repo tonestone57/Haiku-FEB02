@@ -83,8 +83,10 @@ Attribute::Get(const char* name)
 	// try to find it in the small data region
 	if (recursive_lock_lock(&fInode->SmallDataLock()) == B_OK) {
 		status_t status = fNodeGetter.SetTo(fInode);
-		if (status != B_OK)
+		if (status != B_OK) {
+			recursive_lock_unlock(&fInode->SmallDataLock());
 			return status;
+		}
 
 		fSmall = fInode->FindSmallData(fNodeGetter.Node(), (const char*)name);
 		if (fSmall != NULL)

@@ -123,7 +123,7 @@ struct bplustree_node {
 			off_t				DuplicateAt(off_t offset, bool isFragment,
 									int8 index) const;
 			uint32				FragmentsUsed(uint32 nodeSize) const;
-	inline	duplicate_array*	FragmentAt(int8 index) const;
+	inline	duplicate_array*	FragmentAt(int32 index) const;
 	inline	duplicate_array*	DuplicateArray() const;
 
 	static inline uint8			LinkType(off_t link);

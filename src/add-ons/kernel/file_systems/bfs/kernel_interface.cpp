@@ -312,8 +312,7 @@ bfs_get_vnode(fs_volume* _volume, ino_t id, fs_vnode* _node, int* _type,
 
 	// first inode may be after the log area, we don't go through
 	// the hassle and try to load an earlier block from disk
-	if (id < volume->ToBlock(volume->Log()) + volume->Log().Length()
-		|| id >= volume->NumBlocks()) {
+	if (!volume->IsValidInodeBlock(id)) {
 		INFORM(("inode at %" B_PRIdINO " requested!\n", id));
 		return B_ERROR;
 	}
@@ -1341,12 +1340,16 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	if (oldDirectory != newDirectory) {
 		ino_t parent = newDirectory->ID();
 		ino_t root = volume->RootNode()->ID();
+		int32 iterations = 0;
 
 		while (true) {
 			if (parent == id)
 				return B_BAD_VALUE;
 			else if (parent == root || parent == oldDirectory->ID())
 				break;
+
+			if (++iterations > 4096)
+				return B_LOOP;
 
 			Vnode vnode(volume, parent);
 			Inode* parentNode;
