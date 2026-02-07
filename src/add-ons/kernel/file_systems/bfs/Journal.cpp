@@ -746,6 +746,9 @@ Journal::_WriteTransactionToLog(int32 transactionID, bool* _transactionEnded)
 				strerror(syncStatus));
 		}
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
+			// Even after syncing the previous transaction, there is still
+			// not enough space in the log for this transaction. We cannot
+			// complete it, so we have to fail.
 			dprintf("bfs: no space in log after sync (%ld for %ld blocks)!",
 				(long)FreeLogBlocks(), (long)runArrays.LogEntryLength());
 			return B_DEVICE_FULL;
@@ -1229,11 +1232,14 @@ Transaction::Start(Volume* volume, off_t refBlock)
 		return B_OK;
 
 	fJournal = volume->GetJournal(refBlock);
-	if (fJournal != NULL && fJournal->Lock(this) == B_OK)
-		return B_OK;
+	if (fJournal == NULL)
+		return B_ERROR;
 
-	fJournal = NULL;
-	return B_ERROR;
+	status_t status = fJournal->Lock(this);
+	if (status != B_OK)
+		fJournal = NULL;
+
+	return status;
 }
 
 
