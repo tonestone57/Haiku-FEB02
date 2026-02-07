@@ -122,7 +122,7 @@ __pthread_init_creation_attributes(const pthread_attr_t* pthreadAttributes,
 	attributes->entry = entryFunction;
 	attributes->name = name;
 	if (attr->inheritsched == PTHREAD_INHERIT_SCHED) {
-		struct thread_info info;
+		thread_info info;
 		if (get_thread_info(find_thread(NULL), &info) == B_OK)
 			attributes->priority = info.priority;
 		else
