@@ -2237,7 +2237,10 @@ BPlusTree::Remove(Transaction& transaction, const uint8* key, uint16 keyLength,
 			other->left_link = writableNode->left_link;
 		}
 
-		status_t status = cached.Free(transaction, nodeAndKey.nodeOffset);
+		// If we are about to free the node, we must not use it anymore
+		// (cached.Free() will unmap it)
+		off_t nodeOffset = nodeAndKey.nodeOffset;
+		status_t status = cached.Free(transaction, nodeOffset);
 		if (status != B_OK)
 			return status;
 	}

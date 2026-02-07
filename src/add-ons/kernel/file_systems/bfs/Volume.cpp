@@ -313,6 +313,9 @@ Volume::Mount(const char* deviceName, uint32 flags)
 		} else {
 			FATAL(("could not create root node: publish_vnode() failed!\n"));
 			delete fRootNode;
+			fRootNode = NULL;
+			// We need to wait for the block allocator to finish
+			fBlockAllocator.Uninitialize();
 			return status;
 		}
 	} else {
@@ -320,6 +323,7 @@ Volume::Mount(const char* deviceName, uint32 flags)
 		FATAL(("could not create root node!\n"));
 
 		delete fRootNode;
+		fRootNode = NULL;
 
 		// We need to wait for the block allocator to finish
 		fBlockAllocator.Uninitialize();
