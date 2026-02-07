@@ -1637,8 +1637,11 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	locker.Unlock();
 
 	// the transaction doesn't have to be started already
-	if (changeSize && !transaction.IsStarted())
-		transaction.Start(fVolume, BlockNumber());
+	if (changeSize && !transaction.IsStarted()) {
+		status_t status = transaction.Start(fVolume, BlockNumber());
+		if (status != B_OK)
+			return status;
+	}
 
 	WriteLocker writeLocker(fLock);
 
@@ -1647,7 +1650,9 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 	if (!transaction.IsStarted()
 		&& (uint64)pos + (uint64)length > (uint64)Size()) {
 		writeLocker.Unlock();
-		transaction.Start(fVolume, BlockNumber());
+		status_t status = transaction.Start(fVolume, BlockNumber());
+		if (status != B_OK)
+			return status;
 		writeLocker.Lock();
 	}
 
