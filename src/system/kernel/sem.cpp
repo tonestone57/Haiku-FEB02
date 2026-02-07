@@ -766,6 +766,9 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		return B_NOT_ALLOWED;
 	}
 
+	if ((int64)sSems[slot].u.used.count - count < INT_MIN)
+		return B_BAD_VALUE;
+
 	if (sSems[slot].u.used.count - count < 0) {
 		if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0) {
 			// immediate timeout

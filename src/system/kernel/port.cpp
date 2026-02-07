@@ -1012,7 +1012,7 @@ create_port(int32 queueLength, const char* name)
 
 		// allocate a port ID
 		do {
-			port->id = sNextPortID++;
+			port->id = (port_id)((uint32)sNextPortID++);
 
 			// handle integer overflow
 			if (sNextPortID < 0)

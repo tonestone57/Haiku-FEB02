@@ -176,7 +176,7 @@ allocate_kernel_stack(const char* name, addr_t* base, addr_t* top)
 	locker.Unlock();
 
 	if (cachedStack == NULL) {
-		panic("out of cached stacks!");
+		// panic("out of cached stacks!");
 		return B_NO_MEMORY;
 	}
 
@@ -2528,7 +2528,7 @@ allocate_thread_id()
 	// find the next unused ID
 	thread_id id;
 	do {
-		id = sNextThreadID++;
+		id = (thread_id)((uint32)sNextThreadID++);
 
 		// deal with integer overflow
 		if (sNextThreadID < 0)

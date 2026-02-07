@@ -7678,7 +7678,7 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 		goto err1;
 
 	// initialize structure
-	mount->id = sNextMountID++;
+	mount->id = (dev_t)((uint32)sNextMountID++);
 	mount->partition = NULL;
 	mount->root_vnode = NULL;
 	mount->covers_vnode = NULL;
@@ -7861,6 +7861,30 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 
 err4:
 	FS_MOUNT_CALL_NO_PARAMS(mount, unmount);
+
+	while (struct vnode* vnode = mount->vnodes.Head()) {
+		if (Vnode* coveringNode = vnode->covered_by)
+			put_vnode(coveringNode);
+		if (Vnode* coveredNode = vnode->covers)
+			put_vnode(coveredNode);
+
+		// Manually remove vnode from list as we are going to delete the mount
+		remove_vnode_from_mount_list(vnode, mount);
+
+		// If the vnode was published, it might need to be removed from the hash
+		// and cache.
+		if (!vnode->IsUnpublished()) {
+			rw_lock_write_lock(&sVnodeLock);
+			sVnodeTable->Remove(vnode);
+			rw_lock_write_unlock(&sVnodeLock);
+		}
+		// We can't easily free the vnode properly here as free_vnode() does a lot
+		// of checks and balances. But since we are in the error path of mount(),
+		// these vnodes shouldn't be in use by anyone else yet.
+		// However, we should try to match free_vnode behavior for cleanup.
+		object_cache_free(sVnodeCache, vnode, 0);
+	}
+
 err3:
 	if (coveredNode != NULL)
 		put_vnode(coveredNode);
