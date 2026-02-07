@@ -150,8 +150,8 @@ static void
 add_to_iovec(iovec* vecs, int32& index, int32 max, const void* address,
 	size_t size)
 {
-	if (index > 0 && (addr_t)vecs[index - 1].iov_base
-			+ vecs[index - 1].iov_len == (addr_t)address) {
+	if (index > 0 && (uint8*)vecs[index - 1].iov_base
+			+ vecs[index - 1].iov_len == (uint8*)address) {
 		// the iovec can be combined with the previous one
 		vecs[index - 1].iov_len += size;
 		return;
