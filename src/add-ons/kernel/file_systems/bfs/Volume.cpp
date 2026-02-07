@@ -155,11 +155,16 @@ disk_super_block::Initialize(const char* diskName, off_t numBlocks,
 Volume::Volume(fs_volume* volume)
 	:
 	fVolume(volume),
+	fDevice(-1),
 	fBlockAllocator(this),
+	fJournal(NULL),
+	fLogStart(0),
+	fLogEnd(0),
 	fRootNode(NULL),
 	fIndicesNode(NULL),
 	fDirtyCachedBlocks(0),
 	fFlags(0),
+	fBlockCache(NULL),
 	fCheckingThread(-1),
 	fCheckVisitor(NULL)
 {
@@ -371,7 +376,7 @@ status_t
 Volume::ValidateBlockRun(block_run run)
 {
 	if (run.AllocationGroup() < 0
-		|| run.AllocationGroup() > (int32)AllocationGroups()
+		|| run.AllocationGroup() >= (int32)AllocationGroups()
 		|| run.Start() > (1UL << AllocationGroupShift())
 		|| run.length == 0
 		|| uint32(run.Length() + run.Start())
@@ -421,15 +426,9 @@ Volume::CreateVolumeID(Transaction& transaction)
 	attr_cookie* cookie;
 	status = attr.Create("be:volume_id", B_UINT64_TYPE, O_RDWR, &cookie);
 	if (status == B_OK) {
-		static bool seeded = false;
-		if (!seeded) {
-			// seed the random number generator for the be:volume_id attribute.
-			srand(time(NULL));
-			seeded = true;
-		}
 		uint64_t id;
 		size_t length = sizeof(id);
-		id = ((uint64_t)rand() << 32) | rand();
+		id = (uint64_t)system_time();
 		status = attr.Write(transaction, cookie, 0, (uint8_t *)&id, &length, NULL);
 		delete (attr_cookie*)cookie;
 	}

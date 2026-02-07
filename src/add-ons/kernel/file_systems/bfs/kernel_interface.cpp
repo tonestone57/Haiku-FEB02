@@ -173,7 +173,9 @@ bfs_scan_partition(int fd, partition_data* partition, void* _cookie)
 	partition->content_size = cookie->super_block.NumBlocks()
 		* cookie->super_block.BlockSize();
 	partition->block_size = cookie->super_block.BlockSize();
-	partition->content_name = strdup(cookie->super_block.name);
+	char name[BFS_DISK_NAME_LENGTH + 1];
+	strlcpy(name, cookie->super_block.name, sizeof(name));
+	partition->content_name = strdup(name);
 	if (partition->content_name == NULL)
 		return B_NO_MEMORY;
 
@@ -1026,8 +1028,10 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 				inode->Size());
 			rw_lock_write_lock(&inode->Lock());
 
-			if (fillStatus != B_OK)
+			if (fillStatus != B_OK) {
+				inode->SetFileSize(transaction, oldSize);
 				status = fillStatus;
+			}
 		}
 
 		if (!inode->IsDeleted()) {

@@ -140,7 +140,7 @@ Attribute::Create(const char* name, type_code type, int openMode,
 	cookie->create = true;
 
 	if (exists && (openMode & O_TRUNC) != 0) {
-		status_t status = _Truncate();
+		status_t status = _Truncate(type);
 		if (status != B_OK) {
 			delete cookie;
 			return status;
@@ -233,7 +233,7 @@ Attribute::Write(Transaction& transaction, attr_cookie* cookie, off_t pos,
 
 
 status_t
-Attribute::_Truncate()
+Attribute::_Truncate(type_code type)
 {
 	if (fSmall != NULL) {
 		Transaction transaction(fInode->GetVolume(), fInode->BlockNumber());
@@ -245,8 +245,11 @@ Attribute::_Truncate()
 		if (status != B_OK)
 			return status;
 
+		if (type == 0)
+			type = fSmall->Type();
+
 		status = fInode->_AddSmallData(transaction, node, fName,
-			fSmall->Type(), 0, (const uint8*)"", 0, true);
+			type, 0, (const uint8*)"", 0, true);
 		if (status == B_OK)
 			status = fInode->WriteBack(transaction);
 

@@ -162,6 +162,7 @@ private:
 InodeAllocator::InodeAllocator(Transaction& transaction)
 	:
 	fTransaction(&transaction),
+	fRun(block_run::Run(0, 0, 0)),
 	fInode(NULL)
 {
 }
@@ -1727,6 +1728,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		if (status != B_OK) {
 			// Note: If FillGapWithZeros fails (e.g. B_DEVICE_FULL), we must
 			// propagate the error to avoid file corruption or inconsistency.
+			SetFileSize(transaction, oldSize);
 			UpdateNodeFromDisk();
 			return status;
 		}
@@ -2900,7 +2902,7 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 			return B_OK;
 		}
 	} else if (parent != NULL && (mode & S_ATTR_DIR) == 0) {
-		return B_BAD_VALUE;
+		return B_NOT_A_DIRECTORY;
 	} else if ((openMode & O_DIRECTORY) != 0) {
 		// TODO: we might need to return B_NOT_A_DIRECTORY here
 		return B_ENTRY_NOT_FOUND;
@@ -3166,6 +3168,9 @@ AttributeIterator::GetNext(char* name, size_t* _length, uint32* _type,
 			return B_ENTRY_NOT_FOUND;
 		}
 	}
+
+	if (fIterator == NULL)
+		return B_ENTRY_NOT_FOUND;
 
 	uint16 length;
 	ino_t id;

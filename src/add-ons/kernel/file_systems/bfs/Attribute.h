@@ -43,7 +43,7 @@ public:
 								bool* _created);
 
 private:
-			status_t		_Truncate();
+			status_t			_Truncate(type_code type = 0);
 
 			NodeGetter		fNodeGetter;
 			Inode*			fInode;

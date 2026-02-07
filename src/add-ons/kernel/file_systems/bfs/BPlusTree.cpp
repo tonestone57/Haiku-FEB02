@@ -2970,7 +2970,7 @@ bplustree_node::Initialize()
 uint8*
 bplustree_node::KeyAt(int32 index, uint16* keyLength) const
 {
-	if (index < 0 || index > NumKeys())
+	if (index < 0 || index >= NumKeys())
 		return NULL;
 
 	uint8* keyStart = Keys();
