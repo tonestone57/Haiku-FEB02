@@ -25,7 +25,7 @@
 
 
 #undef TRACE
-//#define TRACE_FILE_CACHE
+#define TRACE_FILE_CACHE
 #ifdef TRACE_FILE_CACHE
 #	define TRACE(x) fssh_dprintf x
 #else

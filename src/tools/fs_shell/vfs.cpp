@@ -35,7 +35,7 @@
 #include "posix_compatibility.h"
 #include "syscalls.h"
 
-//#define TRACE_VFS
+#define TRACE_VFS
 #ifdef TRACE_VFS
 #	define TRACE(x) fssh_dprintf x
 #	define FUNCTION(x) fssh_dprintf x
