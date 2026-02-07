@@ -918,7 +918,7 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 					", %" B_PRIu16 ")\n", run.allocation_group, run.start,
 					run.length));
 
-				for (int32 i = 0;i < run.length;i++) {
+				for (int32 i = 0; i < run.length; i++) {
 					status_t status = cached.SetToWritable(transaction,
 						volume->ToBlock(run) + i);
 					if (status == B_OK)

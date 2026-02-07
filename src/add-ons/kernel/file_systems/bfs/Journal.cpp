@@ -1025,7 +1025,7 @@ Journal::Unlock(Transaction* owner, bool success)
 
 	rw_lock_read_unlock(&fTransactionLock);
 
-	owner->NotifyListeners(success);
+	owner->NotifyListeners(success && status == B_OK);
 	fTimestamp = system_time();
 
 	return status;
