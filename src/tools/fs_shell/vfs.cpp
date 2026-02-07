@@ -35,7 +35,7 @@
 #include "posix_compatibility.h"
 #include "syscalls.h"
 
-//#define TRACE_VFS
+#define TRACE_VFS
 #ifdef TRACE_VFS
 #	define TRACE(x) fssh_dprintf x
 #	define FUNCTION(x) fssh_dprintf x
@@ -1839,7 +1839,7 @@ common_file_io_vec_pages(int fd, const fssh_file_io_vec *fileVecs,
 				fssh_size_t tempVecSize = fssh_min_c(vecLeft, fileLeft - size);
 
 				tempVecs[tempCount].iov_base
-					= (void *)((uint8*)vecs[vecIndex].iov_base + vecOffset);
+					= (void *)((uint8_t*)vecs[vecIndex].iov_base + vecOffset);
 				tempVecs[tempCount].iov_len = tempVecSize;
 				tempCount++;
 
