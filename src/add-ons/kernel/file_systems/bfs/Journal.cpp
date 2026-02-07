@@ -24,8 +24,7 @@ struct run_array {
 	void Insert(block_run& run);
 
 	int32 CountRuns() const { return BFS_ENDIAN_TO_HOST_INT32(count); }
-	int32 MaxRuns() const { return BFS_ENDIAN_TO_HOST_INT32(max_runs) - 1; }
-		// that -1 accounts for an off-by-one error in Be's BFS implementation
+	int32 MaxRuns() const { return BFS_ENDIAN_TO_HOST_INT32(max_runs); }
 	const block_run& RunAt(int32 i) const { return runs[i]; }
 
 	static int32 MaxRuns(int32 blockSize);
@@ -443,9 +442,7 @@ Journal::InitCheck()
 status_t
 Journal::_CheckRunArray(const run_array* array)
 {
-	int32 maxRuns = run_array::MaxRuns(fVolume->BlockSize()) - 1;
-		// the -1 works around an off-by-one bug in Be's BFS implementation,
-		// same as in run_array::MaxRuns()
+	int32 maxRuns = run_array::MaxRuns(fVolume->BlockSize());
 	if (array->MaxRuns() != maxRuns
 		|| array->CountRuns() > maxRuns
 		|| array->CountRuns() <= 0) {
@@ -470,9 +467,9 @@ Journal::_CheckRunArray(const run_array* array)
 	one if replaying succeeded.
 */
 status_t
-Journal::_ReplayRunArray(int32* _start)
+Journal::_ReplayRunArray(off_t* _start)
 {
-	PRINT(("ReplayRunArray(start = %" B_PRId32 ")\n", *_start));
+	PRINT(("ReplayRunArray(start = %" B_PRIdOFF ")\n", *_start));
 
 	off_t logOffset = fVolume->ToBlock(fVolume->Log());
 	off_t firstBlockNumber = *_start % fLogSize;
@@ -576,14 +573,16 @@ Journal::ReplayLog()
 	if (fVolume->IsReadOnly())
 		return B_READ_ONLY_DEVICE;
 
-	// The log start and end pointers are circular, so we have to use
-	// unsigned integers for comparison.
-	// Furthermore, we cannot easily check if the start pointer is valid
-	// here, because we don't know the log size yet.
-	if (fVolume->LogStart() < 0 || fVolume->LogEnd() < 0)
+	// Check if the log start and end pointers are valid
+	if (fVolume->LogStart() < 0 || fVolume->LogStart() > fLogSize
+		|| fVolume->LogEnd() < 0 || fVolume->LogEnd() > fLogSize) {
+		FATAL(("Log pointers are invalid (start = %" B_PRIdOFF
+			", end = %" B_PRIdOFF ", size = %" B_PRIu32 ")\n",
+			fVolume->LogStart(), fVolume->LogEnd(), fLogSize));
 		return B_BAD_VALUE;
+	}
 
-	int32 start = fVolume->LogStart();
+	off_t start = fVolume->LogStart();
 	off_t lastStart = -1;
 	while (true) {
 		// stop if the log is completely flushed
@@ -598,8 +597,8 @@ Journal::ReplayLog()
 
 		status_t status = _ReplayRunArray(&start);
 		if (status != B_OK) {
-			FATAL(("replaying log entry from %d failed: %s\n", (int)start,
-				strerror(status)));
+			FATAL(("replaying log entry from %" B_PRIdOFF " failed: %s\n",
+				start, strerror(status)));
 			return B_ERROR;
 		}
 		start = start % fLogSize;

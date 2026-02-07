@@ -1394,6 +1394,12 @@ smp_init(kernel_args* args)
 		"Dumps info on an ICI message.\n", 0);
 
 	if (args->num_cpus > 1) {
+		if (args->num_cpus > SMP_MAX_CPUS) {
+			dprintf("smp_init: num_cpus %" B_PRIu32 " > SMP_MAX_CPUS %d\n",
+				args->num_cpus, SMP_MAX_CPUS);
+			args->num_cpus = SMP_MAX_CPUS;
+		}
+
 		sFreeMessages = NULL;
 		sFreeMessageCount = 0;
 		for (int i = 0; i < MSG_POOL_SIZE; i++) {

@@ -739,9 +739,10 @@ MemoryManager::FreeRawOrReturnCache(void* pages, uint32 flags)
 
 	ReadLocker readLocker(sAreaTableLock);
 	Area* area = sAreaTable.Lookup(areaBase);
-	readLocker.Unlock();
 
 	if (area == NULL) {
+		readLocker.Unlock();
+
 		// Probably a large allocation. Look up the VM area.
 		VMAddressSpace* addressSpace = VMAddressSpace::Kernel();
 		addressSpace->ReadLock();
@@ -771,8 +772,10 @@ MemoryManager::FreeRawOrReturnCache(void* pages, uint32 flags)
 	Chunk* chunk = &metaChunk->chunks[chunkIndex];
 
 	addr_t reference = chunk->reference;
-	if ((reference & 1) == 0)
+	if ((reference & 1) == 0) {
+		readLocker.Unlock();
 		return (ObjectCache*)reference;
+	}
 
 	// Seems we have a raw chunk allocation.
 	ASSERT((addr_t)pages == _ChunkAddress(metaChunk, chunk));
@@ -783,6 +786,8 @@ MemoryManager::FreeRawOrReturnCache(void* pages, uint32 flags)
 
 	// unmap the chunks
 	_UnmapChunk(area->vmArea, (addr_t)pages, size, flags);
+
+	readLocker.Unlock();
 
 	// and free them
 	MutexLocker locker(sLock);

@@ -10,11 +10,12 @@
 //! B+Tree implementation
 
 
+#include "Debug.h"
+
 #include "BPlusTree.h"
 
 #include <file_systems/QueryParserUtils.h>
 
-#include "Debug.h"
 #include "Utility.h"
 
 #if !_BOOT_MODE
@@ -137,11 +138,14 @@ struct TreeCheck {
 		fVisited(tree->Stream()->Size() / tree->NodeSize()),
 		fVisitedFragment(tree->Stream()->Size() / tree->NodeSize())
 	{
-		fPreviousOffsets = (off_t*)malloc(
-			sizeof(off_t) * tree->fHeader.MaxNumberOfLevels());
-		if (fPreviousOffsets != NULL) {
-			for (size_t i = 0; i < fMaxLevels; i++)
-				fPreviousOffsets[i] = BPLUSTREE_NULL;
+		fPreviousOffsets = NULL;
+		if (fMaxLevels > 0 && fMaxLevels < 256) {
+			fPreviousOffsets = (off_t*)malloc(
+				sizeof(off_t) * fMaxLevels);
+			if (fPreviousOffsets != NULL) {
+				for (size_t i = 0; i < fMaxLevels; i++)
+					fPreviousOffsets[i] = BPLUSTREE_NULL;
+			}
 		}
 	}
 
@@ -1157,7 +1161,8 @@ BPlusTree::_SeekDown(Stack<node_and_key>& stack, const uint8* key,
 		if (status == B_ENTRY_NOT_FOUND && nextOffset == nodeAndKey.nodeOffset)
 			RETURN_ERROR(B_ERROR);
 
-		if ((uint32)stack.CountItems() > fHeader.MaxNumberOfLevels()) {
+		if ((uint32)stack.CountItems() > fHeader.MaxNumberOfLevels()
+			|| (uint32)stack.CountItems() > 64) {
 			dprintf("BPlusTree::_SeekDown() node walked too deep.\n");
 			break;
 		}
@@ -1376,9 +1381,11 @@ BPlusTree::_InsertDuplicate(Transaction& transaction, CachedNode& cached,
 	array->Insert(oldValue);
 	array->Insert(value);
 
-	if (cached.MakeWritable(transaction) == NULL)
+	bplustree_node* writableNode = cached.MakeWritable(transaction);
+	if (writableNode == NULL)
 		return B_IO_ERROR;
 
+	values = writableNode->Values();
 	values[index] = HOST_ENDIAN_TO_BFS_INT64(bplustree_node::MakeLink(
 		BPLUSTREE_DUPLICATE_FRAGMENT, offset, fragmentIndex));
 
@@ -1894,9 +1901,12 @@ BPlusTree::_RemoveDuplicate(Transaction& transaction,
 		// remove the array from the fragment node if it is empty
 		if (--arrayCount == 1) {
 			// set the link to the remaining value
-			if (cached.MakeWritable(transaction) == NULL)
+			bplustree_node* writableNode = cached.MakeWritable(transaction);
+			if (writableNode == NULL)
 				return B_IO_ERROR;
 
+			// The node might have moved, so we need to update the values pointer
+			values = writableNode->Values();
 			values[index] = array->values[0];
 
 			// Remove the whole fragment node, if this was the only array,
@@ -1965,8 +1975,12 @@ BPlusTree::_RemoveDuplicate(Transaction& transaction,
 
 			if (left == BPLUSTREE_NULL) {
 				// the duplicate link points to us
-				if (cached.MakeWritable(transaction) == NULL)
+				bplustree_node* writableNode = cached.MakeWritable(transaction);
+				if (writableNode == NULL)
 					return B_IO_ERROR;
+
+				// The node might have moved, so we need to update the values pointer
+				values = writableNode->Values();
 
 				if (arrayCount == 1) {
 					// This is the last node, and there is only one value left;
@@ -2050,9 +2064,11 @@ BPlusTree::_RemoveDuplicate(Transaction& transaction,
 					fNodeSize - (NUM_FRAGMENT_VALUES + 1) * sizeof(off_t));
 			}
 
-			if (cached.MakeWritable(transaction) == NULL)
+			bplustree_node* writableNode = cached.MakeWritable(transaction);
+			if (writableNode == NULL)
 				return B_IO_ERROR;
 
+			values = writableNode->Values();
 			values[index] = HOST_ENDIAN_TO_BFS_INT64(bplustree_node::MakeLink(
 				BPLUSTREE_DUPLICATE_FRAGMENT, duplicateOffset, fragmentIndex));
 		}
@@ -2388,7 +2404,7 @@ BPlusTree::_ValidateChildren(TreeCheck& check, uint32 level, off_t offset,
 		check.FoundError();
 		return B_OK;
 	}
-	if (level >= fHeader.MaxNumberOfLevels()) {
+	if (level >= fHeader.MaxNumberOfLevels() || level > 64) {
 		dprintf("inode %" B_PRIdOFF ": maximum level surpassed at %" B_PRIdOFF
 			"!\n", fStream->ID(), offset);
 		check.FoundError();
@@ -2980,7 +2996,7 @@ bplustree_node::Initialize()
 uint8*
 bplustree_node::KeyAt(int32 index, uint16* keyLength) const
 {
-	if (index < 0 || index > NumKeys())
+	if (index < 0 || index >= NumKeys())
 		return NULL;
 
 	uint8* keyStart = Keys();

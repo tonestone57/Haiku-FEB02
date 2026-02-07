@@ -5,6 +5,7 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#define DEBUG 1
 
 #include "system_dependencies.h"
 
@@ -80,6 +81,24 @@
 #endif
 
 #ifdef DEBUG
+#ifdef _BOOT_MODE
+	namespace BFS {
+		struct block_run;
+		struct bplustree_header;
+		struct bplustree_node;
+		struct data_stream;
+		struct bfs_inode;
+		struct disk_super_block;
+		class Volume;
+	}
+	using BFS::block_run;
+	using BFS::bplustree_header;
+	using BFS::bplustree_node;
+	using BFS::data_stream;
+	using BFS::bfs_inode;
+	using BFS::disk_super_block;
+	using BFS::Volume;
+#else
 	struct block_run;
 	struct bplustree_header;
 	struct bplustree_node;
@@ -88,6 +107,7 @@
 	struct disk_super_block;
 	class Inode;
 	class Volume;
+#endif
 
 	// some structure dump functions
 	extern void dump_block_run(const char *prefix, const block_run &run);

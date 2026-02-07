@@ -418,7 +418,7 @@ cancel_timer(timer* event)
 		// FIXME: Theoretically we should be able to skip this if (previous == NULL).
 		// But it seems adding that causes problems on some systems, possibly due to
 		// some other bug. For now, just reset the hardware timer on every cancellation.
-		if (cpu == smp_get_current_cpu()) {
+		if (cpu == smp_get_current_cpu() && previous == NULL) {
 			if (cpuData.events == NULL)
 				arch_timer_clear_hardware_timer();
 			else

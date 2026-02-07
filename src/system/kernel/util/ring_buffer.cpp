@@ -72,7 +72,10 @@ read_from_buffer(struct ring_buffer *buffer, uint8 *data, ssize_t length,
 	}
 
 	buffer->first = (buffer->first + bytesRead) % buffer->size;
-	buffer->in -= bytesRead;
+	if (buffer->in < bytesRead)
+		buffer->in = 0;
+	else
+		buffer->in -= bytesRead;
 
 	return bytesRead;
 }
@@ -113,6 +116,9 @@ write_to_buffer(struct ring_buffer *buffer, const uint8 *data, ssize_t length,
 			memcpy(buffer->buffer, data + upper, lower);
 		}
 	}
+
+	if (buffer->in > INT_MAX - bytesWritten)
+		return B_NO_MEMORY;
 
 	buffer->in += bytesWritten;
 
@@ -184,6 +190,9 @@ create_ring_buffer_etc(void* memory, size_t size, uint32 flags)
 
 		return buffer;
 	}
+
+	if (size < sizeof(ring_buffer))
+		return NULL;
 
 	size -= sizeof(ring_buffer);
 	ring_buffer* buffer = (ring_buffer*)memory;

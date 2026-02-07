@@ -2051,7 +2051,8 @@ open_module_list_etc(const char* prefix, const char* suffix)
 				iterator->prefix_length + 1);
 #endif
 
-			iterator_push_path_on_stack(iterator, path, length + 1);
+			if (iterator_push_path_on_stack(iterator, path, length + 1) != B_OK)
+				free(path);
 		}
 	} else {
 		// include loaded modules in case there is no boot device yet

@@ -166,6 +166,8 @@ struct Query::QueryPolicy {
 		int64 shiftedTime;
 		if (iterator->isSpecialTime) {
 			// int64 time index; convert value.
+			if (size < sizeof(int64))
+				return B_BAD_VALUE;
 			shiftedTime = *(int64*)value << INODE_TIME_SHIFT;
 			value = &shiftedTime;
 		}
@@ -185,7 +187,7 @@ struct Query::QueryPolicy {
 
 		if (iterator->isSpecialTime) {
 			// int64 time index; convert value.
-			if (keyLength == sizeof(int64))
+			if (keyLength >= sizeof(int64))
 				*(int64*)indexValue >>= INODE_TIME_SHIFT;
 		}
 

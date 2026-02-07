@@ -1007,6 +1007,16 @@ create_port(int32 queueLength, const char* name)
 		return B_NO_MORE_PORTS;
 	}
 
+	// check per team limit
+	{
+		const uint8 lockIndex = team->id % kTeamListLockCount;
+		MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
+		if (list_count_items(&team->port_list) >= 4096) {
+			atomic_add(&sUsedPorts, -1);
+			return B_NO_MORE_PORTS;
+		}
+	}
+
 	{
 		WriteLocker locker(sPortsLock);
 
@@ -1442,8 +1452,7 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 		return B_BAD_VALUE;
 
 	bool userCopy = (flags & PORT_FLAG_USE_USER_MEMCPY) != 0;
-	bool peekOnly = !userCopy && (flags & B_PEEK_PORT_MESSAGE) != 0;
-		// TODO: we could allow peeking for user apps now
+	bool peekOnly = (flags & B_PEEK_PORT_MESSAGE) != 0;
 
 	flags &= B_CAN_INTERRUPT | B_KILL_CAN_INTERRUPT | B_RELATIVE_TIMEOUT
 		| B_ABSOLUTE_TIMEOUT;
@@ -1628,6 +1637,7 @@ writev_port_etc(port_id id, int32 msgCode, const iovec* msgVecs,
 	if (status != B_OK) {
 		if (status == B_BAD_PORT_ID) {
 			// the port had to be unlocked and is now no longer there
+			locker.Detach();
 			T(Write(id, 0, 0, 0, 0, B_BAD_PORT_ID));
 			return B_BAD_PORT_ID;
 		}
