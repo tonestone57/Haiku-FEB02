@@ -10,11 +10,12 @@
 //! B+Tree implementation
 
 
+#include "Debug.h"
+
 #include "BPlusTree.h"
 
 #include <file_systems/QueryParserUtils.h>
 
-#include "Debug.h"
 #include "Utility.h"
 
 #if !_BOOT_MODE

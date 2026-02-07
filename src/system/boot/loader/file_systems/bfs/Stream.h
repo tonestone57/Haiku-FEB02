@@ -37,6 +37,9 @@ class Stream : public bfs_inode {
 		bool IsSymlink() const { return S_ISLNK(Mode()); }
 		bool IsIndex() const { return false; }
 
+		bfs_inode& Node() { return *this; }
+		const bfs_inode& Node() const { return *this; }
+
 		static Node *NodeFactory(Volume &volume, off_t id);
 
 	private:
