@@ -908,7 +908,7 @@ status_t
 BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 	uint16 start, uint16 maximum, uint16 minimum, block_run& run)
 {
-	if (maximum == 0)
+	if (maximum == 0 || minimum == 0)
 		return B_BAD_VALUE;
 	if (fAllowedEndBlock > fVolume->NumBlocks())
 		return B_BAD_VALUE;
