@@ -181,7 +181,18 @@ InodeAllocator::~InodeAllocator()
 				fTransaction->RemoveListener(fInode->fTree);
 			fTransaction->RemoveListener(fInode);
 
-			remove_vnode(volume->FSVolume(), fInode->ID());
+			ino_t id = fInode->ID();
+			// We need to set fInode to NULL before calling remove_vnode() because that may call
+			// our destructor again (indirectly) or delete the inode (if it was published).
+			// If the inode wasn't published yet, remove_vnode() might not delete it if we don't
+			// balance the new_vnode() refcount, but here we are in error cleanup.
+			// Actually, bfs_remove_vnode() will be called which deletes the inode.
+			// So we must stop accessing fInode after this.
+			// To be safe against double free in our destructor (since we are in it!),
+			// we NULL it out.
+			fInode = NULL;
+
+			remove_vnode(volume->FSVolume(), id);
 		} else
 			volume->Free(*fTransaction, fRun);
 	}
@@ -1250,7 +1261,8 @@ Inode::WriteAttribute(Transaction& transaction, const char* name, int32 type,
 			if (status == B_OK) {
 				status = attribute->WriteAt(transaction, pos, buffer,
 					_length);
-			}
+			} else
+				attribute->UpdateNodeFromDisk();
 		}
 
 		if (status == B_OK) {
@@ -1259,6 +1271,8 @@ Inode::WriteAttribute(Transaction& transaction, const char* name, int32 type,
 			Node().status_change_time = HOST_ENDIAN_TO_BFS_INT64(fStatusChangeTime);
 
 			status = WriteBack(transaction);
+			if (status != B_OK)
+				UpdateNodeFromDisk();
 		}
 
 		attribute->WriteLockInTransaction(transaction);
@@ -1674,18 +1688,22 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		// is closed)
 		status = WriteBack(transaction);
 		if (status != B_OK) {
+			UpdateNodeFromDisk();
 			return status;
 		}
 
 		if (transaction.IsStarted()) {
 			status = transaction.Done();
 			if (status != B_OK) {
+				UpdateNodeFromDisk();
 				return status;
 			}
 
 			status = transaction.Start(fVolume, BlockNumber());
-			if (status != B_OK)
+			if (status != B_OK) {
+				UpdateNodeFromDisk();
 				return status;
+			}
 		}
 	}
 
@@ -1696,6 +1714,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		if (status != B_OK) {
 			// Note: If FillGapWithZeros fails (e.g. B_DEVICE_FULL), we must
 			// propagate the error to avoid file corruption or inconsistency.
+			UpdateNodeFromDisk();
 			return status;
 		}
 	}
@@ -2847,8 +2866,10 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 				if (status == B_OK)
 					status = inode->WriteBack(transaction);
 
-				if (status != B_OK)
+				if (status != B_OK) {
+					inode->UpdateNodeFromDisk();
 					return status;
+				}
 			}
 
 			if (_created)
