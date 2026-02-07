@@ -319,6 +319,8 @@ Volume::Mount(const char* deviceName, uint32 flags)
 		status = B_BAD_VALUE;
 		FATAL(("could not create root node!\n"));
 
+		delete fRootNode;
+
 		// We need to wait for the block allocator to finish
 		fBlockAllocator.Uninitialize();
 		return status;
