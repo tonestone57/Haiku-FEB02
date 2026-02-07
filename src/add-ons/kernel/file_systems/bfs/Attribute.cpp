@@ -253,8 +253,10 @@ Attribute::_Truncate()
 		if (status >= B_OK)
 			status = fAttribute->WriteBack(transaction);
 
-		if (status < B_OK)
+		if (status < B_OK) {
+			fAttribute->UpdateNodeFromDisk();
 			return status;
+		}
 
 		transaction.Done();
 	}
