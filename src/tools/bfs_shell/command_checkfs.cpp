@@ -43,8 +43,10 @@ command_checkfs(int argc, const char* const* argv)
 	// start checking
 	fssh_status_t status = _kern_ioctl(rootDir, BFS_IOCTL_START_CHECKING,
 		&result, sizeof(result));
-	if (status != B_OK)
-	    return status;
+	if (status != B_OK) {
+		_kern_close(rootDir);
+		return status;
+	}
 
 	uint64 attributeDirectories = 0, attributes = 0;
 	uint64 files = 0, directories = 0, indices = 0;
@@ -100,10 +102,11 @@ command_checkfs(int argc, const char* const* argv)
 	}
 
 	// stop checking
-	if (_kern_ioctl(rootDir, BFS_IOCTL_STOP_CHECKING, &result, sizeof(result))
-			!= B_OK) {
+	status = _kern_ioctl(rootDir, BFS_IOCTL_STOP_CHECKING, &result,
+		sizeof(result));
+	if (status != B_OK) {
 		_kern_close(rootDir);
-		return errno;
+		return status;
 	}
 
 	_kern_close(rootDir);

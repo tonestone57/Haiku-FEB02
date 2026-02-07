@@ -23,7 +23,8 @@ command_resizefs(int argc, const char* const* argv)
 	}
 
 	uint64 newSize;
-	if (fssh_sscanf(argv[1], "%" B_SCNu64, &newSize) < 1) {
+	char sentinel;
+	if (fssh_sscanf(argv[1], "%" B_SCNu64 "%c", &newSize, &sentinel) != 1) {
 		fssh_dprintf("Unknown argument or invalid size\n");
 		return B_ERROR;
 	}

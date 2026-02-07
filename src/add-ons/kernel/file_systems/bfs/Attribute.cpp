@@ -139,8 +139,13 @@ Attribute::Create(const char* name, type_code type, int openMode,
 	cookie->open_mode = openMode;
 	cookie->create = true;
 
-	if (exists && (openMode & O_TRUNC) != 0)
-		_Truncate();
+	if (exists && (openMode & O_TRUNC) != 0) {
+		status_t status = _Truncate();
+		if (status != B_OK) {
+			delete cookie;
+			return status;
+		}
+	}
 
 	*_cookie = cookie;
 	return B_OK;
@@ -168,8 +173,13 @@ Attribute::Open(const char* name, int openMode, attr_cookie** _cookie)
 	cookie->create = false;
 
 	// Should we truncate the attribute?
-	if ((openMode & O_TRUNC) != 0)
-		_Truncate();
+	if ((openMode & O_TRUNC) != 0) {
+		status = _Truncate();
+		if (status != B_OK) {
+			delete cookie;
+			return status;
+		}
+	}
 
 	*_cookie = cookie;
 	return B_OK;
