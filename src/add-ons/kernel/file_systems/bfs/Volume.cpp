@@ -278,12 +278,17 @@ Volume::Mount(const char* deviceName, uint32 flags)
 		return B_ERROR;
 
 	fJournal = new(std::nothrow) Journal(this);
-	if (fJournal == NULL)
+	if (fJournal == NULL) {
+		fDevice = -1;
+		fBlockCache = NULL;
 		return B_NO_MEMORY;
+	}
 
 	status_t status = fJournal->InitCheck();
 	if (status < B_OK) {
 		FATAL(("could not initialize journal: %s!\n", strerror(status)));
+		fDevice = -1;
+		fBlockCache = NULL;
 		return status;
 	}
 
@@ -302,6 +307,8 @@ Volume::Mount(const char* deviceName, uint32 flags)
 	status = fBlockAllocator.Initialize();
 	if (status != B_OK) {
 		FATAL(("could not initialize block bitmap allocator!\n"));
+		fDevice = -1;
+		fBlockCache = NULL;
 		return status;
 	}
 
@@ -338,6 +345,8 @@ Volume::Mount(const char* deviceName, uint32 flags)
 			fRootNode = NULL;
 			// We need to wait for the block allocator to finish
 			fBlockAllocator.Uninitialize();
+			fDevice = -1;
+			fBlockCache = NULL;
 			return status;
 		}
 	} else {
@@ -349,6 +358,8 @@ Volume::Mount(const char* deviceName, uint32 flags)
 
 		// We need to wait for the block allocator to finish
 		fBlockAllocator.Uninitialize();
+		fDevice = -1;
+		fBlockCache = NULL;
 		return status;
 	}
 
@@ -377,6 +388,7 @@ Volume::Unmount()
 
 	block_cache_delete(fBlockCache, !IsReadOnly());
 	close(fDevice);
+	fDevice = -1;
 
 	return B_OK;
 }
