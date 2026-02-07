@@ -700,8 +700,14 @@ BPlusTree::SetTo(Transaction& transaction, Inode* stream, int32 nodeSize)
 
 	// initialize b+tree root node
 	cached.SetToWritable(transaction, fHeader.RootNode(), false);
-	if (cached.Node() == NULL)
+	if (cached.Node() == NULL) {
+		if (fInTransaction) {
+			transaction.RemoveListener(this);
+			fInTransaction = false;
+		}
+
 		RETURN_ERROR(B_IO_ERROR);
+	}
 
 	cached.Node()->Initialize();
 
