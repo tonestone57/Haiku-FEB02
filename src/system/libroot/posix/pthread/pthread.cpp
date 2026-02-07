@@ -8,9 +8,11 @@
 
 #include "pthread_private.h"
 
+#include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <TLS.h>
 
@@ -119,7 +121,15 @@ __pthread_init_creation_attributes(const pthread_attr_t* pthreadAttributes,
 
 	attributes->entry = entryFunction;
 	attributes->name = name;
-	attributes->priority = attr->sched_priority;
+	if (attr->inheritsched == PTHREAD_INHERIT_SCHED) {
+		struct thread_info info;
+		if (get_thread_info(find_thread(NULL), &info) == B_OK)
+			attributes->priority = info.priority;
+		else
+			attributes->priority = B_NORMAL_PRIORITY;
+	} else
+		attributes->priority = attr->sched_priority;
+
 	attributes->args1 = argument1;
 	attributes->args2 = argument2;
 	attributes->stack_address = attr->stack_address;
@@ -224,6 +234,15 @@ pthread_equal(pthread_t t1, pthread_t t2)
 
 
 int
+pthread_yield(void)
+{
+	if (sched_yield() != 0)
+		return errno;
+	return 0;
+}
+
+
+int
 pthread_join(pthread_t thread, void** _value)
 {
 	return __pthread_join(thread, _value);
@@ -323,6 +342,26 @@ pthread_setschedparam(pthread_t thread, int policy,
 	status_t status = _kern_set_thread_priority(thread->id, param->sched_priority);
 	if (status == B_BAD_THREAD_ID)
 		return ESRCH;
+	if (status == B_NOT_ALLOWED)
+		return EPERM;
+	if (status == B_BAD_VALUE)
+		return EINVAL;
+	if (status < B_OK)
+		return status;
+	return 0;
+}
+
+
+int
+pthread_setschedprio(pthread_t thread, int priority)
+{
+	status_t status = _kern_set_thread_priority(thread->id, priority);
+	if (status == B_BAD_THREAD_ID)
+		return ESRCH;
+	if (status == B_NOT_ALLOWED)
+		return EPERM;
+	if (status == B_BAD_VALUE)
+		return EINVAL;
 	if (status < B_OK)
 		return status;
 	return 0;

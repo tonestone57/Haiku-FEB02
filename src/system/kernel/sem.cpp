@@ -15,6 +15,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include <OS.h>
 
@@ -926,6 +927,8 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 		// Don't release more than necessary -- there might be interrupted/
 		// timed out threads in the queue.
 		flags |= B_RELEASE_IF_WAITING_ONLY;
+	} else if (count > 0 && sSems[slot].u.used.count > INT_MAX - count) {
+		return B_RESULT_NOT_REPRESENTABLE;
 	}
 
 	// Grab the scheduler lock, so thread_is_blocked() is reliable (due to

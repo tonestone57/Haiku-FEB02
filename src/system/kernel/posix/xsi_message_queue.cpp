@@ -89,7 +89,8 @@ struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 typedef DoublyLinkedList<queued_message> MessageQueue;
 
 // Arbitrary limit
-#define MAX_BYTES_PER_QUEUE		2048
+#define MAX_BYTES_PER_QUEUE		65536
+#define MAX_XSI_MESSAGE_SIZE	65536
 
 class XsiMessageQueue {
 public:
@@ -696,7 +697,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 	MutexLocker messageQueueLocker(messageQueue->Lock());
 	messageQueueHashLocker.Unlock();
 
-	if (messageSize > MAX_BYTES_PER_QUEUE) {
+	if (messageSize > SSIZE_MAX) {
 		TRACE_ERROR(("xsi_msgrcv: message size is out of range\n"));
 		return B_BAD_VALUE;
 	}
@@ -794,7 +795,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 	MutexLocker messageQueueLocker(messageQueue->Lock());
 	messageQueueHashLocker.Unlock();
 
-	if (messageSize > MAX_BYTES_PER_QUEUE) {
+	if (messageSize > MAX_XSI_MESSAGE_SIZE || messageSize > SSIZE_MAX) {
 		TRACE_ERROR(("xsi_msgsnd: message size is out of range\n"));
 		return B_BAD_VALUE;
 	}

@@ -225,12 +225,12 @@ extern int pthread_attr_getstack(const pthread_attr_t *attr,
 extern int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr,
 	size_t stacksize);
 
-#if 0   /* Unimplemented attribute functions: */
-
 /* [TPS] */
 extern int pthread_attr_getinheritsched(const pthread_attr_t *attr,
 	int *inheritsched);
 extern int pthread_attr_setinheritsched(pthread_attr_t *attr, int inheritsched);
+
+#if 0   /* Unimplemented attribute functions: */
 
 extern int pthread_attr_getschedpolicy(const pthread_attr_t *attr,
 	int *policy);
@@ -248,6 +248,7 @@ extern int pthread_join(pthread_t thread, void **_value);
 extern pthread_t pthread_self(void);
 extern int pthread_getconcurrency(void);
 extern int pthread_setconcurrency(int newLevel);
+extern int pthread_yield(void);
 
 extern int pthread_cancel(pthread_t thread);
 extern int pthread_setcancelstate(int state, int *_oldState);
@@ -258,6 +259,7 @@ extern int pthread_getschedparam(pthread_t thread, int *policy,
 	struct sched_param *param);
 extern int pthread_setschedparam(pthread_t thread, int policy,
 	const struct sched_param *param);
+extern int pthread_setschedprio(pthread_t thread, int priority);
 
 /* thread specific data functions */
 extern int pthread_key_create(pthread_key_t *key,

@@ -9,6 +9,7 @@
 #include <posix/xsi_semaphore.h>
 
 #include <new>
+#include <limits.h>
 
 #include <sys/ipc.h>
 #include <sys/types.h>
@@ -108,21 +109,27 @@ public:
 		// number nor our semaphore set id.
 	}
 
-	// We return true in case the operation causes the
+	// We return B_BUSY in case the operation causes the
 	// caller to wait, so it can undo all the operations
 	// previously done
-	bool Add(short value)
+	status_t Add(short value)
 	{
+		if (value > 0 && (int)fValue + value > USHRT_MAX) {
+			TRACE_ERROR(("XsiSemaphore::Add: value %d out of range\n",
+				(int)fValue + value));
+			return B_RESULT_NOT_REPRESENTABLE;
+		}
+
 		if ((int)(fValue + value) < 0) {
 			TRACE(("XsiSemaphore::Add: potentially going to sleep\n"));
-			return true;
+			return B_BUSY;
 		} else {
 			fValue += value;
 			if (fValue == 0)
 				WakeUpThreads(true);
 			else if (fValue > 0)
 				WakeUpThreads(false);
-			return false;
+			return B_OK;
 		}
 	}
 
@@ -841,7 +848,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 					(int)semaphoreSet->IpcKey()));
 				result = B_PERMISSION_DENIED;
 			} else {
-				if (args.val > USHRT_MAX) {
+				if (args.val < 0 || args.val > USHRT_MAX) {
 					TRACE(("xsi_semctl: value %d out of range\n", args.val));
 					result = B_RESULT_NOT_REPRESENTABLE;
 				} else {
@@ -1082,11 +1089,15 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 			TRACE(("xsi_semop: semaphoreNumber = %d, value = %d\n",
 				semaphoreNumber, value));
 			if (operation < 0) {
-				if (semaphore->Add(operation)) {
+				status_t status = semaphore->Add(operation);
+				if (status == B_BUSY) {
 					if (operations[i].sem_flg & IPC_NOWAIT)
 						result = B_WOULD_BLOCK;
 					else
 						goToSleep = true;
+					break;
+				} else if (status != B_OK) {
+					result = status;
 					break;
 				}
 			} else if (operation == 0) {
@@ -1102,7 +1113,11 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 			} else {
 				// Operation must be greater than zero,
 				// just add the value and continue
-				semaphore->Add(operation);
+				status_t status = semaphore->Add(operation);
+				if (status != B_OK) {
+					result = status;
+					break;
+				}
 			}
 		}
 

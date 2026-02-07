@@ -50,6 +50,7 @@ typedef struct _pthread_attr {
 	size_t		stack_size;
 	size_t		guard_size;
 	void		*stack_address;
+	int32		inheritsched;
 } pthread_attr;
 
 typedef struct _pthread_rwlockattr {

@@ -39,6 +39,7 @@ pthread_attr_init(pthread_attr_t *_attr)
 	attr->stack_size = USER_STACK_SIZE;
 	attr->guard_size = USER_STACK_GUARD_SIZE;
 	attr->stack_address = NULL;
+	attr->inheritsched = PTHREAD_EXPLICIT_SCHED;
 
 	*_attr = attr;
 	return B_OK;
@@ -100,6 +101,62 @@ pthread_attr_getstacksize(const pthread_attr_t *_attr, size_t *stacksize)
 		return B_BAD_VALUE;
 
 	*stacksize = attr->stack_size;
+
+	return 0;
+}
+
+
+int
+pthread_attr_setinheritsched(pthread_attr_t *attr, int inheritsched)
+{
+	if (attr == NULL)
+		return EINVAL;
+
+	if (inheritsched != PTHREAD_INHERIT_SCHED
+		&& inheritsched != PTHREAD_EXPLICIT_SCHED)
+		return EINVAL;
+
+	(*attr)->inheritsched = inheritsched;
+
+	return 0;
+}
+
+
+int
+pthread_attr_getinheritsched(const pthread_attr_t *attr, int *inheritsched)
+{
+	if (attr == NULL || inheritsched == NULL)
+		return EINVAL;
+
+	*inheritsched = (*attr)->inheritsched;
+
+	return 0;
+}
+
+
+int
+pthread_attr_getstackaddr(const pthread_attr_t *_attr, void **stackaddr)
+{
+	pthread_attr *attr;
+
+	if (_attr == NULL || (attr = *_attr) == NULL || stackaddr == NULL)
+		return EINVAL;
+
+	*stackaddr = attr->stack_address;
+
+	return 0;
+}
+
+
+int
+pthread_attr_setstackaddr(pthread_attr_t *_attr, void *stackaddr)
+{
+	pthread_attr *attr;
+
+	if (_attr == NULL || (attr = *_attr) == NULL)
+		return EINVAL;
+
+	attr->stack_address = stackaddr;
 
 	return 0;
 }
