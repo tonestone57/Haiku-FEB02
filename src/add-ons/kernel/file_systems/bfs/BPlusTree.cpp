@@ -2633,7 +2633,7 @@ TreeIterator::Goto(int8 to)
 			nextOffset = node->OverflowLink();
 		else {
 			if (node->AllKeyLength() > fTree->fNodeSize
-				|| (addr_t)node->Values() > (addr_t)node + fTree->fNodeSize
+				|| (uint8*)node->Values() > (uint8*)node + fTree->fNodeSize
 					- 8 * node->NumKeys())
 				RETURN_ERROR(B_ERROR);
 
