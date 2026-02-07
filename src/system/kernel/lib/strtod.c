@@ -967,6 +967,8 @@ d2b(double d, int *e, int *bits)
 #else
 	b = Balloc(2);
 #endif
+	if (b == NULL)
+		return NULL;
 	x = b->x;
 
 	z = d0 & Frac_mask;
