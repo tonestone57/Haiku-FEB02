@@ -11,6 +11,9 @@
 extern int			__fpclassifyf(float value);
 extern int			__fpclassify(double x);
 extern int			__fpclassifyl(long double value);
+int __finitef(float value);
+int __finite(double value);
+int __finitel(long double value);
 
 
 // #pragma mark - finite
@@ -38,6 +41,9 @@ __finitel(long double value)
 
 
 B_DEFINE_WEAK_ALIAS(__finitef, finitef);
+int __isnanf(float value);
+int __isnan(double value);
+int __isnanl(long double value);
 B_DEFINE_WEAK_ALIAS(__finite, finite);
 B_DEFINE_WEAK_ALIAS(__finitel, finitel);
 
@@ -65,6 +71,9 @@ __isnanl(long double value)
 	return __fpclassifyl(value) == FP_NAN;
 }
 
+int __isinff(float value);
+int __isinf(double value);
+int __isinfl(long double value);
 
 B_DEFINE_WEAK_ALIAS(__isnanf, isnanf);
 B_DEFINE_WEAK_ALIAS(__isnan, isnan);

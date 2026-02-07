@@ -649,23 +649,33 @@ BMessage::Rename(const char *oldEntry, const char *newEntry)
 		return B_BAD_VALUE;
 
 	uint32 hash = _HashName(oldEntry) % fHeader->hash_table_size;
-	int32 *nextField = &fHeader->hash_table[hash];
+	uint8 *nextFieldPtr = (uint8 *)&fHeader->hash_table[hash];
+	int32 nextFieldVal;
+	memcpy(&nextFieldVal, nextFieldPtr, sizeof(int32));
 
-	while (*nextField >= 0) {
-		field_header *field = &fFields[*nextField];
+	while (nextFieldVal >= 0) {
+		field_header *field = &fFields[nextFieldVal];
 
 		if (strncmp((const char *)(fData + field->offset), oldEntry,
 			field->name_length) == 0) {
 			// nextField points to the field for oldEntry, save it and unlink
-			int32 index = *nextField;
-			*nextField = field->next_field;
+			int32 index = nextFieldVal;
+
+			int32 nextFieldFieldVal;
+			memcpy(&nextFieldFieldVal, &field->next_field, sizeof(int32));
+			memcpy(nextFieldPtr, &nextFieldFieldVal, sizeof(int32));
+
 			field->next_field = -1;
 
 			hash = _HashName(newEntry) % fHeader->hash_table_size;
-			nextField = &fHeader->hash_table[hash];
-			while (*nextField >= 0)
-				nextField = &fFields[*nextField].next_field;
-			*nextField = index;
+			nextFieldPtr = (uint8 *)&fHeader->hash_table[hash];
+			memcpy(&nextFieldVal, nextFieldPtr, sizeof(int32));
+
+			while (nextFieldVal >= 0) {
+				nextFieldPtr = (uint8 *)&fFields[nextFieldVal].next_field;
+				memcpy(&nextFieldVal, nextFieldPtr, sizeof(int32));
+			}
+			memcpy(nextFieldPtr, &index, sizeof(int32));
 
 			int32 newLength = strlen(newEntry) + 1;
 			status_t result = _ResizeData(field->offset + 1,
@@ -678,7 +688,8 @@ BMessage::Rename(const char *oldEntry, const char *newEntry)
 			return B_OK;
 		}
 
-		nextField = &field->next_field;
+		nextFieldPtr = (uint8 *)&field->next_field;
+		memcpy(&nextFieldVal, nextFieldPtr, sizeof(int32));
 	}
 
 	return B_NAME_NOT_FOUND;
@@ -1289,10 +1300,15 @@ BMessage::_AddField(const char *name, type_code type, bool isFixedSize,
 	}
 
 	uint32 hash = _HashName(name) % fHeader->hash_table_size;
-	int32 *nextField = &fHeader->hash_table[hash];
-	while (*nextField >= 0)
-		nextField = &fFields[*nextField].next_field;
-	*nextField = fHeader->field_count;
+	uint8 *nextFieldPtr = (uint8 *)&fHeader->hash_table[hash];
+	int32 nextFieldVal;
+	memcpy(&nextFieldVal, nextFieldPtr, sizeof(int32));
+
+	while (nextFieldVal >= 0) {
+		nextFieldPtr = (uint8 *)&fFields[nextFieldVal].next_field;
+		memcpy(&nextFieldVal, nextFieldPtr, sizeof(int32));
+	}
+	memcpy(nextFieldPtr, &fHeader->field_count, sizeof(int32));
 
 	field_header *field = &fFields[fHeader->field_count];
 	field->type = type;
@@ -1330,12 +1346,16 @@ BMessage::_RemoveField(field_header *field)
 	if (nextField > index)
 		nextField--;
 
-	int32 *value = fHeader->hash_table;
-	for (uint32 i = 0; i < fHeader->hash_table_size; i++, value++) {
-		if (*value > index)
-			*value -= 1;
-		else if (*value == index)
-			*value = nextField;
+	uint8 *valuePtr = (uint8 *)fHeader->hash_table;
+	for (uint32 i = 0; i < fHeader->hash_table_size; i++, valuePtr += sizeof(int32)) {
+		int32 val;
+		memcpy(&val, valuePtr, sizeof(int32));
+		if (val > index) {
+			val -= 1;
+			memcpy(valuePtr, &val, sizeof(int32));
+		} else if (val == index) {
+			memcpy(valuePtr, &nextField, sizeof(int32));
+		}
 	}
 
 	field_header *other = fFields;
@@ -1641,7 +1661,7 @@ BMessage::Find##typeName(const char *name, type *p) const					\
 	error = FindData(name, typeCode, 0, (const void **)&ptr, &bytes);		\
 																			\
 	if (error == B_OK)														\
-		memcpy(p, ptr, sizeof(type));										\
+		memcpy((void*)p, ptr, sizeof(type));										\
 																			\
 	return error;															\
 }																			\
@@ -1657,7 +1677,7 @@ BMessage::Find##typeName(const char *name, int32 index, type *p) const		\
 	error = FindData(name, typeCode, index, (const void **)&ptr, &bytes);	\
 																			\
 	if (error == B_OK)														\
-		memcpy(p, ptr, sizeof(type));										\
+		memcpy((void*)p, ptr, sizeof(type));										\
 																			\
 	return error;															\
 }																			\
@@ -1967,7 +1987,7 @@ BMessage::FindMessenger(const char *name, int32 index, BMessenger *messenger)
 		(const void **)&data, &size);
 
 	if (error == B_OK)
-		memcpy(messenger, data, sizeof(BMessenger));
+		memcpy((void*)messenger, data, sizeof(BMessenger));
 	else
 		*messenger = BMessenger();
 

@@ -92,7 +92,7 @@ InvertColor(const rgb_color &color)
 static void
 FillColorMap(const rgb_color *palette, color_map *map)
 {
-	memcpy(map->color_list, palette, sizeof(map->color_list));
+	memcpy((void*)map->color_list, palette, sizeof(map->color_list));
 	
 	// init index map
 	for (int32 color = 0; color < 32768; color++) {

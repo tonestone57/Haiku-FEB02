@@ -30,6 +30,8 @@
 #include <sys/types.h>
 #include <posix/fenv.h>
 #include <arch/x86_64/fpu.h>
+int __feenableexcept(int mask);
+int __fedisableexcept(int mask);
 
 const fenv_t __fe_dfl_env = {
 	{ 0xffff0000 | __INITIAL_FPUCW__,

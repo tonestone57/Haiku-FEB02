@@ -154,7 +154,7 @@ PBKDF2_SHA256(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
 		ivec = B_HOST_TO_BENDIAN_INT32((uint32_t)(i + 1));
 
 		/* Compute U_1 = PRF(P, S || INT(i)). */
-		memcpy(&hctx, &PShctx, sizeof(HMAC_SHA256_CTX));
+		memcpy((void*)&hctx, (const void*)&PShctx, sizeof(HMAC_SHA256_CTX));
 		HMAC_SHA256_Update(&hctx, &ivec, 4);
 		HMAC_SHA256_Final(U, &hctx);
 
