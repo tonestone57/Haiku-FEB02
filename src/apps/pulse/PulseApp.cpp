@@ -253,7 +253,9 @@ bool
 LastEnabledCPU(unsigned int my_cpu)
 {
 	system_info sys_info;
-	get_system_info(&sys_info);
+	if (get_system_info(&sys_info) != B_OK)
+		return true;
+
 	if (sys_info.cpu_count == 1)
 		return true;
 
@@ -275,7 +277,9 @@ int
 GetMinimumViewWidth()
 {
 	system_info sys_info;
-	get_system_info(&sys_info);
+	if (get_system_info(&sys_info) != B_OK)
+		return 0;
+
 	return (sys_info.cpu_count * 2) + 1;
 }
 

@@ -1742,8 +1742,10 @@ TermParse::_ProcessOperatingSystemControls(uchar* params)
 				end = strpbrk(start, ";:");
 				if (end == NULL)
 					break;
-				if (end - start > 3 && strncmp(start, "id=", 3) == 0)
-					id = strndup(start + 3, end - start + 3);
+				if (end - start > 3 && strncmp(start, "id=", 3) == 0) {
+					free(id);
+					id = strndup(start + 3, end - start - 3);
+				}
 				if (*end == ';')
 					break;
 			}

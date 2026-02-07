@@ -55,6 +55,16 @@ class exception {
 	{
 		if(m_msg) strcpy(m_msg, exc.m_msg);
 	}
+
+	exception& operator=(const exception& exc)
+	{
+		if (this != &exc) {
+			delete [] m_msg;
+			m_msg = exc.m_msg ? new char[strlen(exc.m_msg) + 1] : 0;
+			if(m_msg) strcpy(m_msg, exc.m_msg);
+		}
+		return *this;
+	}
 	
 	const char* msg() const { return m_msg; }
 

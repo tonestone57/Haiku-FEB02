@@ -206,7 +206,7 @@ BitmapView::MessageReceived(BMessage *msg)
 					if (response.FindData("image/jpeg", B_MIME_DATA, 
 						(const void **)&imagedata, &datasize) != B_OK) {
 						// Try PNG next and piddle out if unsuccessful
-						if (response.FindData("image/png", B_PNG_FORMAT, 
+						if (response.FindData("image/png", B_MIME_DATA,
 							(const void **)&imagedata, &datasize) != B_OK)
 							return;
 					}
@@ -470,6 +470,7 @@ BitmapView::ConstrainBitmap(void)
 	
 	delete fBitmap;
 	fBitmap = new BBitmap(scaled, false);
+	delete scaled;
 }
 
 
@@ -518,8 +519,10 @@ BitmapView::BitmapFromClipboard(void)
 		return NULL;
 	
 	clip = be_clipboard->Data();
-	if (!clip)
+	if (!clip) {
+		be_clipboard->Unlock();
 		return NULL;
+	}
 	
 	uint8 clipval = CLIP_NONE;
 	

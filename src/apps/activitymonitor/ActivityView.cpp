@@ -1168,6 +1168,10 @@ ActivityView::MessageReceived(BMessage* message)
 			Invalidate();
 			break;
 
+		case B_INVALIDATE:
+			Invalidate();
+			break;
+
 		case B_MOUSE_WHEEL_CHANGED:
 		{
 			float deltaY = 0.0f;

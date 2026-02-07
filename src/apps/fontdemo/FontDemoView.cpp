@@ -49,7 +49,13 @@ FontDemoView::FontDemoView(BRect rect)
 
 FontDemoView::~FontDemoView()
 {
-	free(fShapes);
+	if (fShapes != NULL) {
+		const size_t size = fString.CountChars();
+		for (size_t i = 0; i < size; i++)
+			delete fShapes[i];
+
+		free(fShapes);
+	}
 }
 
 
@@ -331,8 +337,15 @@ FontDemoView::MessageReceived(BMessage* msg)
 void
 FontDemoView::SetString(BString string)
 {
+	if (fShapes != NULL) {
+		const size_t size = fString.CountChars();
+		for (size_t i = 0; i < size; i++)
+			delete fShapes[i];
+
+		free(fShapes);
+	}
+
 	fString = string;
-	free(fShapes);
 	_AddShapes(fString);
 }
 

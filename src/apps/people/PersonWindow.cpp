@@ -413,7 +413,7 @@ PersonWindow::RefersPersonFile(const entry_ref& ref) const
 void
 PersonWindow::_GetDefaultFileName(char* name)
 {
-	strncpy(name, fView->AttributeValue(fNameAttribute), B_FILE_NAME_LENGTH);
+	strlcpy(name, fView->AttributeValue(fNameAttribute), B_FILE_NAME_LENGTH);
 	while (*name) {
 		if (*name == '/')
 			*name = '-';
