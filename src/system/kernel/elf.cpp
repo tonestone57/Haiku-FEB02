@@ -1608,7 +1608,16 @@ get_image_symbol(image_id id, const char *name, int32 symbolClass,
 		goto done;
 	}
 
-	// TODO: support the "symbolClass" parameter!
+	if (symbolClass == B_SYMBOL_TYPE_TEXT && symbol->Type() != STT_FUNC
+		&& symbol->Type() != STT_GNU_IFUNC) {
+		status = B_ENTRY_NOT_FOUND;
+		goto done;
+	}
+
+	if (symbolClass == B_SYMBOL_TYPE_DATA && symbol->Type() != STT_OBJECT) {
+		status = B_ENTRY_NOT_FOUND;
+		goto done;
+	}
 
 	TRACE(("found: %lx (%lx + %lx)\n",
 		symbol->st_value + image->text_region.delta,
@@ -2098,9 +2107,44 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 
 	imageInfo.basic_info.api_version = B_HAIKU_VERSION;
 	imageInfo.basic_info.abi = B_HAIKU_ABI;
-		// TODO: Get the actual values for the shared object. Currently only
-		// the runtime loader is loaded, so this is good enough for the time
-		// being.
+
+	// Haiku API version
+	elf_sym* symbol = elf_find_symbol(image,
+		B_SHARED_OBJECT_HAIKU_VERSION_VARIABLE_NAME, NULL, true);
+	if (symbol != NULL && symbol->st_shndx != SHN_UNDEF
+		&& symbol->st_value > 0
+		&& symbol->Type() == STT_OBJECT
+		&& symbol->st_size >= sizeof(uint32)) {
+		addr_t symbolAddress = symbol->st_value + image->text_region.delta;
+		if (symbolAddress >= image->text_region.start
+			&& symbolAddress + sizeof(uint32)
+				<= image->text_region.start + image->text_region.size) {
+			imageInfo.basic_info.api_version = *(uint32*)symbolAddress;
+		} else if (symbolAddress >= image->data_region.start
+			&& symbolAddress + sizeof(uint32)
+				<= image->data_region.start + image->data_region.size) {
+			imageInfo.basic_info.api_version = *(uint32*)symbolAddress;
+		}
+	}
+
+	// Haiku ABI
+	symbol = elf_find_symbol(image,
+		B_SHARED_OBJECT_HAIKU_ABI_VARIABLE_NAME, NULL, true);
+	if (symbol != NULL && symbol->st_shndx != SHN_UNDEF
+		&& symbol->st_value > 0
+		&& symbol->Type() == STT_OBJECT
+		&& symbol->st_size >= sizeof(uint32)) {
+		addr_t symbolAddress = symbol->st_value + image->text_region.delta;
+		if (symbolAddress >= image->text_region.start
+			&& symbolAddress + sizeof(uint32)
+				<= image->text_region.start + image->text_region.size) {
+			imageInfo.basic_info.abi = *(uint32*)symbolAddress;
+		} else if (symbolAddress >= image->data_region.start
+			&& symbolAddress + sizeof(uint32)
+				<= image->data_region.start + image->data_region.size) {
+			imageInfo.basic_info.abi = *(uint32*)symbolAddress;
+		}
+	}
 
 	imageInfo.text_delta = delta;
 	imageInfo.symbol_table = image->syms;
@@ -2283,7 +2327,7 @@ load_kernel_add_on(const char *path)
 			case PT_ARM_UNWIND:
 				continue;
 			case PT_RISCV_ATTRIBUTES:
-				// TODO: check ABI compatibility attributes
+				dprintf("PT_RISCV_ATTRIBUTES not handled yet\n");
 				continue;
 			default:
 				dprintf("%s: unhandled pheader type %#" B_PRIx32 "\n", fileName,
@@ -2469,9 +2513,13 @@ elf_get_image_info_for_address(addr_t address, image_info* info)
 	info->init_order = 0;
 	info->init_routine = NULL;
 	info->term_routine = NULL;
-	info->device = -1;
-	info->node = -1;
-		// TODO: We could actually fill device/node in.
+	if (elfInfo->vnode != NULL) {
+		vfs_vnode_to_node_ref(elfInfo->vnode, &info->device,
+			&info->node);
+	} else {
+		info->device = -1;
+		info->node = -1;
+	}
 	strlcpy(info->name, elfInfo->name, sizeof(info->name));
 	info->text = (void*)elfInfo->text_region.start;
 	info->data = (void*)elfInfo->data_region.start;

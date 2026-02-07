@@ -64,9 +64,18 @@ get_stack_interface_module()
 
 	// load module
 	net_stack_interface_module_info* module;
-	// TODO: Add driver settings option to load the userland net stack.
-	status_t error = get_module(NET_STACK_INTERFACE_MODULE_NAME,
-		(module_info**)&module);
+	const char* moduleName = NET_STACK_INTERFACE_MODULE_NAME;
+
+	void* handle = load_driver_settings("network");
+	if (handle != NULL) {
+		if (get_driver_boolean_parameter(handle, "load_userland_net_stack",
+				false, false)) {
+			moduleName = NET_STACK_USERLAND_INTERFACE_MODULE_NAME;
+		}
+		unload_driver_settings(handle);
+	}
+
+	status_t error = get_module(moduleName, (module_info**)&module);
 	if (error == B_OK)
 		sStackInterface = module;
 

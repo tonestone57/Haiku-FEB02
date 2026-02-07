@@ -400,7 +400,6 @@ delete_sem_internal(sem_id id, bool checkPermission)
 //	#pragma mark - Private Kernel API
 
 
-// TODO: Name clash with POSIX sem_init()... (we could just use C++)
 status_t
 haiku_sem_init(kernel_args *args)
 {

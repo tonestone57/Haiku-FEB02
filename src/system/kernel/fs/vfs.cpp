@@ -1802,7 +1802,8 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 	void* boundTo = descriptor != NULL ? (void*)descriptor : (void*)context;
 	status_t status = B_OK;
 
-	// TODO: do deadlock detection!
+	// TODO: deadlock detection is complex and currently deferred.
+	// It would require building a dependency graph of locks.
 
 	struct advisory_locking* locking;
 
@@ -2647,6 +2648,12 @@ dir_vnode_to_path(struct vnode* vnode, char* buffer, size_t bufferSize,
 	status_t status = B_OK;
 	struct io_context* ioContext = get_current_io_context(kernel);
 
+	struct {
+		dev_t device;
+		ino_t id;
+	} visited[16];
+	int32 visitedCount = 0;
+
 	// we don't use get_vnode() here because this call is more
 	// efficient and does all we need from get_vnode()
 	inc_vnode_ref_count(vnode);
@@ -2692,8 +2699,17 @@ dir_vnode_to_path(struct vnode* vnode, char* buffer, size_t bufferSize,
 		if (status != B_OK)
 			goto out;
 
-		// TODO: add an explicit check for loops in about 10 levels to do
-		// real loop detection
+		if (visitedCount < 16) {
+			for (int32 i = 0; i < visitedCount; i++) {
+				if (visited[i].id == vnode->id && visited[i].device == vnode->device) {
+					status = B_LOOP;
+					goto out;
+				}
+			}
+			visited[visitedCount].device = vnode->device;
+			visited[visitedCount].id = vnode->id;
+			visitedCount++;
+		}
 
 		// don't go deeper as 'maxLevel' to prevent circular loops
 		if (maxLevel-- < 0) {
