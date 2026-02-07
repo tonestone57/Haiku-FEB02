@@ -1229,11 +1229,14 @@ Transaction::Start(Volume* volume, off_t refBlock)
 		return B_OK;
 
 	fJournal = volume->GetJournal(refBlock);
-	if (fJournal != NULL && fJournal->Lock(this) == B_OK)
-		return B_OK;
+	if (fJournal == NULL)
+		return B_ERROR;
 
-	fJournal = NULL;
-	return B_ERROR;
+	status_t status = fJournal->Lock(this);
+	if (status != B_OK)
+		fJournal = NULL;
+
+	return status;
 }
 
 
