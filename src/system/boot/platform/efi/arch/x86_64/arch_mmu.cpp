@@ -206,8 +206,10 @@ arch_mmu_generate_post_efi_page_tables(size_t memory_map_size,
 		panic("Failed to allocate PML4.");
 	gKernelArgs.arch_args.phys_pgdir = (uint32_t)(addr_t)pml4;
 	memset(pml4, 0, B_PAGE_SIZE);
+	uint64 virtualPageDir = gKernelArgs.arch_args.vir_pgdir;
 	platform_bootloader_address_to_kernel_address(pml4,
-		&gKernelArgs.arch_args.vir_pgdir);
+		&virtualPageDir);
+	gKernelArgs.arch_args.vir_pgdir = virtualPageDir;
 
 	// Store the virtual memory usage information.
 	gKernelArgs.virtual_allocated_range[0].start = KERNEL_LOAD_BASE;
