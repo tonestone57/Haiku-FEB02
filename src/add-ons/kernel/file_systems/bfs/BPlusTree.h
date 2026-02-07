@@ -604,7 +604,7 @@ bplustree_node::IsLeaf() const
 
 
 inline duplicate_array*
-bplustree_node::FragmentAt(int8 index) const
+bplustree_node::FragmentAt(int32 index) const
 {
 	return (duplicate_array*)((off_t*)this + index * (NUM_FRAGMENT_VALUES + 1));
 }
