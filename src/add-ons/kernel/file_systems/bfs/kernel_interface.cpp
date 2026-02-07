@@ -869,6 +869,8 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 				|| update.length + update.offset > 512) {
 				return B_BAD_VALUE;
 			}
+
+			MutexLocker locker(volume->Lock());
 			if (user_memcpy((uint8*)&volume->SuperBlock() + update.offset,
 					update.data, update.length) != B_OK) {
 				return B_BAD_ADDRESS;

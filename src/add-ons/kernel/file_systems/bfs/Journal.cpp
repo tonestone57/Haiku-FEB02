@@ -746,6 +746,9 @@ Journal::_WriteTransactionToLog(int32 transactionID, bool* _transactionEnded)
 				strerror(syncStatus));
 		}
 		if (runArrays.LogEntryLength() > FreeLogBlocks()) {
+			// Even after syncing the previous transaction, there is still
+			// not enough space in the log for this transaction. We cannot
+			// complete it, so we have to fail.
 			dprintf("bfs: no space in log after sync (%ld for %ld blocks)!",
 				(long)FreeLogBlocks(), (long)runArrays.LogEntryLength());
 			return B_DEVICE_FULL;
