@@ -188,6 +188,12 @@ InodeAllocator::~InodeAllocator()
 			// balance the new_vnode() refcount, but here we are in error cleanup.
 			// Actually, bfs_remove_vnode() will be called which deletes the inode.
 			// So we must stop accessing fInode after this.
+			// We need to set fInode to NULL before calling remove_vnode() because that may call
+			// our destructor again (indirectly) or delete the inode (if it was published).
+			// If the inode wasn't published yet, remove_vnode() might not delete it if we don't
+			// balance the new_vnode() refcount, but here we are in error cleanup.
+			// Actually, bfs_remove_vnode() will be called which deletes the inode.
+			// So we must stop accessing fInode after this.
 			// To be safe against double free in our destructor (since we are in it!),
 			// we NULL it out.
 			fInode = NULL;
