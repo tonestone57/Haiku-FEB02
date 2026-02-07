@@ -640,6 +640,7 @@ BPlusTree::BPlusTree()
 BPlusTree::~BPlusTree()
 {
 #if !_BOOT_MODE
+	FATAL(("BPlusTree dtor %p, fInTransaction: %d\n", this, fInTransaction));
 	// if there are any TreeIterators left, we need to stop them
 	// (can happen when the tree's inode gets deleted while
 	// traversing the tree - a TreeIterator doesn't lock the inode)
@@ -999,6 +1000,7 @@ BPlusTree::TransactionDone(bool success)
 void
 BPlusTree::RemovedFromTransaction()
 {
+	FATAL(("BPlusTree::RemovedFromTransaction %p\n", this));
 	fInTransaction = false;
 
 	if (!fStream->GetVolume()->IsInitializing() && fStream != fStream->GetVolume()->IndicesNode())

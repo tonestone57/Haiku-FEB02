@@ -182,12 +182,17 @@ InodeAllocator::~InodeAllocator()
 		Volume* volume = fTransaction->GetVolume();
 
 		if (fInode != NULL) {
+			FATAL(("InodeAllocator dtor: freeing inode %" B_PRIdINO "\n", fInode->ID()));
 			fInode->Node().flags &= ~HOST_ENDIAN_TO_BFS_INT32(INODE_IN_USE);
 				// this unblocks any pending bfs_read_vnode() calls
 			fInode->Free(*fTransaction);
 
-			if (fInode->fTree != NULL)
+			if (fInode->fTree != NULL) {
+				FATAL(("InodeAllocator dtor: removing tree listener %p\n", fInode->fTree));
 				fTransaction->RemoveListener(fInode->fTree);
+			} else {
+				FATAL(("InodeAllocator dtor: fTree is NULL\n"));
+			}
 			fTransaction->RemoveListener(fInode);
 
 			ino_t id = fInode->ID();
