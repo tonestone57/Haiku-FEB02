@@ -30,9 +30,11 @@ static size_t sFree = kChunkSize;
 static status_t
 add_kernel_args_range(void* start, size_t size)
 {
-	return insert_address_range(gKernelArgs.kernel_args_range,
-		&gKernelArgs.num_kernel_args_ranges, MAX_KERNEL_ARGS_RANGE,
-		(addr_t)start, size);
+	uint32 numRanges = gKernelArgs.num_kernel_args_ranges;
+	status_t status = insert_address_range(gKernelArgs.kernel_args_range,
+		&numRanges, MAX_KERNEL_ARGS_RANGE, (addr_t)start, size);
+	gKernelArgs.num_kernel_args_ranges = numRanges;
+	return status;
 }
 
 
@@ -287,18 +289,22 @@ sort_address_ranges(addr_range* ranges, uint32 numRanges)
 status_t
 insert_physical_memory_range(uint64 start, uint64 size)
 {
-	return insert_address_range(gKernelArgs.physical_memory_range,
-		&gKernelArgs.num_physical_memory_ranges, MAX_PHYSICAL_MEMORY_RANGE,
-		start, size);
+	uint32 numRanges = gKernelArgs.num_physical_memory_ranges;
+	status_t status = insert_address_range(gKernelArgs.physical_memory_range,
+		&numRanges, MAX_PHYSICAL_MEMORY_RANGE, start, size);
+	gKernelArgs.num_physical_memory_ranges = numRanges;
+	return status;
 }
 
 
 status_t
 remove_physical_memory_range(uint64 start, uint64 size)
 {
-	return remove_address_range(gKernelArgs.physical_memory_range,
-		&gKernelArgs.num_physical_memory_ranges, MAX_PHYSICAL_MEMORY_RANGE,
-		start, size);
+	uint32 numRanges = gKernelArgs.num_physical_memory_ranges;
+	status_t status = remove_address_range(gKernelArgs.physical_memory_range,
+		&numRanges, MAX_PHYSICAL_MEMORY_RANGE, start, size);
+	gKernelArgs.num_physical_memory_ranges = numRanges;
+	return status;
 }
 
 
@@ -313,36 +319,44 @@ total_physical_memory()
 status_t
 insert_physical_allocated_range(uint64 start, uint64 size)
 {
-	return insert_address_range(gKernelArgs.physical_allocated_range,
-		&gKernelArgs.num_physical_allocated_ranges,
-		MAX_PHYSICAL_ALLOCATED_RANGE, start, size);
+	uint32 numRanges = gKernelArgs.num_physical_allocated_ranges;
+	status_t status = insert_address_range(gKernelArgs.physical_allocated_range,
+		&numRanges, MAX_PHYSICAL_ALLOCATED_RANGE, start, size);
+	gKernelArgs.num_physical_allocated_ranges = numRanges;
+	return status;
 }
 
 
 status_t
 remove_physical_allocated_range(uint64 start, uint64 size)
 {
-	return remove_address_range(gKernelArgs.physical_allocated_range,
-		&gKernelArgs.num_physical_allocated_ranges, MAX_PHYSICAL_ALLOCATED_RANGE,
-		start, size);
+	uint32 numRanges = gKernelArgs.num_physical_allocated_ranges;
+	status_t status = remove_address_range(gKernelArgs.physical_allocated_range,
+		&numRanges, MAX_PHYSICAL_ALLOCATED_RANGE, start, size);
+	gKernelArgs.num_physical_allocated_ranges = numRanges;
+	return status;
 }
 
 
 status_t
 insert_virtual_allocated_range(uint64 start, uint64 size)
 {
-	return insert_address_range(gKernelArgs.virtual_allocated_range,
-		&gKernelArgs.num_virtual_allocated_ranges, MAX_VIRTUAL_ALLOCATED_RANGE,
-		start, size);
+	uint32 numRanges = gKernelArgs.num_virtual_allocated_ranges;
+	status_t status = insert_address_range(gKernelArgs.virtual_allocated_range,
+		&numRanges, MAX_VIRTUAL_ALLOCATED_RANGE, start, size);
+	gKernelArgs.num_virtual_allocated_ranges = numRanges;
+	return status;
 }
 
 
 status_t
 remove_virtual_allocated_range(uint64 start, uint64 size)
 {
-	return remove_address_range(gKernelArgs.virtual_allocated_range,
-		&gKernelArgs.num_virtual_allocated_ranges, MAX_VIRTUAL_ALLOCATED_RANGE,
-		start, size);
+	uint32 numRanges = gKernelArgs.num_virtual_allocated_ranges;
+	status_t status = remove_address_range(gKernelArgs.virtual_allocated_range,
+		&numRanges, MAX_VIRTUAL_ALLOCATED_RANGE, start, size);
+	gKernelArgs.num_virtual_allocated_ranges = numRanges;
+	return status;
 }
 
 

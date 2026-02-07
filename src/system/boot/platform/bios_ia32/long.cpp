@@ -90,9 +90,11 @@ long_gdt_init()
 static void
 long_mmu_init()
 {
-	uint64* pmlTop;
 	// Allocate the top level PMLTop.
-	pmlTop = (uint64*)mmu_allocate_page((addr_t*)&gKernelArgs.arch_args.phys_pgdir);
+	addr_t physicalAddress;
+	uint64* pmlTop = (uint64*)mmu_allocate_page(&physicalAddress);
+	gKernelArgs.arch_args.phys_pgdir = (uint32)physicalAddress;
+
 	memset(pmlTop, 0, B_PAGE_SIZE);
 	gKernelArgs.arch_args.vir_pgdir = fix_address((uint64)(addr_t)pmlTop);
 

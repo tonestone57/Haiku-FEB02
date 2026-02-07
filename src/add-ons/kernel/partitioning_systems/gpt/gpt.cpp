@@ -142,7 +142,9 @@ efi_gpt_scan_partition(int fd, partition_data* partition, void* _cookie)
 		}
 
 		char name[B_OS_NAME_LENGTH];
-		to_utf8(entry.name, EFI_PARTITION_NAME_LENGTH, name, sizeof(name));
+		uint16 nameBuffer[EFI_PARTITION_NAME_LENGTH];
+		memcpy(nameBuffer, entry.name, sizeof(nameBuffer));
+		to_utf8(nameBuffer, EFI_PARTITION_NAME_LENGTH, name, sizeof(name));
 		child->name = strdup(name);
 		child->type = strdup(get_partition_type(entry.partition_type));
 		child->block_size = partition->block_size;
