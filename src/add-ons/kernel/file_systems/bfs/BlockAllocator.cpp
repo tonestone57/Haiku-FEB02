@@ -788,9 +788,11 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 	free(buffer);
 
 	// check if block bitmap and log area are reserved
-	uint32 reservedBlocks = volume->ToBlock(volume->Log()) + volume->Log().Length();
+	uint32 bitmapBlocks = 1 + allocator->fNumBitmapBlocks;
+	block_run logRun = volume->Log();
 
-	if (allocator->CheckBlocks(0, reservedBlocks) != B_OK) {
+	if (allocator->CheckBlocks(0, bitmapBlocks) != B_OK
+		|| allocator->CheckBlockRun(logRun) != B_OK) {
 		if (volume->IsReadOnly()) {
 			FATAL(("Space for block bitmap or log area is not reserved "
 				"(volume is mounted read-only)!\n"));
@@ -799,7 +801,8 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 			if (!transaction.IsStarted()) {
 				FATAL(("Could not start transaction for checking reserved space!\n"));
 				volume->Panic();
-			} else if (groups[0].Allocate(transaction, 0, reservedBlocks) != B_OK) {
+			} else if (groups[0].Allocate(transaction, 0, bitmapBlocks) != B_OK
+				|| allocator->AllocateBlockRun(transaction, logRun) != B_OK) {
 				FATAL(("Could not allocate reserved space for block "
 					"bitmap/log!\n"));
 				volume->Panic();

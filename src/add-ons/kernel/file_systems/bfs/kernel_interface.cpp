@@ -1084,7 +1084,9 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 		inode->SetStatusChangeTime(newTime);
 	}
 
-	status_t status = inode->WriteBack(transaction);
+	if (status == B_OK)
+		status = inode->WriteBack(transaction);
+
 	if (status == B_OK)
 		status = transaction.Done();
 
@@ -1407,8 +1409,10 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 		status = inode->SetName(transaction, newName);
 		if (status == B_OK) {
 			Index index(volume);
-			index.UpdateName(transaction, oldName, newName, inode,
+			status = index.UpdateName(transaction, oldName, newName, inode,
 				false /* we already updated live queries, above */);
+			if (status == B_BAD_INDEX || status == B_ENTRY_NOT_FOUND)
+				status = B_OK;
 		}
 	}
 
