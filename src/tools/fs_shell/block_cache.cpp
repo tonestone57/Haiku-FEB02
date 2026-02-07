@@ -1420,7 +1420,7 @@ fssh_cache_next_block_in_transaction(void* _cache, int32_t id, bool mainOnly,
 	if (_unchangedData)
 		*_unchangedData = block->original_data;
 
-	*_cookie = (fssh_addr_t)block;
+	*_cookie = (long)block;
 	return FSSH_B_OK;
 }
 

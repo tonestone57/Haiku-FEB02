@@ -994,6 +994,8 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 
 	inode->WriteLockInTransaction(transaction);
 
+	status_t status = B_OK;
+
 	if (check_write_stat_permissions(node.GroupID(), node.UserID(), node.Mode(),
 			mask, stat) != B_OK)
 		RETURN_ERROR(B_NOT_ALLOWED);

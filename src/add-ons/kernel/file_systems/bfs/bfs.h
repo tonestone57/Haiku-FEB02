@@ -413,7 +413,7 @@ small_data::IsLast(const bfs_inode* inode) const
 	// we need to check the location first, because if name_size is already beyond
 	// the block, we would touch invalid memory (although that can't cause wrong
 	// results)
-	return (addr_t)this > (addr_t)inode
+	return (uint8*)this > (uint8*)inode
 		+ inode->InodeSize() - sizeof(small_data) || name_size == 0;
 }
 

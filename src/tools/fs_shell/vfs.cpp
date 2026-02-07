@@ -1839,7 +1839,7 @@ common_file_io_vec_pages(int fd, const fssh_file_io_vec *fileVecs,
 				fssh_size_t tempVecSize = fssh_min_c(vecLeft, fileLeft - size);
 
 				tempVecs[tempCount].iov_base
-					= (void *)((fssh_addr_t)vecs[vecIndex].iov_base + vecOffset);
+					= (void *)((uint8*)vecs[vecIndex].iov_base + vecOffset);
 				tempVecs[tempCount].iov_len = tempVecSize;
 				tempCount++;
 
@@ -3709,10 +3709,10 @@ common_lock_node(int fd, bool kernel)
 	// else might set one at the same time
 #if UINTPTR_MAX == UINT64_MAX
 	if (fssh_atomic_test_and_set64((int64_t *)&vnode->mandatory_locked_by,
-			(fssh_addr_t)descriptor, 0) != 0)
+			(int64_t)descriptor, 0) != 0)
 #else
 	if (fssh_atomic_test_and_set((int32_t *)&vnode->mandatory_locked_by,
-			(fssh_addr_t)descriptor, 0) != 0)
+			(int32_t)descriptor, 0) != 0)
 #endif
 		status = FSSH_B_BUSY;
 
@@ -3737,10 +3737,10 @@ common_unlock_node(int fd, bool kernel)
 	// else might set one at the same time
 #if UINTPTR_MAX == UINT64_MAX
 	if (fssh_atomic_test_and_set64((int64_t *)&vnode->mandatory_locked_by,
-			0, (fssh_addr_t)descriptor) != (int64_t)descriptor)
+			0, (int64_t)descriptor) != (int64_t)descriptor)
 #else
 	if (fssh_atomic_test_and_set((int32_t *)&vnode->mandatory_locked_by,
-			0, (fssh_addr_t)descriptor) != (int32_t)descriptor)
+			0, (int32_t)descriptor) != (int32_t)descriptor)
 #endif
 		status = FSSH_B_BAD_VALUE;
 
