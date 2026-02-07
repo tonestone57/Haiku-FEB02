@@ -467,7 +467,7 @@ bool
 FtpClient::_GetReplyLine(string& line)
 {
 	bool rc = false;
-	int c = 0;
+	unsigned char c = 0;
 	bool done = false;
 
 	line = "";
@@ -494,7 +494,6 @@ FtpClient::_GetReplyLine(string& line)
 
 						case DO:
 						case DONT:
-							fControl->Receive(&c, 1);
 							fControl->Receive(&c, 1);
 							treply[0] = IAC;
 							treply[1] = WONT;
