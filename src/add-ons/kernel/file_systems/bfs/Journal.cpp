@@ -731,9 +731,8 @@ Journal::_WriteTransactionToLog(int32 transactionID, bool* _transactionEnded)
 		if (_transactionEnded != NULL)
 			*_transactionEnded = true;
 
-		cache_end_transaction(fVolume->BlockCache(), transactionID, NULL,
+		return cache_end_transaction(fVolume->BlockCache(), transactionID, NULL,
 			NULL);
-		return B_OK;
 	}
 
 	// If necessary, flush the log, so that we have enough space for this

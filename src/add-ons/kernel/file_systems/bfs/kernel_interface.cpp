@@ -919,7 +919,8 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 					run.length));
 
 				for (int32 i = 0;i < run.length;i++) {
-					status_t status = cached.SetToWritable(transaction, run);
+					status_t status = cached.SetToWritable(transaction,
+						volume->ToBlock(run) + i);
 					if (status == B_OK)
 						memset(cached.WritableBlock(), 0, volume->BlockSize());
 				}
@@ -1282,9 +1283,14 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	if (!transaction.IsStarted())
 		return B_ERROR;
 
-	oldDirectory->WriteLockInTransaction(transaction);
-	if (oldDirectory != newDirectory)
+	if (oldDirectory != newDirectory && oldDirectory->ID() > newDirectory->ID()) {
 		newDirectory->WriteLockInTransaction(transaction);
+		oldDirectory->WriteLockInTransaction(transaction);
+	} else {
+		oldDirectory->WriteLockInTransaction(transaction);
+		if (oldDirectory != newDirectory)
+			newDirectory->WriteLockInTransaction(transaction);
+	}
 
 	// are we allowed to do what we've been told?
 	status_t status = oldDirectory->CheckPermissions(W_OK);
