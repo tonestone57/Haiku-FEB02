@@ -459,6 +459,8 @@ MessagingService::_AllocateCommand(int32 commandWhat, int32 size,
 		PRINT(("MessagingService::_AllocateCommand(): Discarding area: %p\n",
 			area));
 
+		area->Unlock();
+
 		fFirstArea = area->NextArea();
 		area->SetNextArea(NULL);
 		discardedArea = area;

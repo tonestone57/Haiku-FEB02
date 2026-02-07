@@ -1518,7 +1518,7 @@ common_snooze_etc(bigtime_t timeout, clockid_t clockID, uint32 flags,
 			if (status == B_INTERRUPTED && _remainingTime != NULL) {
 				if ((flags & B_RELATIVE_TIMEOUT) != 0) {
 					*_remainingTime = std::max(
-						startTime + timeout - system_time(), (bigtime_t)0);
+						timeout - (system_time() - startTime), (bigtime_t)0);
 				} else {
 					bigtime_t now = (flags & B_TIMEOUT_REAL_TIME_BASE) != 0
 						? real_time_clock_usecs() : system_time();

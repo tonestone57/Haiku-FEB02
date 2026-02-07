@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <KernelExport.h>
+#include <util/AutoLock.h>
+
 
 //#define TRACE_IO_RESOURCES
 #ifdef TRACE_IO_RESOURCES
@@ -28,6 +31,8 @@ typedef DoublyLinkedList<io_resource_private,
 static ResourceTypeList sMemoryList;
 static ResourceTypeList sPortList;
 static ResourceTypeList sDMAChannelList;
+
+static mutex sLock = MUTEX_INITIALIZER("io resources");
 
 
 io_resource_private::io_resource_private()
@@ -56,6 +61,8 @@ io_resource_private::Acquire(const io_resource& resource)
 {
 	if (!_IsValid(resource))
 		return B_BAD_VALUE;
+
+	MutexLocker _(sLock);
 
 	type = resource.type;
 	base = resource.base;
@@ -104,6 +111,8 @@ io_resource_private::Release()
 {
 	if (type == 0)
 		return;
+
+	MutexLocker _(sLock);
 
 	switch (type) {
 		case B_IO_MEMORY:
