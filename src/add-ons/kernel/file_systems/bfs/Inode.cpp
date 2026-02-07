@@ -1125,8 +1125,14 @@ Inode::ReadAttribute(const char* name, int32 type, off_t pos, uint8* buffer,
 			if (length + pos > smallData->DataSize())
 				length = smallData->DataSize() - pos;
 
-			status_t error = user_memcpy(buffer, smallData->Data() + pos,
-				length);
+			status_t error;
+			if (IS_USER_ADDRESS(buffer)) {
+				error = user_memcpy(buffer, smallData->Data() + pos,
+					length);
+			} else {
+				memcpy(buffer, smallData->Data() + pos, length);
+				error = B_OK;
+			}
 			*_length = length;
 			return error;
 		}
@@ -2836,6 +2842,8 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 	if (parent != NULL && (mode & S_ATTR_DIR) == 0 && parent->IsContainer()) {
 		// check if the file already exists in the directory
 		tree = parent->Tree();
+		if (tree == NULL)
+			return B_BAD_VALUE;
 	}
 
 	if (parent != NULL) {

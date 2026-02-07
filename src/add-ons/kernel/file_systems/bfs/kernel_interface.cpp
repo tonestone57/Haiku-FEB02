@@ -930,6 +930,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 #ifdef DEBUG_FRAGMENTER
 		case 56741:
 		{
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+
 			BlockAllocator& allocator = volume->Allocator();
 			allocator.Fragment();
 			return B_OK;
@@ -939,6 +942,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 #ifdef DEBUG
 		case 56742:
 		{
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+
 			// allocate all free blocks and zero them out
 			// (a test for the BlockAllocator)!
 			BlockAllocator& allocator = volume->Allocator();

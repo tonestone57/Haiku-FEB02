@@ -678,7 +678,7 @@ BlockAllocator::InitializeAndClearBitmap(Transaction& transaction)
 			break;
 	}
 
-	if (allocator->AllocateBlockRun(transaction, fVolume->Log()) != B_OK) {
+	if (AllocateBlockRun(transaction, fVolume->Log()) != B_OK) {
 		FATAL(("could not allocate reserved space for log!\n"));
 		return B_ERROR;
 	}
