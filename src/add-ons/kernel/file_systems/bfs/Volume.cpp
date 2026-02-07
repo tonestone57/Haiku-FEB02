@@ -344,6 +344,9 @@ Volume::Unmount()
 	delete fIndicesNode;
 	fIndicesNode = NULL;
 
+	delete fCheckVisitor;
+	fCheckVisitor = NULL;
+
 	block_cache_delete(fBlockCache, !IsReadOnly());
 	close(fDevice);
 
