@@ -746,12 +746,17 @@ MemoryManager::FreeRawOrReturnCache(void* pages, uint32 flags)
 		VMAddressSpace* addressSpace = VMAddressSpace::Kernel();
 		addressSpace->ReadLock();
 		VMArea* area = addressSpace->LookupArea((addr_t)pages);
+
+		area_id areaID = -1;
+		if (area != NULL && (addr_t)pages == area->Base())
+			areaID = area->id;
+
 		addressSpace->ReadUnlock();
 
-		if (area != NULL && (addr_t)pages == area->Base())
-			delete_area(area->id);
+		if (areaID >= 0)
+			delete_area(areaID);
 		else
-			panic("freeing unknown block %p from area %p", pages, area);
+			panic("freeing unknown block %p", pages);
 
 		return NULL;
 	}

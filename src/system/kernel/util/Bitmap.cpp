@@ -8,6 +8,7 @@
  */
 #include <util/Bitmap.h>
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,11 +44,17 @@ Bitmap::InitCheck()
 status_t
 Bitmap::Resize(size_t bitCount)
 {
+	if (bitCount > SIZE_MAX - kBitsPerElement)
+		return B_NO_MEMORY;
+
 	const size_t count = (bitCount + kBitsPerElement - 1) / kBitsPerElement;
 	if (count == fElementsCount) {
 		fSize = bitCount;
 		return B_OK;
 	}
+
+	if (count > SIZE_MAX / sizeof(addr_t))
+		return B_NO_MEMORY;
 
 	void* bits = realloc(fBits, sizeof(addr_t) * count);
 	if (bits == NULL)
@@ -134,22 +141,26 @@ Bitmap::GetLowestContiguousClear(size_t count, size_t fromIndex) const
 ssize_t
 Bitmap::GetHighestSet() const
 {
-	size_t i = fElementsCount - 1;
-	while (i >= 0 && fBits[i] == 0)
-		i--;
+	ssize_t index = -1;
+	for (size_t i = fElementsCount; i > 0; i--) {
+		if (fBits[i - 1] != 0) {
+			index = (ssize_t)(i - 1);
+			break;
+		}
+	}
 
-	if (i < 0)
+	if (index < 0)
 		return -1;
 
 	STATIC_ASSERT(sizeof(addr_t) == sizeof(uint64)
 		|| sizeof(addr_t) == sizeof(uint32));
 	if (sizeof(addr_t) == sizeof(uint32))
-		return log2(fBits[i]) + i * kBitsPerElement;
+		return log2(fBits[index]) + index * kBitsPerElement;
 
-	uint32 v = (uint64)fBits[i] >> 32;
+	uint32 v = (uint64)fBits[index] >> 32;
 	if (v != 0)
-		return log2(v) + sizeof(uint32) * 8 + i * kBitsPerElement;
-	return log2(fBits[i]) + i * kBitsPerElement;
+		return log2(v) + sizeof(uint32) * 8 + index * kBitsPerElement;
+	return log2(fBits[index]) + index * kBitsPerElement;
 }
 
 

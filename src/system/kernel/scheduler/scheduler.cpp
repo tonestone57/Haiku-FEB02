@@ -180,14 +180,17 @@ scheduler_set_thread_priority(Thread *thread, int32 priority)
 	ThreadData* threadData = thread->scheduler_data;
 	int32 oldPriority = thread->priority;
 
+	int32 oldEffectivePriority = threadData->GetEffectivePriority();
 	TRACE("changing thread %" B_PRId32 " priority to %" B_PRId32 " (old: %" B_PRId32 ", effective: %" B_PRId32 ")\n",
-		thread->id, priority, oldPriority, threadData->GetEffectivePriority());
+		thread->id, priority, oldPriority, oldEffectivePriority);
 
 	thread->priority = priority;
 	threadData->CancelPenalty();
 
-	if (priority == oldPriority)
+	if (priority == oldPriority
+		&& threadData->GetEffectivePriority() == oldEffectivePriority) {
 		return oldPriority;
+	}
 
 	if (thread->state != B_THREAD_READY) {
 		if (thread->state == B_THREAD_RUNNING) {

@@ -39,6 +39,7 @@ static struct real_time_data *sRealTimeDataCompat;
 static bool sIsGMT = false;
 static bigtime_t sTimezoneOffset = 0;
 static char sTimezoneName[B_FILE_NAME_LENGTH] = "GMT";
+static spinlock sTimezoneLock = B_SPINLOCK_INITIALIZER;
 
 
 static void
@@ -55,6 +56,7 @@ rtc_system_to_hw(void)
 {
 	uint32 seconds;
 
+	InterruptsSpinLocker _(sTimezoneLock);
 	seconds = (arch_rtc_get_system_time_offset(sRealTimeData) + system_time()
 		+ (sIsGMT ? 0 : sTimezoneOffset)) / 1000000;
 
@@ -69,6 +71,7 @@ rtc_hw_to_system(void)
 	uint32 current_time;
 
 	current_time = arch_rtc_get_hw_time();
+	InterruptsSpinLocker _(sTimezoneLock);
 	set_real_time_clock(current_time + (sIsGMT ? 0 : sTimezoneOffset));
 }
 
@@ -165,6 +168,7 @@ real_time_clock_usecs(void)
 uint32
 get_timezone_offset(void)
 {
+	InterruptsSpinLocker _(sTimezoneLock);
 	return (time_t)(sTimezoneOffset / 1000000LL);
 }
 
@@ -262,10 +266,14 @@ _user_set_timezone(int32 timezoneOffset, const char *name, size_t nameLength)
 		arch_rtc_get_system_time_offset(sRealTimeData), sTimezoneOffset,
 		offset, sIsGMT));
 
+	InterruptsSpinLocker locker(sTimezoneLock);
+
 	if (name != NULL && nameLength > 0) {
+		locker.Unlock();
 		if (!IS_USER_ADDRESS(name)
 			|| user_strlcpy(sTimezoneName, name, sizeof(sTimezoneName)) < 0)
 			return B_BAD_ADDRESS;
+		locker.Lock();
 	}
 
 	// We only need to update our time offset if the hardware clock
@@ -295,7 +303,9 @@ _user_set_timezone(int32 timezoneOffset, const char *name, size_t nameLength)
 status_t
 _user_get_timezone(int32 *_timezoneOffset, char *userName, size_t nameLength)
 {
+	InterruptsSpinLocker locker(sTimezoneLock);
 	int32 offset = (int32)(sTimezoneOffset / 1000000LL);
+	locker.Unlock();
 
 	if (_timezoneOffset != NULL
 		&& (!IS_USER_ADDRESS(_timezoneOffset)
@@ -314,11 +324,13 @@ _user_get_timezone(int32 *_timezoneOffset, char *userName, size_t nameLength)
 status_t
 _user_set_real_time_clock_is_gmt(bool isGMT)
 {
-	// store previous value
-	bool wasGMT = sIsGMT;
 	if (geteuid() != 0)
 		return B_NOT_ALLOWED;
 
+	InterruptsSpinLocker _(sTimezoneLock);
+
+	// store previous value
+	bool wasGMT = sIsGMT;
 	sIsGMT = isGMT;
 
 	if (wasGMT != sIsGMT) {
@@ -343,9 +355,12 @@ _user_get_real_time_clock_is_gmt(bool *_userIsGMT)
 	if (_userIsGMT == NULL)
 		return B_BAD_VALUE;
 
+	InterruptsSpinLocker _(sTimezoneLock);
+	bool isGMT = sIsGMT;
+
 	if (_userIsGMT != NULL
 		&& (!IS_USER_ADDRESS(_userIsGMT)
-			|| user_memcpy(_userIsGMT, &sIsGMT, sizeof(bool)) != B_OK))
+			|| user_memcpy(_userIsGMT, &isGMT, sizeof(bool)) != B_OK))
 		return B_BAD_ADDRESS;
 
 	return B_OK;

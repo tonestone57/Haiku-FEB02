@@ -252,6 +252,11 @@ ConditionVariable::Publish(const void* object, const char* objectType)
 	ASSERT_PRINT(sConditionVariableHash.Lookup(object) == NULL,
 		"condition variable: %p\n", sConditionVariableHash.Lookup(object));
 
+	if (sConditionVariableHash.Lookup(object) != NULL) {
+		panic("Condition variable %p already published", object);
+		return;
+	}
+
 	sConditionVariableHash.InsertUnchecked(this);
 }
 

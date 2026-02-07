@@ -322,8 +322,12 @@ add_timer(timer* event, timer_hook hook, bigtime_t period, int32 flags)
 	// compute the schedule time
 	if ((flags & B_TIMER_USE_TIMER_STRUCT_TIMES) == 0) {
 		bigtime_t scheduleTime = period;
-		if ((flags & ~B_TIMER_FLAGS) != B_ONE_SHOT_ABSOLUTE_TIMER)
-			scheduleTime += currentTime;
+		if ((flags & ~B_TIMER_FLAGS) != B_ONE_SHOT_ABSOLUTE_TIMER) {
+			if (scheduleTime > B_INFINITE_TIMEOUT - currentTime)
+				scheduleTime = B_INFINITE_TIMEOUT;
+			else
+				scheduleTime += currentTime;
+		}
 		event->schedule_time = (int64)scheduleTime;
 		event->period = period;
 	}

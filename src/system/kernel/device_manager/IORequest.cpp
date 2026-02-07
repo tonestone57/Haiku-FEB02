@@ -7,6 +7,7 @@
 
 #include "IORequest.h"
 
+#include <limits.h>
 #include <string.h>
 
 #include <arch/debug.h>
@@ -87,6 +88,10 @@ IORequestChunk::~IORequestChunk()
 IOBuffer*
 IOBuffer::Create(uint32 count, bool vip)
 {
+	if (count == 0
+		|| count > (SIZE_MAX - sizeof(IOBuffer)) / sizeof(generic_io_vec) + 1)
+		return NULL;
+
 	size_t size = sizeof(IOBuffer) + sizeof(generic_io_vec) * (count - 1);
 	IOBuffer* buffer
 		= (IOBuffer*)(malloc_etc(size, vip ? HEAP_PRIORITY_VIP : 0));

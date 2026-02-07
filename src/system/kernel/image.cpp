@@ -85,7 +85,7 @@ static ImageNotificationService sNotificationService;
 static image_id
 register_image(Team *team, extended_image_info *info, size_t size, bool locked)
 {
-	image_id id = atomic_add(&sNextImageID, 1);
+	image_id id = (image_id)((uint32)atomic_add(&sNextImageID, 1));
 	struct image *image;
 
 	image = (struct image*)malloc(sizeof(struct image));

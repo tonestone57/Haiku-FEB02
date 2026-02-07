@@ -96,6 +96,7 @@
  */
 
 
+#include <limits.h>
 #include <stdlib.h>
 #include <util/RadixBitmap.h>
 
@@ -160,6 +161,9 @@ radix_bitmap_create(uint32 slots)
 	uint32 skip = 0;
 
 	while (radix < slots) {
+		if (radix > UINT32_MAX / NODE_RADIX)
+			return NULL;
+
 		radix *= NODE_RADIX;
 		skip = (skip + 1) * NODE_RADIX;
 	}
@@ -172,6 +176,11 @@ radix_bitmap_create(uint32 slots)
 	bmp->skip = skip;
 	bmp->free_slots = slots;
 	bmp->root_size = 1 + radix_bitmap_init(NULL, radix, skip, slots);
+
+	if (bmp->root_size > SIZE_MAX / sizeof(radix_node)) {
+		free(bmp);
+		return NULL;
+	}
 
 	bmp->root = (radix_node *)malloc(bmp->root_size * sizeof(radix_node));
 	if (bmp->root == NULL) {

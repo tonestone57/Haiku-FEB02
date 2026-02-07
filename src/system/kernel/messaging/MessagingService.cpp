@@ -145,9 +145,12 @@ void *
 MessagingArea::AllocateCommand(uint32 commandWhat, int32 dataSize,
 	bool &wasEmpty)
 {
+	if (dataSize < 0)
+		return NULL;
+
 	int32 size = sizeof(messaging_command) + dataSize;
 
-	if (dataSize < 0 || size > fSize - (int32)sizeof(messaging_area_header))
+	if (size < 0 || size > fSize - (int32)sizeof(messaging_area_header))
 		return NULL;
 
 	// the area is used as a ring buffer

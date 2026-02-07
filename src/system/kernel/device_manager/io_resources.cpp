@@ -84,8 +84,8 @@ io_resource_private::Acquire(const io_resource& resource)
 		io_resource* resource = iterator.Next();
 
 		// we need the "base + length - 1" trick to avoid wrap around at 4 GB
-		if (resource->base >= base
-			&& resource->base + length - 1 <= base + length - 1) {
+		if (resource->base + resource->length - 1 >= base
+			&& resource->base <= base + length - 1) {
 			// This range is already covered by someone else
 			// TODO: we might want to ignore resources that belong to
 			// a node that isn't used.
