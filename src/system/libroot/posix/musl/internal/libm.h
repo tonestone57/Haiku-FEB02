@@ -104,13 +104,13 @@ static int32_t converttoint(double_t);
 
 static inline float eval_as_float(float x)
 {
-	float (void)y; y = x;
+	float y = x; (void)y;
 	return y;
 }
 
 static inline double eval_as_double(double x)
 {
-	double (void)y; y = x;
+	double y = x; (void)y;
 	return y;
 }
 
@@ -122,7 +122,7 @@ static inline double eval_as_double(double x)
 #define fp_barrierf fp_barrierf
 static inline float fp_barrierf(float x)
 {
-	volatile float (void)y; y = x;
+	volatile float y = x; (void)y;
 	return y;
 }
 #endif
@@ -131,7 +131,7 @@ static inline float fp_barrierf(float x)
 #define fp_barrier fp_barrier
 static inline double fp_barrier(double x)
 {
-	volatile double (void)y; y = x;
+	volatile double y = x; (void)y;
 	return y;
 }
 #endif
@@ -140,7 +140,7 @@ static inline double fp_barrier(double x)
 #define fp_barrierl fp_barrierl
 static inline long double fp_barrierl(long double x)
 {
-	volatile long double (void)y; y = x;
+	volatile long double y = x; (void)y;
 	return y;
 }
 #endif
@@ -156,7 +156,7 @@ static inline long double fp_barrierl(long double x)
 static inline void fp_force_evalf(float x)
 {
 	volatile float y;
-	(void)y; y = x;
+	y = x; (void)y;
 }
 #endif
 
@@ -165,7 +165,7 @@ static inline void fp_force_evalf(float x)
 static inline void fp_force_eval(double x)
 {
 	volatile double y;
-	(void)y; y = x;
+	y = x; (void)y;
 }
 #endif
 
@@ -174,7 +174,7 @@ static inline void fp_force_eval(double x)
 static inline void fp_force_evall(long double x)
 {
 	volatile long double y;
-	(void)y; y = x;
+	y = x; (void)y;
 }
 #endif
 
