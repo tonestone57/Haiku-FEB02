@@ -407,6 +407,8 @@ CheckVisitor::_RemoveInvalidNode(Inode* parent, BPlusTree* tree,
 	status_t status;
 
 	if (inode != NULL) {
+		// we need to lock the inode here, as we are going to modify it
+		inode->WriteLockInTransaction(transaction);
 		inode->Node().flags |= HOST_ENDIAN_TO_BFS_INT32(INODE_DONT_FREE_SPACE);
 
 		status = parent->Remove(transaction, name, NULL, false, true);

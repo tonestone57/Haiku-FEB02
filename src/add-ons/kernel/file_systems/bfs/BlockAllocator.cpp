@@ -380,8 +380,13 @@ AllocationBlock::Free(uint16 start, uint16 numBlocks)
 */
 AllocationGroup::AllocationGroup()
 	:
+	fNumBits(0),
+	fNumBitmapBlocks(0),
+	fStart(0),
 	fFirstFree(-1),
 	fFreeBits(0),
+	fLargestStart(0),
+	fLargestLength(0),
 	fLargestValid(false),
 	fBlockBitmap(NULL)
 {
@@ -425,10 +430,17 @@ status_t
 AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 {
 	RecursiveLocker lock(fLock);
-	ASSERT(start + length <= (int32)fNumBits);
+	if (start + length > (int32)fNumBits)
+		return B_BAD_VALUE;
+
+	// Save the current state for error handling
+	int32 previousFirstFree = fFirstFree;
+	int32 previousFreeBits = fFreeBits;
+	int32 previousLargestStart = fLargestStart;
+	int32 previousLargestLength = fLargestLength;
+	bool previousLargestValid = fLargestValid;
 
 	// Update the allocation group info
-	// TODO: this info will be incorrect if something goes wrong later
 	// Note, the fFirstFree block doesn't have to be really free
 	if (start == fFirstFree)
 		fFirstFree = start + length;
@@ -466,7 +478,11 @@ AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 
 	while (length > 0) {
 		if (cached.SetToWritable(transaction, *this, block) < B_OK) {
-			fLargestValid = false;
+			fFirstFree = previousFirstFree;
+			fFreeBits = previousFreeBits;
+			fLargestStart = previousLargestStart;
+			fLargestLength = previousLargestLength;
+			fLargestValid = previousLargestValid;
 			RETURN_ERROR(B_IO_ERROR);
 		}
 
@@ -509,8 +525,12 @@ AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 	RecursiveLocker lock(fLock);
 	ASSERT(start + length <= (int32)fNumBits);
 
+	// Save the current state for error handling
+	int32 previousFirstFree = fFirstFree;
+	int32 previousFreeBits = fFreeBits;
+	bool previousLargestValid = fLargestValid;
+
 	// Update the allocation group info
-	// TODO: this info will be incorrect if something goes wrong later
 	if (fFirstFree > start)
 		fFirstFree = start;
 	fFreeBits += length;
@@ -539,8 +559,12 @@ AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 	AllocationBlock cached(volume);
 
 	while (length > 0) {
-		if (cached.SetToWritable(transaction, *this, block) < B_OK)
+		if (cached.SetToWritable(transaction, *this, block) < B_OK) {
+			fFirstFree = previousFirstFree;
+			fFreeBits = previousFreeBits;
+			fLargestValid = previousLargestValid;
 			RETURN_ERROR(B_IO_ERROR);
+		}
 
 		T(Block("free-1", block, cached.Block(), volume->BlockSize()));
 		uint16 freeLength = length;
@@ -730,7 +754,7 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 
 	AllocationGroup* groups = allocator->fGroups;
 	off_t offset = 1;
-	uint32 bitsPerGroup = 8 * (blocks << blockShift);
+	uint64 bitsPerGroup = 8 * ((uint64)blocks << blockShift);
 	int32 numGroups = allocator->fNumGroups;
 
 	for (int32 i = 0; i < numGroups; i++) {
@@ -892,7 +916,7 @@ status_t
 BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 	uint16 start, uint16 maximum, uint16 minimum, block_run& run)
 {
-	if (maximum == 0)
+	if (maximum == 0 || minimum == 0)
 		return B_BAD_VALUE;
 	if (fAllowedEndBlock > fVolume->NumBlocks())
 		return B_BAD_VALUE;
@@ -1645,6 +1669,9 @@ BlockAllocator::CheckBlocks(off_t start, off_t length, bool allocated,
 		if (++groupBlock >= fGroups[group].NumBitmapBlocks()) {
 			groupBlock = 0;
 			group++;
+
+			if (group >= fNumGroups && length > 0)
+				return B_BAD_VALUE;
 		}
 	}
 

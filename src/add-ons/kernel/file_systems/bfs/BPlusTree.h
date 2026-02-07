@@ -123,7 +123,7 @@ struct bplustree_node {
 			off_t				DuplicateAt(off_t offset, bool isFragment,
 									int8 index) const;
 			uint32				FragmentsUsed(uint32 nodeSize) const;
-	inline	duplicate_array*	FragmentAt(int8 index) const;
+	inline	duplicate_array*	FragmentAt(int32 index) const;
 	inline	duplicate_array*	DuplicateArray() const;
 
 	static inline uint8			LinkType(off_t link);
@@ -333,7 +333,7 @@ private:
 									CachedNode& cached,
 									const bplustree_node* node, uint16 index,
 									off_t value);
-			void				_InsertKey(bplustree_node* node, uint16 index,
+			status_t			_InsertKey(bplustree_node* node, uint16 index,
 									uint8* key, uint16 keyLength, off_t value);
 			status_t			_SplitNode(bplustree_node* node,
 									off_t nodeOffset, bplustree_node* other,

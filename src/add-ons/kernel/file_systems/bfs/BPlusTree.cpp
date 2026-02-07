@@ -1393,13 +1393,13 @@ BPlusTree::_InsertDuplicate(Transaction& transaction, CachedNode& cached,
 }
 
 
-void
+status_t
 BPlusTree::_InsertKey(bplustree_node* node, uint16 index, uint8* key,
 	uint16 keyLength, off_t value)
 {
 	// should never happen, but who knows?
 	if (index > node->NumKeys())
-		return;
+		return B_BAD_VALUE;
 
 	Unaligned<off_t>* values = node->Values();
 	Unaligned<uint16>* keyLengths = node->KeyLengths();
@@ -1438,6 +1438,7 @@ BPlusTree::_InsertKey(bplustree_node* node, uint16 index, uint8* key,
 		memmove(keys + length, keys + length - keyLength, size);
 
 	memcpy(keys + keyStart, key, keyLength);
+	return B_OK;
 }
 
 
@@ -1763,9 +1764,12 @@ BPlusTree::Insert(Transaction& transaction, const uint8* key, uint16 keyLength,
 		if (int32(key_align(sizeof(bplustree_node)
 				+ writableNode->AllKeyLength() + keyLength)
 				+ (writableNode->NumKeys() + 1) * (sizeof(uint16)
-				+ sizeof(off_t))) < fNodeSize) {
-			_InsertKey(writableNode, nodeAndKey.keyIndex,
+				+ sizeof(off_t))) <= fNodeSize) {
+			status_t status = _InsertKey(writableNode, nodeAndKey.keyIndex,
 				keyBuffer, keyLength, value);
+			if (status != B_OK)
+				return status;
+
 			_UpdateIterators(nodeAndKey.nodeOffset, BPLUSTREE_NULL,
 				nodeAndKey.keyIndex, 0, 1);
 
@@ -1829,8 +1833,11 @@ BPlusTree::Insert(Transaction& transaction, const uint8* key, uint16 keyLength,
 			if (newRoot != BPLUSTREE_NULL) {
 				bplustree_node* root = cachedNewRoot.Node();
 
-				_InsertKey(root, 0, keyBuffer, keyLength,
+				status_t status = _InsertKey(root, 0, keyBuffer, keyLength,
 					writableNode->LeftLink());
+				if (status != B_OK)
+					return status;
+
 				root->overflow_link = HOST_ENDIAN_TO_BFS_INT64(
 					nodeAndKey.nodeOffset);
 
@@ -2107,7 +2114,7 @@ BPlusTree::_RemoveKey(bplustree_node* node, uint16 index)
 	uint8* keys = node->Keys();
 
 	node->all_key_count = HOST_ENDIAN_TO_BFS_INT16(node->NumKeys() - 1);
-	node->all_key_length = HOST_ENDIAN_TO_BFS_INT64(
+	node->all_key_length = HOST_ENDIAN_TO_BFS_INT16(
 		node->AllKeyLength() - length);
 
 	Unaligned<off_t>* newValues = node->Values();
@@ -2259,6 +2266,9 @@ BPlusTree::Remove(Transaction& transaction, const uint8* key, uint16 keyLength,
 		status_t status = cached.Free(transaction, nodeOffset);
 		if (status != B_OK)
 			return status;
+
+		// Reset writableNode because it pointed to memory that is now freed
+		writableNode = NULL;
 	}
 	RETURN_ERROR(B_ERROR);
 }

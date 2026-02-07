@@ -54,8 +54,9 @@ command_checkfs(int argc, const char* const* argv)
 	uint32 previousPass = result.pass;
 
 	// check all files and report errors
-	while (_kern_ioctl(rootDir, BFS_IOCTL_CHECK_NEXT_NODE, &result,
-			sizeof(result)) == B_OK) {
+	status_t checkStatus;
+	while ((checkStatus = _kern_ioctl(rootDir, BFS_IOCTL_CHECK_NEXT_NODE,
+			&result, sizeof(result))) == B_OK) {
 		if (++counter % 50 == 0) {
 			fssh_dprintf("%9" FSSH_B_PRIu64 " nodes processed\x1b[1A\n",
 				counter);
@@ -110,6 +111,9 @@ command_checkfs(int argc, const char* const* argv)
 	}
 
 	_kern_close(rootDir);
+
+	if (checkStatus != B_ENTRY_NOT_FOUND && checkStatus != B_OK)
+		return checkStatus;
 
 	fssh_dprintf("        %" FSSH_B_PRIu64 " nodes checked,\n\t%" FSSH_B_PRIu64
 		" blocks not allocated,\n\t%" FSSH_B_PRIu64 " blocks already set,\n\t%"

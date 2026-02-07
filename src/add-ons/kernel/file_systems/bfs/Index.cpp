@@ -253,8 +253,14 @@ Index::Update(Transaction& transaction, const char* name, int32 type,
 			newKey, newLength);
 	}
 
-	if (((name != fName || strcmp(name, fName)) && SetTo(name) != B_OK)
-		|| fNode == NULL)
+	// We need to be careful with fName here: The string it points to might be
+	// freed/changed by SetTo() if it points to the same buffer as name.
+	if (name != fName && (fName == NULL || strcmp(name, fName) != 0)) {
+		if (SetTo(name) != B_OK)
+			return B_BAD_INDEX;
+	}
+
+	if (fNode == NULL)
 		return B_BAD_INDEX;
 
 	BPlusTree* tree = Node()->Tree();

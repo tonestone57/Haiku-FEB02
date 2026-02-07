@@ -312,6 +312,8 @@ bfs_get_vnode(fs_volume* _volume, ino_t id, fs_vnode* _node, int* _type,
 	//FUNCTION_START(("ino_t = %lld\n", id));
 	Volume* volume = (Volume*)_volume->private_volume;
 
+	// first inode may be after the log area, we don't go through
+	// the hassle and try to load an earlier block from disk
 	if (!volume->IsValidInodeBlock(id)) {
 		INFORM(("inode at %" B_PRIdINO " requested!\n", id));
 		return B_ERROR;
@@ -872,10 +874,10 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 				}
 			}
 
-			if (status == B_OK) {
-				status = user_memcpy(buffer, &checker->Control(),
-					sizeof(check_control));
-			}
+			status_t copyStatus = user_memcpy(buffer, &checker->Control(),
+				sizeof(check_control));
+			if (status == B_OK)
+				status = copyStatus;
 
 			return status;
 		}
@@ -902,10 +904,14 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 			}
 
 			MutexLocker locker(volume->Lock());
-			if (user_memcpy((uint8*)&volume->SuperBlock() + update.offset,
-					update.data, update.length) != B_OK) {
-				return B_BAD_ADDRESS;
-			}
+			// We need to copy the data from user space to kernel space, but
+			// since we are a kernel module, we cannot use user_memcpy() if
+			// the buffer is in kernel space (which is the case for makebootable).
+			// However, since we don't know where the buffer comes from, we
+			// have to use memcpy() here - the buffer is already copied to
+			// kernel space by the VFS.
+			memcpy((uint8*)&volume->SuperBlock() + update.offset,
+				update.data, update.length);
 
 			return volume->WriteSuperBlock();
 		}
@@ -1374,6 +1380,8 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	if (vnode.Get(&inode) != B_OK)
 		return B_IO_ERROR;
 
+	inode->WriteLockInTransaction(transaction);
+
 	// Don't move a directory into one of its children - we soar up
 	// from the newDirectory to either the root node or the old
 	// directory, whichever comes first.
@@ -1382,12 +1390,16 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	if (oldDirectory != newDirectory) {
 		ino_t parent = newDirectory->ID();
 		ino_t root = volume->RootNode()->ID();
+		int32 iterations = 0;
 
 		while (true) {
 			if (parent == id)
 				return B_BAD_VALUE;
 			else if (parent == root || parent == oldDirectory->ID())
 				break;
+
+			if (++iterations > 4096)
+				return B_LOOP;
 
 			Vnode vnode(volume, parent);
 			Inode* parentNode;
@@ -1446,8 +1458,6 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	}
 	if (status != B_OK)
 		return status;
-
-	inode->WriteLockInTransaction(transaction);
 
 	volume->UpdateLiveQueriesRenameMove(inode, oldDirectory->ID(), oldName,
 		newDirectory->ID(), newName);
