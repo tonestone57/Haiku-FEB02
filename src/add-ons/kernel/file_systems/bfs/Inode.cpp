@@ -162,6 +162,7 @@ private:
 InodeAllocator::InodeAllocator(Transaction& transaction)
 	:
 	fTransaction(&transaction),
+	fRun(block_run::Run(0, 0, 0)),
 	fInode(NULL)
 {
 }
@@ -199,7 +200,7 @@ InodeAllocator::~InodeAllocator()
 			fInode = NULL;
 
 			remove_vnode(volume->FSVolume(), id);
-		} else
+		} else if (!fRun.IsZero())
 			volume->Free(*fTransaction, fRun);
 	}
 
@@ -300,10 +301,9 @@ InodeAllocator::Keep(fs_vnode_ops* vnodeOps, uint32 publishFlags)
 	if (status == B_OK) {
 		cache_add_transaction_listener(volume->BlockCache(), fTransaction->ID(),
 			TRANSACTION_ABORTED, &_TransactionListener, fInode);
+		fTransaction = NULL;
+		fInode = NULL;
 	}
-
-	fTransaction = NULL;
-	fInode = NULL;
 
 	return status;
 }
@@ -1104,7 +1104,7 @@ Inode::ReadAttribute(const char* name, int32 type, off_t pos, uint8* buffer,
 	size_t* _length)
 {
 	if (pos < 0)
-		pos = 0;
+		return B_BAD_VALUE;
 
 	// search in the small_data section (which has to be locked first)
 	{
@@ -1125,8 +1125,14 @@ Inode::ReadAttribute(const char* name, int32 type, off_t pos, uint8* buffer,
 			if (length + pos > smallData->DataSize())
 				length = smallData->DataSize() - pos;
 
-			status_t error = user_memcpy(buffer, smallData->Data() + pos,
-				length);
+			status_t error;
+			if (IS_USER_ADDRESS(buffer)) {
+				error = user_memcpy(buffer, smallData->Data() + pos,
+					length);
+			} else {
+				memcpy(buffer, smallData->Data() + pos, length);
+				error = B_OK;
+			}
 			*_length = length;
 			return error;
 		}
@@ -1534,6 +1540,9 @@ Inode::AllocatedSize() const
 status_t
 Inode::FindBlockRun(off_t pos, block_run& run, off_t& offset)
 {
+	if (pos < 0)
+		return B_BAD_VALUE;
+
 	data_stream* data = &Node().data;
 
 	// find matching block run
@@ -1637,6 +1646,9 @@ Inode::FindBlockRun(off_t pos, block_run& run, off_t& offset)
 status_t
 Inode::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 {
+	if (pos < 0)
+		return B_BAD_VALUE;
+
 	return file_cache_read(FileCache(), NULL, pos, buffer, _length);
 }
 
@@ -1727,6 +1739,7 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 		if (status != B_OK) {
 			// Note: If FillGapWithZeros fails (e.g. B_DEVICE_FULL), we must
 			// propagate the error to avoid file corruption or inconsistency.
+			SetFileSize(transaction, oldSize);
 			UpdateNodeFromDisk();
 			return status;
 		}
@@ -2829,6 +2842,8 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 	if (parent != NULL && (mode & S_ATTR_DIR) == 0 && parent->IsContainer()) {
 		// check if the file already exists in the directory
 		tree = parent->Tree();
+		if (tree == NULL)
+			return B_BAD_VALUE;
 	}
 
 	if (parent != NULL) {
@@ -2873,6 +2888,9 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 
 			if ((openMode & O_TRUNC) != 0) {
 				// truncate the existing file
+				if ((openMode & O_RWMASK) == O_RDONLY)
+					return B_NOT_ALLOWED;
+
 				inode->WriteLockInTransaction(transaction);
 
 				status_t status = inode->SetFileSize(transaction, 0);
@@ -2900,7 +2918,7 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 			return B_OK;
 		}
 	} else if (parent != NULL && (mode & S_ATTR_DIR) == 0) {
-		return B_BAD_VALUE;
+		return B_NOT_A_DIRECTORY;
 	} else if ((openMode & O_DIRECTORY) != 0) {
 		// TODO: we might need to return B_NOT_A_DIRECTORY here
 		return B_ENTRY_NOT_FOUND;
@@ -3072,8 +3090,7 @@ AttributeIterator::AttributeIterator(Inode* inode)
 	fCurrentSmallData(0),
 	fInode(inode),
 	fAttributes(NULL),
-	fIterator(NULL),
-	fBuffer(NULL)
+	fIterator(NULL)
 {
 	inode->_AddIterator(this);
 }
@@ -3166,6 +3183,9 @@ AttributeIterator::GetNext(char* name, size_t* _length, uint32* _type,
 			return B_ENTRY_NOT_FOUND;
 		}
 	}
+
+	if (fIterator == NULL)
+		return B_ENTRY_NOT_FOUND;
 
 	uint16 length;
 	ino_t id;

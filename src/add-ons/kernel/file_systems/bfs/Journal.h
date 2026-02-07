@@ -145,7 +145,7 @@ private:
 			status_t		_WriteTransactionToLog(int32 transactionID,
 								bool* _transactionEnded = NULL);
 			status_t		_CheckRunArray(const run_array* array);
-			status_t		_ReplayRunArray(int32* start);
+			status_t		_ReplayRunArray(off_t* start);
 
 	static	void			_TransactionWritten(int32 transactionID,
 								int32 event, void* _logEntry);

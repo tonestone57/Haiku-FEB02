@@ -173,7 +173,9 @@ bfs_scan_partition(int fd, partition_data* partition, void* _cookie)
 	partition->content_size = cookie->super_block.NumBlocks()
 		* cookie->super_block.BlockSize();
 	partition->block_size = cookie->super_block.BlockSize();
-	partition->content_name = strdup(cookie->super_block.name);
+	char name[BFS_DISK_NAME_LENGTH + 1];
+	strlcpy(name, cookie->super_block.name, sizeof(name));
+	partition->content_name = strdup(name);
 	if (partition->content_name == NULL)
 		return B_NO_MEMORY;
 
@@ -310,10 +312,7 @@ bfs_get_vnode(fs_volume* _volume, ino_t id, fs_vnode* _node, int* _type,
 	//FUNCTION_START(("ino_t = %lld\n", id));
 	Volume* volume = (Volume*)_volume->private_volume;
 
-	// first inode may be after the log area, we don't go through
-	// the hassle and try to load an earlier block from disk
-	if (id < volume->ToBlock(volume->Log()) + volume->Log().Length()
-		|| id > volume->NumBlocks()) {
+	if (!volume->IsValidInodeBlock(id)) {
 		INFORM(("inode at %" B_PRIdINO " requested!\n", id));
 		return B_ERROR;
 	}
@@ -641,6 +640,9 @@ bfs_get_file_map(fs_volume* _volume, fs_vnode* _node, off_t offset, size_t size,
 	block_run run;
 	off_t fileOffset;
 
+	if (max == 0)
+		return B_BAD_VALUE;
+
 	//FUNCTION_START(("offset = %lld, size = %lu\n", offset, size));
 
 	while (true) {
@@ -777,11 +779,21 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 
 		case BFS_IOCTL_VERSION:
 		{
+			if (bufferLength < sizeof(uint32))
+				return B_BAD_VALUE;
+
 			uint32 version = 0x10000;
 			return user_memcpy(buffer, &version, sizeof(uint32));
 		}
 		case BFS_IOCTL_START_CHECKING:
 		{
+			if (volume->IsReadOnly())
+				return B_READ_ONLY_DEVICE;
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+			if (bufferLength < sizeof(check_control))
+				return B_BAD_VALUE;
+
 			// start checking
 			status_t status = volume->CreateCheckVisitor();
 			if (status != B_OK)
@@ -804,6 +816,13 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		}
 		case BFS_IOCTL_STOP_CHECKING:
 		{
+			if (volume->IsReadOnly())
+				return B_READ_ONLY_DEVICE;
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+			if (bufferLength < sizeof(check_control))
+				return B_BAD_VALUE;
+
 			// stop checking
 			CheckVisitor* checker = volume->CheckVisitor();
 			if (checker == NULL)
@@ -826,6 +845,13 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		}
 		case BFS_IOCTL_CHECK_NEXT_NODE:
 		{
+			if (volume->IsReadOnly())
+				return B_READ_ONLY_DEVICE;
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+			if (bufferLength < sizeof(check_control))
+				return B_BAD_VALUE;
+
 			// check next
 			CheckVisitor* checker = volume->CheckVisitor();
 			if (checker == NULL)
@@ -855,6 +881,11 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		}
 		case BFS_IOCTL_UPDATE_BOOT_BLOCK:
 		{
+			if (volume->IsReadOnly())
+				return B_READ_ONLY_DEVICE;
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+
 			// let's makebootable (or anyone else) update the boot block
 			// while BFS is mounted
 			update_boot_block update;
@@ -866,7 +897,7 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 			uint32 minOffset = offsetof(disk_super_block, pad_to_block);
 			if (update.offset < minOffset
 				|| update.offset >= 512 || update.length > 512 - minOffset
-				|| update.length + update.offset > 512) {
+				|| update.length > 512 - update.offset) {
 				return B_BAD_VALUE;
 			}
 
@@ -880,6 +911,11 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		}
 		case BFS_IOCTL_RESIZE:
 		{
+			if (volume->IsReadOnly())
+				return B_READ_ONLY_DEVICE;
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+
 			if (bufferLength != sizeof(uint64))
 				return B_BAD_VALUE;
 
@@ -894,6 +930,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 #ifdef DEBUG_FRAGMENTER
 		case 56741:
 		{
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+
 			BlockAllocator& allocator = volume->Allocator();
 			allocator.Fragment();
 			return B_OK;
@@ -903,6 +942,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 #ifdef DEBUG
 		case 56742:
 		{
+			if (geteuid() != 0)
+				return B_NOT_ALLOWED;
+
 			// allocate all free blocks and zero them out
 			// (a test for the BlockAllocator)!
 			BlockAllocator& allocator = volume->Allocator();
@@ -1026,8 +1068,10 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 				inode->Size());
 			rw_lock_write_lock(&inode->Lock());
 
-			if (fillStatus != B_OK)
+			if (fillStatus != B_OK) {
+				inode->SetFileSize(transaction, oldSize);
 				status = fillStatus;
+			}
 		}
 
 		if (!inode->IsDeleted()) {
@@ -1209,6 +1253,8 @@ bfs_create_symlink(fs_volume* _volume, fs_vnode* _directory, const char* name,
 		// The following call will have to write the inode back, so
 		// we don't have to do that here...
 		status = link->WriteAt(transaction, 0, (const uint8*)path, &length);
+		if (status == B_OK)
+			file_cache_sync(link->FileCache());
 	}
 
 	if (status == B_OK)

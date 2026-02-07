@@ -155,11 +155,16 @@ disk_super_block::Initialize(const char* diskName, off_t numBlocks,
 Volume::Volume(fs_volume* volume)
 	:
 	fVolume(volume),
+	fDevice(-1),
 	fBlockAllocator(this),
+	fJournal(NULL),
+	fLogStart(0),
+	fLogEnd(0),
 	fRootNode(NULL),
 	fIndicesNode(NULL),
 	fDirtyCachedBlocks(0),
 	fFlags(0),
+	fBlockCache(NULL),
 	fCheckingThread(-1),
 	fCheckVisitor(NULL)
 {
@@ -171,10 +176,10 @@ Volume::Volume(fs_volume* volume)
 Volume::~Volume()
 {
 	// These are only deleted if Mount() failed, or if Unmount() wasn't called.
+	fBlockAllocator.Uninitialize();
 	delete fJournal;
 	delete fIndicesNode;
 	delete fCheckVisitor;
-	fBlockAllocator.Uninitialize();
 
 	mutex_destroy(&fQueryLock);
 	mutex_destroy(&fLock);
@@ -193,7 +198,24 @@ Volume::IsValidSuperBlock() const
 bool
 Volume::IsValidInodeBlock(off_t block) const
 {
-	return block > fSuperBlock.LogEnd() && block < NumBlocks();
+	if (block < 0 || block >= NumBlocks())
+		return false;
+
+	// Check reserved area (Boot block + Bitmap)
+	// Bitmap starts at block 1.
+	uint32 blockSize = BlockSize();
+	uint32 bitsPerBlock = blockSize << 3;
+	off_t bitmapBlocks = (NumBlocks() + bitsPerBlock - 1) / bitsPerBlock;
+	if (block < 1 + bitmapBlocks)
+		return false;
+
+	// Check Log area
+	off_t logStart = ToBlock(Log());
+	off_t logLength = Log().Length();
+	if (block >= logStart && block < logStart + logLength)
+		return false;
+
+	return true;
 }
 
 
@@ -371,7 +393,7 @@ status_t
 Volume::ValidateBlockRun(block_run run)
 {
 	if (run.AllocationGroup() < 0
-		|| run.AllocationGroup() > (int32)AllocationGroups()
+		|| run.AllocationGroup() >= (int32)AllocationGroups()
 		|| run.Start() > (1UL << AllocationGroupShift())
 		|| run.length == 0
 		|| uint32(run.Length() + run.Start())
@@ -421,15 +443,9 @@ Volume::CreateVolumeID(Transaction& transaction)
 	attr_cookie* cookie;
 	status = attr.Create("be:volume_id", B_UINT64_TYPE, O_RDWR, &cookie);
 	if (status == B_OK) {
-		static bool seeded = false;
-		if (!seeded) {
-			// seed the random number generator for the be:volume_id attribute.
-			srand(time(NULL));
-			seeded = true;
-		}
 		uint64_t id;
 		size_t length = sizeof(id);
-		id = ((uint64_t)rand() << 32) | rand();
+		id = (uint64_t)system_time();
 		status = attr.Write(transaction, cookie, 0, (uint8_t *)&id, &length, NULL);
 		delete (attr_cookie*)cookie;
 	}
