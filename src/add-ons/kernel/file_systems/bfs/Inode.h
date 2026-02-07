@@ -229,6 +229,7 @@ private:
 								Inode& operator=(const Inode& other);
 									// no implementation
 
+	friend class Attribute;
 	friend class AttributeIterator;
 	friend class InodeAllocator;
 

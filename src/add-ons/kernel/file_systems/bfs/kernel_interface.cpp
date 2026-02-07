@@ -994,6 +994,8 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 
 	inode->WriteLockInTransaction(transaction);
 
+	status_t status = B_OK;
+
 	if (check_write_stat_permissions(node.GroupID(), node.UserID(), node.Mode(),
 			mask, stat) != B_OK)
 		RETURN_ERROR(B_NOT_ALLOWED);
@@ -1009,7 +1011,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 
 		off_t oldSize = inode->Size();
 
-		status_t status = inode->SetFileSize(transaction, stat->st_size);
+		status = inode->SetFileSize(transaction, stat->st_size);
 		if (status != B_OK) {
 			inode->UpdateNodeFromDisk();
 			return status;
