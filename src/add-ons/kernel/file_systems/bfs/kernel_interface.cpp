@@ -549,7 +549,10 @@ bfs_write_pages(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 			if (!transaction.IsStarted())
 				return B_ERROR;
 
+			rw_lock_write_lock(&inode->Lock());
 			status = inode->AllocateForRange(pos, bytesLeft, transaction);
+			rw_lock_write_unlock(&inode->Lock());
+
 			if (status == B_OK)
 				status = transaction.Done();
 			else
@@ -866,6 +869,8 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 				|| update.length + update.offset > 512) {
 				return B_BAD_VALUE;
 			}
+
+			MutexLocker locker(volume->Lock());
 			if (user_memcpy((uint8*)&volume->SuperBlock() + update.offset,
 					update.data, update.length) != B_OK) {
 				return B_BAD_ADDRESS;
@@ -902,6 +907,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 			// (a test for the BlockAllocator)!
 			BlockAllocator& allocator = volume->Allocator();
 			Transaction transaction(volume, 0);
+			if (!transaction.IsStarted())
+				return B_ERROR;
+
 			CachedBlock cached(volume);
 			block_run run;
 			while (allocator.AllocateBlocks(transaction, 8, 0, 64, 1, run)
