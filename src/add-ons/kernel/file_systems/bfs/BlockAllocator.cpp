@@ -810,7 +810,7 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 				FATAL(("Could not start transaction for checking reserved space!\n"));
 				volume->Panic();
 			} else if (groups[0].Allocate(transaction, 0, bitmapBlocks) != B_OK
-				|| allocator->AllocateBlockRun(transaction, logRun) != B_OK) {
+				|| AllocateBlockRun(transaction, logRun) != B_OK) {
 				FATAL(("Could not allocate reserved space for block "
 					"bitmap/log!\n"));
 				volume->Panic();
