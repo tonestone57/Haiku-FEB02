@@ -253,7 +253,8 @@ Index::Update(Transaction& transaction, const char* name, int32 type,
 			newKey, newLength);
 	}
 
-	if (((name != fName || strcmp(name, fName)) && SetTo(name) != B_OK)
+	if (((name != fName && (fName == NULL || strcmp(name, fName) != 0))
+			&& SetTo(name) != B_OK)
 		|| fNode == NULL)
 		return B_BAD_INDEX;
 

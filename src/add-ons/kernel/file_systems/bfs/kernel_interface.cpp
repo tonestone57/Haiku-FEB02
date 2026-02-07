@@ -313,7 +313,7 @@ bfs_get_vnode(fs_volume* _volume, ino_t id, fs_vnode* _node, int* _type,
 	// first inode may be after the log area, we don't go through
 	// the hassle and try to load an earlier block from disk
 	if (id < volume->ToBlock(volume->Log()) + volume->Log().Length()
-		|| id > volume->NumBlocks()) {
+		|| id >= volume->NumBlocks()) {
 		INFORM(("inode at %" B_PRIdINO " requested!\n", id));
 		return B_ERROR;
 	}
@@ -846,10 +846,10 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 				}
 			}
 
-			if (status == B_OK) {
-				status = user_memcpy(buffer, &checker->Control(),
-					sizeof(check_control));
-			}
+			status_t copyStatus = user_memcpy(buffer, &checker->Control(),
+				sizeof(check_control));
+			if (status == B_OK)
+				status = copyStatus;
 
 			return status;
 		}
@@ -880,6 +880,9 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		}
 		case BFS_IOCTL_RESIZE:
 		{
+			if (volume->IsReadOnly())
+				return B_READ_ONLY_DEVICE;
+
 			if (bufferLength != sizeof(uint64))
 				return B_BAD_VALUE;
 
@@ -1328,6 +1331,8 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	if (vnode.Get(&inode) != B_OK)
 		return B_IO_ERROR;
 
+	inode->WriteLockInTransaction(transaction);
+
 	// Don't move a directory into one of its children - we soar up
 	// from the newDirectory to either the root node or the old
 	// directory, whichever comes first.
@@ -1400,8 +1405,6 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 	}
 	if (status != B_OK)
 		return status;
-
-	inode->WriteLockInTransaction(transaction);
 
 	volume->UpdateLiveQueriesRenameMove(inode, oldDirectory->ID(), oldName,
 		newDirectory->ID(), newName);

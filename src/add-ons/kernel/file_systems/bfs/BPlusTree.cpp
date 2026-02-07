@@ -1756,7 +1756,7 @@ BPlusTree::Insert(Transaction& transaction, const uint8* key, uint16 keyLength,
 		if (int32(key_align(sizeof(bplustree_node)
 				+ writableNode->AllKeyLength() + keyLength)
 				+ (writableNode->NumKeys() + 1) * (sizeof(uint16)
-				+ sizeof(off_t))) < fNodeSize) {
+				+ sizeof(off_t))) <= fNodeSize) {
 			_InsertKey(writableNode, nodeAndKey.keyIndex,
 				keyBuffer, keyLength, value);
 			_UpdateIterators(nodeAndKey.nodeOffset, BPLUSTREE_NULL,

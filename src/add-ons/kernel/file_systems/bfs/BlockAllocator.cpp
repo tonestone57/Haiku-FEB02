@@ -380,8 +380,13 @@ AllocationBlock::Free(uint16 start, uint16 numBlocks)
 */
 AllocationGroup::AllocationGroup()
 	:
+	fNumBits(0),
+	fNumBitmapBlocks(0),
+	fStart(0),
 	fFirstFree(-1),
 	fFreeBits(0),
+	fLargestStart(0),
+	fLargestLength(0),
 	fLargestValid(false),
 	fBlockBitmap(NULL)
 {
@@ -427,8 +432,14 @@ AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 	RecursiveLocker lock(fLock);
 	ASSERT(start + length <= (int32)fNumBits);
 
+	// Save the current state for error handling
+	int32 previousFirstFree = fFirstFree;
+	int32 previousFreeBits = fFreeBits;
+	int32 previousLargestStart = fLargestStart;
+	int32 previousLargestLength = fLargestLength;
+	bool previousLargestValid = fLargestValid;
+
 	// Update the allocation group info
-	// TODO: this info will be incorrect if something goes wrong later
 	// Note, the fFirstFree block doesn't have to be really free
 	if (start == fFirstFree)
 		fFirstFree = start + length;
@@ -466,7 +477,11 @@ AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 
 	while (length > 0) {
 		if (cached.SetToWritable(transaction, *this, block) < B_OK) {
-			fLargestValid = false;
+			fFirstFree = previousFirstFree;
+			fFreeBits = previousFreeBits;
+			fLargestStart = previousLargestStart;
+			fLargestLength = previousLargestLength;
+			fLargestValid = previousLargestValid;
 			RETURN_ERROR(B_IO_ERROR);
 		}
 
@@ -509,8 +524,12 @@ AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 	RecursiveLocker lock(fLock);
 	ASSERT(start + length <= (int32)fNumBits);
 
+	// Save the current state for error handling
+	int32 previousFirstFree = fFirstFree;
+	int32 previousFreeBits = fFreeBits;
+	bool previousLargestValid = fLargestValid;
+
 	// Update the allocation group info
-	// TODO: this info will be incorrect if something goes wrong later
 	if (fFirstFree > start)
 		fFirstFree = start;
 	fFreeBits += length;
@@ -539,8 +558,12 @@ AllocationGroup::Free(Transaction& transaction, uint16 start, int32 length)
 	AllocationBlock cached(volume);
 
 	while (length > 0) {
-		if (cached.SetToWritable(transaction, *this, block) < B_OK)
+		if (cached.SetToWritable(transaction, *this, block) < B_OK) {
+			fFirstFree = previousFirstFree;
+			fFreeBits = previousFreeBits;
+			fLargestValid = previousLargestValid;
 			RETURN_ERROR(B_IO_ERROR);
+		}
 
 		T(Block("free-1", block, cached.Block(), volume->BlockSize()));
 		uint16 freeLength = length;

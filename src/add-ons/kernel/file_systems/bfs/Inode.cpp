@@ -3163,6 +3163,8 @@ AttributeIterator::GetNext(char* name, size_t* _length, uint32* _type,
 			|| (fIterator = new(std::nothrow) TreeIterator(tree)) == NULL) {
 			FATAL(("could not get tree in AttributeIterator::GetNext(ino_t"
 				" = %" B_PRIdINO ",name = \"%s\")\n", fInode->ID(), name));
+			put_vnode(volume->FSVolume(), fAttributes->ID());
+			fAttributes = NULL;
 			return B_ENTRY_NOT_FOUND;
 		}
 	}

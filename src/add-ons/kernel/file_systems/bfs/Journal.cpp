@@ -428,6 +428,9 @@ Journal::~Journal()
 status_t
 Journal::InitCheck()
 {
+	if (fLogSize < 12)
+		return B_BAD_VALUE;
+
 	return B_OK;
 }
 
