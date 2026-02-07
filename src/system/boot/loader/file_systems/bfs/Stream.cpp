@@ -415,7 +415,7 @@ Stream::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 }
 
 
-Node*
+::Node*
 Stream::NodeFactory(Volume& volume, off_t id)
 {
 	Stream stream(volume, id);
