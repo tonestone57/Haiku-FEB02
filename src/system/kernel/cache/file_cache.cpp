@@ -403,6 +403,9 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 	uint32 vecCount = 0;
 
+	if (pageOffset + bufferSize > (size_t)PAGE_ALIGN(pageOffset + bufferSize))
+		return B_BUFFER_OVERFLOW;
+
 	generic_size_t numBytes = PAGE_ALIGN(pageOffset + bufferSize);
 	int32 pageIndex = 0;
 
@@ -543,6 +546,9 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	ArrayDeleter<vm_page*> pagesDeleter(pages);
 
 	uint32 vecCount = 0;
+	if (pageOffset + bufferSize > (size_t)PAGE_ALIGN(pageOffset + bufferSize))
+		return B_BUFFER_OVERFLOW;
+
 	generic_size_t numBytes = PAGE_ALIGN(pageOffset + bufferSize);
 	int32 pageIndex = 0;
 	status_t status = B_OK;
@@ -608,6 +614,11 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 		// ToDo: handle errors for real!
 		if (status < B_OK)
 			panic("1. vfs_read_pages() failed: %s!\n", strerror(status));
+
+		if (bytesRead < (generic_size_t)pageOffset) {
+			vm_memset_physical(vecs[0].base + bytesRead, 0,
+				pageOffset - bytesRead);
+		}
 	}
 
 	size_t lastPageOffset = (pageOffset + bufferSize) % B_PAGE_SIZE;

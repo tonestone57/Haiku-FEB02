@@ -54,13 +54,16 @@ real_time_clock_changed()
 static void
 rtc_system_to_hw(void)
 {
-	uint32 seconds;
+	uint64 seconds;
 
 	InterruptsSpinLocker _(sTimezoneLock);
 	seconds = (arch_rtc_get_system_time_offset(sRealTimeData) + system_time()
 		+ (sIsGMT ? 0 : sTimezoneOffset)) / 1000000;
 
-	arch_rtc_set_hw_time(seconds);
+	if (seconds > UINT32_MAX)
+		seconds = UINT32_MAX;
+
+	arch_rtc_set_hw_time((uint32)seconds);
 }
 
 
@@ -305,6 +308,8 @@ _user_get_timezone(int32 *_timezoneOffset, char *userName, size_t nameLength)
 {
 	InterruptsSpinLocker locker(sTimezoneLock);
 	int32 offset = (int32)(sTimezoneOffset / 1000000LL);
+	char name[B_FILE_NAME_LENGTH];
+	strlcpy(name, sTimezoneName, sizeof(name));
 	locker.Unlock();
 
 	if (_timezoneOffset != NULL
@@ -314,7 +319,7 @@ _user_get_timezone(int32 *_timezoneOffset, char *userName, size_t nameLength)
 
 	if (userName != NULL
 		&& (!IS_USER_ADDRESS(userName)
-			|| user_strlcpy(userName, sTimezoneName, nameLength) < 0))
+			|| user_strlcpy(userName, name, nameLength) < 0))
 		return B_BAD_ADDRESS;
 
 	return B_OK;

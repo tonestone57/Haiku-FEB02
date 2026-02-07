@@ -1432,7 +1432,8 @@ copy_user_process_args(const char* const* userFlatArgs, size_t flatArgsSize,
 
 	if (flatArgsSize > MAX_PROCESS_ARGS_SIZE)
 		return B_TOO_MANY_ARGS;
-	if ((argCount + envCount + 2) * sizeof(char*) > flatArgsSize)
+	if ((argCount + envCount + 2) * sizeof(char*) > flatArgsSize
+		|| (size_t)argCount + envCount + 2 > flatArgsSize / sizeof(char*))
 		return B_BAD_VALUE;
 
 	if (!IS_USER_ADDRESS(userFlatArgs))
@@ -3363,6 +3364,25 @@ team_get_kernel_team_id(void)
 		return 0;
 
 	return sKernelTeam->id;
+}
+
+
+status_t
+team_send_signal_to_all(const Signal& signal, uint32 flags)
+{
+	TeamListIterator iterator;
+	while (Team* team = iterator.Next()) {
+		// we don't want to signal the kernel team
+		if (team == sKernelTeam) {
+			team->ReleaseReference();
+			continue;
+		}
+
+		send_signal_to_team(team, signal, flags);
+		team->ReleaseReference();
+	}
+
+	return B_OK;
 }
 
 

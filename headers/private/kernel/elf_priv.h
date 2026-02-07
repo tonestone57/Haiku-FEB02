@@ -44,6 +44,7 @@ struct elf_image_info {
 	uint32*			symhash;
 	elf_sym*		syms;
 	char*			strtab;
+	size_t			strtab_size;
 	elf_rel*		rel;
 	int				rel_len;
 	elf_rela*		rela;
@@ -55,6 +56,7 @@ struct elf_image_info {
 	elf_sym*		debug_symbols;
 	uint32			num_debug_symbols;
 	const char*		debug_string_table;
+	size_t			debug_string_table_size;
 
 	// versioning related structures
 	uint32			num_version_definitions;
