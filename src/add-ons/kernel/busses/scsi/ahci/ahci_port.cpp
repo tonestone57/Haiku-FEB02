@@ -67,7 +67,6 @@ AHCIPort::AHCIPort(AHCIController* controller, int index)
 	fController(controller),
 	fIndex(index),
 	fRegs(&controller->fRegs->port[index]),
-#pragma GCC diagnostic pop
 	fArea(-1),
 	fCommandsActive(0),
 	fRequestSem(-1),
@@ -89,6 +88,7 @@ AHCIPort::AHCIPort(AHCIController* controller, int index)
 	fRequestSem = create_sem(1, "ahci request");
 	fResponseSem = create_sem(0, "ahci response");
 }
+#pragma GCC diagnostic pop
 
 
 AHCIPort::~AHCIPort()
