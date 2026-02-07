@@ -60,11 +60,14 @@
 #define DSM_MAX_LBA_VALUE			UINT64_C(0xffffffffffff)
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 AHCIPort::AHCIPort(AHCIController* controller, int index)
 	:
 	fController(controller),
 	fIndex(index),
 	fRegs(&controller->fRegs->port[index]),
+#pragma GCC diagnostic pop
 	fArea(-1),
 	fCommandsActive(0),
 	fRequestSem(-1),

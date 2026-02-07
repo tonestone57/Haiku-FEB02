@@ -324,8 +324,11 @@ AHCIController::ResetController()
 	FlushPostedWrites();
 	fRegs->ghc |= GHC_HR;
 	FlushPostedWrites();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 	if (wait_until_clear(&fRegs->ghc, GHC_HR, 1000000) < B_OK)
 		return B_TIMED_OUT;
+#pragma GCC diagnostic pop
 
 	fRegs->ghc |= GHC_AE;
 	FlushPostedWrites();
