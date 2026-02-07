@@ -338,6 +338,8 @@ bfs_inode::InitCheck(Volume* volume) const
 		FATAL(("InitCheck: Invalid inode_num length %d\n", inode_num.Length()));
 		return B_BAD_DATA;
 	}
+	// Note: We don't check if the inode_num matches the block it was read from
+	// because InitCheck() doesn't know the block number.
 	if ((uint32)InodeSize() != volume->InodeSize()) {
 		FATAL(("InitCheck: Invalid inode size %" B_PRIu32 " (expected %" B_PRIu32 ")\n",
 			(uint32)InodeSize(), volume->InodeSize()));
@@ -484,6 +486,12 @@ Inode::InitCheck(bool checkNode) const
 
 		if (status != B_OK) {
 			FATAL(("inode at block %" B_PRIdOFF " corrupt!\n", BlockNumber()));
+			RETURN_ERROR(B_BAD_DATA);
+		}
+
+		if (fVolume->ToBlock(Node().inode_num) != BlockNumber()) {
+			FATAL(("inode at block %" B_PRIdOFF " has bad inode_num %" B_PRIdOFF "!\n",
+				BlockNumber(), fVolume->ToBlock(Node().inode_num)));
 			RETURN_ERROR(B_BAD_DATA);
 		}
 	}
@@ -1443,27 +1451,33 @@ Inode::CreateAttribute(Transaction& transaction, const char* name, uint32 type,
 //	#pragma mark - directory tree
 
 
-bool
-Inode::IsEmpty()
+status_t
+Inode::IsEmpty(bool& isEmpty)
 {
+	isEmpty = false;
 	TreeIterator iterator(fTree);
 
 	uint32 count = 0;
 	char name[MAX_INDEX_KEY_LENGTH + 1];
 	uint16 length;
 	ino_t id;
-	while (iterator.GetNextEntry(name, &length, MAX_INDEX_KEY_LENGTH + 1,
-			&id) == B_OK) {
+	status_t status;
+	while ((status = iterator.GetNextEntry(name, &length,
+			MAX_INDEX_KEY_LENGTH + 1, &id)) == B_OK) {
 		if ((Mode() & (S_ATTR_DIR | S_INDEX_DIR)) != 0)
-			return false;
+			return B_OK;
 
 		// Unlike index and attribute directories, directories
 		// for standard files always contain ".", and "..", so
 		// we need to ignore those two
 		if (++count > 2 || (strcmp(".", name) != 0 && strcmp("..", name) != 0))
-			return false;
+			return B_OK;
 	}
-	return true;
+	if (status != B_ENTRY_NOT_FOUND)
+		return status;
+
+	isEmpty = true;
+	return B_OK;
 }
 
 
@@ -2756,8 +2770,14 @@ Inode::Remove(Transaction& transaction, const char* name, ino_t* _id,
 			return isDirectory ? B_NOT_A_DIRECTORY : B_IS_A_DIRECTORY;
 
 		// only delete empty directories
-		if (isDirectory && !inode->IsEmpty())
-			return B_DIRECTORY_NOT_EMPTY;
+		if (isDirectory) {
+			bool isEmpty;
+			status = inode->IsEmpty(isEmpty);
+			if (status != B_OK)
+				return status;
+			if (!isEmpty)
+				return B_DIRECTORY_NOT_EMPTY;
+		}
 	}
 
 	// remove_vnode() allows the inode to be accessed until the last put_vnode()
@@ -2969,6 +2989,10 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 	} else if (parent != NULL && (mode & S_ATTR_DIR) != 0) {
 		parent->Attributes() = run;
 		status = parent->WriteBack(transaction);
+	} else if (parent != NULL && (mode & S_INDEX_DIR) == 0) {
+		// Parent is a directory but we have no tree to insert into?
+		FATAL(("Inode::Create: parent %" B_PRIdINO " has no tree!\n", parent->ID()));
+		return B_ERROR;
 	}
 
 	// Note, we only care if the inode could be made accessable for the
@@ -3131,7 +3155,7 @@ AttributeIterator::GetNext(char* name, size_t* _length, uint32* _type,
 		}
 
 		if (!item->IsLast(node)) {
-			strncpy(name, item->Name(), B_FILE_NAME_LENGTH);
+			strlcpy(name, item->Name(), B_FILE_NAME_LENGTH);
 			*_type = item->Type();
 			*_length = item->NameSize();
 			*_id = (ino_t)index;

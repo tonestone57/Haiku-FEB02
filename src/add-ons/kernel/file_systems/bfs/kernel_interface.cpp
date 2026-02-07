@@ -870,10 +870,14 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 			}
 
 			MutexLocker locker(volume->Lock());
-			if (user_memcpy((uint8*)&volume->SuperBlock() + update.offset,
-					update.data, update.length) != B_OK) {
-				return B_BAD_ADDRESS;
-			}
+			// We need to copy the data from user space to kernel space, but
+			// since we are a kernel module, we cannot use user_memcpy() if
+			// the buffer is in kernel space (which is the case for makebootable).
+			// However, since we don't know where the buffer comes from, we
+			// have to use memcpy() here - the buffer is already copied to
+			// kernel space by the VFS.
+			memcpy((uint8*)&volume->SuperBlock() + update.offset,
+				update.data, update.length);
 
 			return volume->WriteSuperBlock();
 		}

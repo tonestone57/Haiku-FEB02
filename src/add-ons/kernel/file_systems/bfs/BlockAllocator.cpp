@@ -430,7 +430,8 @@ status_t
 AllocationGroup::Allocate(Transaction& transaction, uint16 start, int32 length)
 {
 	RecursiveLocker lock(fLock);
-	ASSERT(start + length <= (int32)fNumBits);
+	if (start + length > (int32)fNumBits)
+		return B_BAD_VALUE;
 
 	// Save the current state for error handling
 	int32 previousFirstFree = fFirstFree;
@@ -745,7 +746,7 @@ BlockAllocator::_Initialize(BlockAllocator* allocator)
 
 	AllocationGroup* groups = allocator->fGroups;
 	off_t offset = 1;
-	uint32 bitsPerGroup = 8 * (blocks << blockShift);
+	uint64 bitsPerGroup = 8 * ((uint64)blocks << blockShift);
 	int32 numGroups = allocator->fNumGroups;
 
 	for (int32 i = 0; i < numGroups; i++) {

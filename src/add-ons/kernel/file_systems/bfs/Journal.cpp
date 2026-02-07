@@ -576,8 +576,15 @@ Journal::ReplayLog()
 	if (fVolume->IsReadOnly())
 		return B_READ_ONLY_DEVICE;
 
+	// The log start and end pointers are circular, so we have to use
+	// unsigned integers for comparison.
+	// Furthermore, we cannot easily check if the start pointer is valid
+	// here, because we don't know the log size yet.
+	if (fVolume->LogStart() < 0 || fVolume->LogEnd() < 0)
+		return B_BAD_VALUE;
+
 	int32 start = fVolume->LogStart();
-	int32 lastStart = -1;
+	off_t lastStart = -1;
 	while (true) {
 		// stop if the log is completely flushed
 		if (start == fVolume->LogEnd())

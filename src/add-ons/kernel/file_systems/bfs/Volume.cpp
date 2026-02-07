@@ -646,8 +646,7 @@ Volume::Initialize(int fd, const char* name, uint32 blockSize,
 
 	fSuperBlock.log_blocks = ToBlockRun(bitmapBlocks + 1);
 	fSuperBlock.log_blocks.length = HOST_ENDIAN_TO_BFS_INT16(logSize);
-	fSuperBlock.log_start = fSuperBlock.log_end = HOST_ENDIAN_TO_BFS_INT64(
-		ToBlock(Log()));
+	fSuperBlock.log_start = fSuperBlock.log_end = HOST_ENDIAN_TO_BFS_INT64(0);
 
 	// set the current log pointers, so that journaling will work correctly
 	fLogStart = fSuperBlock.LogStart();

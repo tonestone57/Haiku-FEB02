@@ -185,7 +185,8 @@ struct Query::QueryPolicy {
 
 		if (iterator->isSpecialTime) {
 			// int64 time index; convert value.
-			*(int64*)indexValue >>= INODE_TIME_SHIFT;
+			if (keyLength == sizeof(int64))
+				*(int64*)indexValue >>= INODE_TIME_SHIFT;
 		}
 
 		*_keyLength = keyLength;
