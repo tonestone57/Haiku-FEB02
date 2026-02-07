@@ -516,8 +516,10 @@ CachedNode::Free(Transaction& transaction, off_t offset)
 		Unset();
 
 		status_t status = fTree->fStream->SetFileSize(transaction, lastOffset);
-		if (status != B_OK)
+		if (status != B_OK) {
+			fTree->fStream->UpdateNodeFromDisk();
 			return status;
+		}
 
 		header->maximum_size = HOST_ENDIAN_TO_BFS_INT64(lastOffset);
 		return B_OK;
@@ -669,8 +671,10 @@ BPlusTree::SetTo(Transaction& transaction, Inode* stream, int32 nodeSize)
 			RETURN_ERROR(fStatus);
 
 		header = cached.SetToWritableHeader(transaction);
-		if (header == NULL)
+		if (header == NULL) {
+			stream->UpdateNodeFromDisk();
 			RETURN_ERROR(fStatus = B_ERROR);
+		}
 	}
 
 	fAllowDuplicates = stream->IsIndex()
