@@ -2702,7 +2702,7 @@ dir_vnode_to_path(struct vnode* vnode, char* buffer, size_t bufferSize,
 		if (visitedCount < 16) {
 			for (int32 i = 0; i < visitedCount; i++) {
 				if (visited[i].id == vnode->id && visited[i].device == vnode->device) {
-					status = B_LOOP;
+					status = B_LINK_LIMIT;
 					goto out;
 				}
 			}

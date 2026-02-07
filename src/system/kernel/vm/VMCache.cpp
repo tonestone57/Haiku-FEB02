@@ -860,7 +860,7 @@ VMCache::Resize(off_t newSize, int priority)
 
 	page_num_t oldPageCount = (page_num_t)((virtual_end + B_PAGE_SIZE - 1)
 		>> PAGE_SHIFT);
-	if (newSize > (off_t)((uint64)PAGE_MAX_COUNT << PAGE_SHIFT))
+	if (newSize > (off_t)((uint64)((page_num_t)-1) << PAGE_SHIFT))
 		return B_BAD_VALUE;
 	page_num_t newPageCount = (page_num_t)((newSize + B_PAGE_SIZE - 1)
 		>> PAGE_SHIFT);

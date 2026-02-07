@@ -1399,7 +1399,7 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 				break;
 
 			if (++iterations > 4096)
-				return B_LOOP;
+				return B_LINK_LIMIT;
 
 			Vnode vnode(volume, parent);
 			Inode* parentNode;

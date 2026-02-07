@@ -12,6 +12,10 @@
 #include "BPlusTree.h"
 #include "Index.h"
 
+#ifdef _KERNEL_MODE
+#	include <vm/vm.h>
+#endif
+
 
 #if BFS_TRACING && !defined(FS_SHELL) && !defined(_BOOT_MODE)
 namespace BFSInodeTracing {
@@ -1083,7 +1087,8 @@ Inode::_RemoveAttribute(Transaction& transaction, const char* name,
 	if ((status = attributes->Remove(transaction, name)) < B_OK)
 		return status;
 
-	if (attributes->IsEmpty()) {
+	bool isEmpty;
+	if (attributes->IsEmpty(isEmpty) == B_OK && isEmpty) {
 		attributes->WriteLockInTransaction(transaction);
 
 		// remove attribute directory (don't fail if that can't be done)
