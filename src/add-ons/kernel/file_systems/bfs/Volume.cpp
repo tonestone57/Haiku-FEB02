@@ -170,6 +170,12 @@ Volume::Volume(fs_volume* volume)
 
 Volume::~Volume()
 {
+	// These are only deleted if Mount() failed, or if Unmount() wasn't called.
+	delete fJournal;
+	delete fIndicesNode;
+	delete fCheckVisitor;
+	fBlockAllocator.Uninitialize();
+
 	mutex_destroy(&fQueryLock);
 	mutex_destroy(&fLock);
 }
@@ -336,6 +342,7 @@ Volume::Unmount()
 	fJournal = NULL;
 
 	delete fIndicesNode;
+	fIndicesNode = NULL;
 
 	block_cache_delete(fBlockCache, !IsReadOnly());
 	close(fDevice);
