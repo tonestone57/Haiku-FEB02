@@ -40,7 +40,7 @@ class Stream : public bfs_inode {
 		bfs_inode& Node() { return *this; }
 		const bfs_inode& Node() const { return *this; }
 
-		static Node *NodeFactory(Volume &volume, off_t id);
+		static ::Node *NodeFactory(Volume &volume, off_t id);
 
 	private:
 		status_t GetNextSmallData(const small_data **_smallData) const;
