@@ -1407,10 +1407,8 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 		status = inode->SetName(transaction, newName);
 		if (status == B_OK) {
 			Index index(volume);
-			status = index.UpdateName(transaction, oldName, newName, inode,
+			index.UpdateName(transaction, oldName, newName, inode,
 				false /* we already updated live queries, above */);
-			if (status == B_BAD_INDEX || status == B_ENTRY_NOT_FOUND)
-				status = B_OK;
 		}
 	}
 

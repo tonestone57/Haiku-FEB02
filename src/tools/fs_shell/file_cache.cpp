@@ -57,7 +57,7 @@ namespace FSShell {
 struct file_cache_ref;
 
 typedef fssh_status_t (*cache_func)(file_cache_ref *ref, void *cookie,
-	fssh_off_t offset, int32_t pageOffset, fssh_addr_t buffer,
+	fssh_off_t offset, int32_t pageOffset, void* buffer,
 	fssh_size_t bufferSize);
 
 struct file_cache_ref {
@@ -81,10 +81,10 @@ file_cache_init()
 
 static fssh_status_t
 read_from_file(file_cache_ref *ref, void *cookie, fssh_off_t offset,
-	int32_t pageOffset, fssh_addr_t buffer, fssh_size_t bufferSize)
+	int32_t pageOffset, void* buffer, fssh_size_t bufferSize)
 {
 	fssh_iovec vec;
-	vec.iov_base = (void *)buffer;
+	vec.iov_base = buffer;
 	vec.iov_len = bufferSize;
 
 	fssh_mutex_unlock(&ref->lock);
@@ -100,10 +100,10 @@ read_from_file(file_cache_ref *ref, void *cookie, fssh_off_t offset,
 
 static fssh_status_t
 write_to_file(file_cache_ref *ref, void *cookie, fssh_off_t offset,
-	int32_t pageOffset, fssh_addr_t buffer, fssh_size_t bufferSize)
+	int32_t pageOffset, void* buffer, fssh_size_t bufferSize)
 {
 	fssh_iovec vec;
-	vec.iov_base = (void *)buffer;
+	vec.iov_base = buffer;
 	vec.iov_len = bufferSize;
 
 	fssh_mutex_unlock(&ref->lock);
@@ -119,14 +119,14 @@ write_to_file(file_cache_ref *ref, void *cookie, fssh_off_t offset,
 
 static inline fssh_status_t
 satisfy_cache_io(file_cache_ref *ref, void *cookie, cache_func function,
-	fssh_off_t offset, fssh_addr_t buffer, int32_t &pageOffset,
+	fssh_off_t offset, void* buffer, int32_t &pageOffset,
 	fssh_size_t bytesLeft, fssh_off_t &lastOffset,
-	fssh_addr_t &lastBuffer, int32_t &lastPageOffset, fssh_size_t &lastLeft)
+	void* &lastBuffer, int32_t &lastPageOffset, fssh_size_t &lastLeft)
 {
 	if (lastBuffer == buffer)
 		return FSSH_B_OK;
 
-	fssh_size_t requestSize = buffer - lastBuffer;
+	fssh_size_t requestSize = (uint8*)buffer - (uint8*)lastBuffer;
 
 	fssh_status_t status = function(ref, cookie, lastOffset, lastPageOffset,
 		lastBuffer, requestSize);
@@ -142,7 +142,7 @@ satisfy_cache_io(file_cache_ref *ref, void *cookie, cache_func function,
 
 
 static fssh_status_t
-cache_io(void *_cacheRef, void *cookie, fssh_off_t offset, fssh_addr_t buffer,
+cache_io(void *_cacheRef, void *cookie, fssh_off_t offset, void* buffer,
 	fssh_size_t *_size, bool doWrite)
 {
 	if (_cacheRef == NULL)
@@ -188,7 +188,7 @@ cache_io(void *_cacheRef, void *cookie, fssh_off_t offset, fssh_addr_t buffer,
 	const uint32_t kMaxChunkSize = MAX_IO_VECS * FSSH_B_PAGE_SIZE;
 	fssh_size_t bytesLeft = size, lastLeft = size;
 	int32_t lastPageOffset = pageOffset;
-	fssh_addr_t lastBuffer = buffer;
+	void* lastBuffer = buffer;
 	fssh_off_t lastOffset = offset;
 
 	MutexLocker locker(ref->lock);
@@ -201,12 +201,12 @@ cache_io(void *_cacheRef, void *cookie, fssh_off_t offset, fssh_addr_t buffer,
 		if (bytesLeft <= bytesInPage)
 			break;
 
-		buffer += bytesInPage;
+		buffer = (uint8*)buffer + bytesInPage;
 		bytesLeft -= bytesInPage;
 		pageOffset = 0;
 		offset += FSSH_B_PAGE_SIZE;
 
-		if (buffer - lastBuffer + lastPageOffset >= kMaxChunkSize) {
+		if ((uint8*)buffer - (uint8*)lastBuffer + lastPageOffset >= kMaxChunkSize) {
 			fssh_status_t status = satisfy_cache_io(ref, cookie, function,
 				offset, buffer, pageOffset, bytesLeft, lastOffset,
 				lastBuffer, lastPageOffset, lastLeft);
@@ -342,7 +342,7 @@ fssh_file_cache_read(void *_cacheRef, void *cookie, fssh_off_t offset,
 	TRACE(("file_cache_read(ref = %p, offset = %lld, buffer = %p, size = %u)\n",
 		ref, offset, bufferBase, *_size));
 
-	return cache_io(ref, cookie, offset, (fssh_addr_t)bufferBase, _size, false);
+	return cache_io(ref, cookie, offset, bufferBase, _size, false);
 }
 
 
@@ -353,7 +353,7 @@ fssh_file_cache_write(void *_cacheRef, void *cookie, fssh_off_t offset,
 	file_cache_ref *ref = (file_cache_ref *)_cacheRef;
 
 	fssh_status_t status = cache_io(ref, cookie, offset,
-		(fssh_addr_t)const_cast<void *>(buffer), _size, true);
+		const_cast<void *>(buffer), _size, true);
 	TRACE(("file_cache_write(ref = %p, offset = %lld, buffer = %p, size = %u) = %d\n",
 		ref, offset, buffer, *_size, status));
 
