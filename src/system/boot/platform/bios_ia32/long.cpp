@@ -127,7 +127,6 @@ long_mmu_init()
 		panic("Can't currently support more than 512GB of RAM!");
 
 	uint64* pml4 = pmlTop;
-	addr_t physicalAddress;
 	cpuid_info info;
 	if (get_current_cpuid(&info, 7, 0) == B_OK
 		&& (info.regs.ecx & IA32_FEATURE_LA57) != 0) {

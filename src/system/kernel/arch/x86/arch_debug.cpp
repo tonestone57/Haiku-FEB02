@@ -597,6 +597,9 @@ get_current_iframe(Thread* thread)
 	}
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+
 static addr_t*
 find_debug_variable(const char* variableName, bool& settable)
 {
@@ -652,6 +655,8 @@ find_debug_variable(const char* variableName, bool& settable)
 
 	return NULL;
 }
+
+#pragma GCC diagnostic pop
 
 
 static int

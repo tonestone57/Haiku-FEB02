@@ -578,6 +578,11 @@ remove_io_interrupt_handler(int32 vector, interrupt_handler handler, void *data)
 
 				oldCPU = sVectors[vector].assigned_cpu->cpu;
 
+				if (oldCPU < 0) {
+					oldCPU = -2;
+					continue;
+				}
+
 				ASSERT(oldCPU != -1);
 				cpu = &gCPU[oldCPU];
 
