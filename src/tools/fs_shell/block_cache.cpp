@@ -26,7 +26,7 @@
 // TODO: the retrieval/copy of the original data could be delayed until the
 //		new data must be written, ie. in low memory situations.
 
-#define TRACE_BLOCK_CACHE
+//#define TRACE_BLOCK_CACHE
 #ifdef TRACE_BLOCK_CACHE
 #	define TRACE(x)	fssh_dprintf x
 #else
