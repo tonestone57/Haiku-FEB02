@@ -175,6 +175,7 @@ InodeAllocator::~InodeAllocator()
 
 		if (fInode != NULL) {
 			fInode->Node().flags &= ~HOST_ENDIAN_TO_BFS_INT32(INODE_IN_USE);
+			fInode->Node().flags |= HOST_ENDIAN_TO_BFS_INT32(INODE_DONT_FREE_SPACE);
 				// this unblocks any pending bfs_read_vnode() calls
 			fInode->Free(*fTransaction);
 
@@ -1270,8 +1271,10 @@ Inode::WriteAttribute(Transaction& transaction, const char* name, int32 type,
 		// check if the data fits into the small_data section again
 		NodeGetter node(fVolume);
 		status = node.SetToWritable(transaction, this);
-		if (status != B_OK)
+		if (status != B_OK) {
+			ReleaseAttribute(attribute);
 			return status;
+		}
 
 		status = _AddSmallData(transaction, node, name, type, pos, buffer,
 			*_length);
@@ -1280,6 +1283,11 @@ Inode::WriteAttribute(Transaction& transaction, const char* name, int32 type,
 			// it does - remove its file
 			writeLocker.Unlock();
 			status = _RemoveAttribute(transaction, name, false, NULL);
+			if (status != B_OK) {
+				// if removing the file failed, we have to remove the
+				// small_data attribute again to avoid duplicates
+				_RemoveSmallData(transaction, node, name);
+			}
 		} else {
 			// The attribute type might have been changed - we need to
 			// adopt the new one
@@ -1351,20 +1359,28 @@ Inode::RemoveAttribute(Transaction& transaction, const char* name)
 		return status;
 
 	// update index for attributes in the small_data section
+	uint8 key[MAX_INDEX_KEY_LENGTH];
+	size_t keyLength = 0;
+	uint32 keyType = 0;
 	{
 		RecursiveLocker _(fSmallDataLock);
 
 		small_data* smallData = FindSmallData(node.Node(), name);
 		if (smallData != NULL) {
-			uint32 length = smallData->DataSize();
-			if (length > MAX_INDEX_KEY_LENGTH)
-				length = MAX_INDEX_KEY_LENGTH;
-			index.Update(transaction, name, smallData->Type(),
-				smallData->Data(), length, NULL, 0, this);
+			keyLength = smallData->DataSize();
+			if (keyLength > MAX_INDEX_KEY_LENGTH)
+				keyLength = MAX_INDEX_KEY_LENGTH;
+			memcpy(key, smallData->Data(), keyLength);
+			keyType = smallData->Type();
 		}
 	}
 
 	status = _RemoveSmallData(transaction, node, name);
+	if (status == B_OK && keyLength > 0) {
+		index.Update(transaction, name, keyType,
+			key, keyLength, NULL, 0, this);
+	}
+
 	if (status == B_ENTRY_NOT_FOUND && !Attributes().IsZero()) {
 		// remove the attribute file if it exists
 		status = _RemoveAttribute(transaction, name, hasIndex, &index);
@@ -2798,9 +2814,10 @@ Inode::Remove(Transaction& transaction, const char* name, ino_t* _id,
 	if (status != B_OK)
 		return status;
 
-	if (fTree->Remove(transaction, name, id) != B_OK && !force) {
+	status = fTree->Remove(transaction, name, id);
+	if (status != B_OK && !force) {
 		unremove_vnode(fVolume->FSVolume(), id);
-		RETURN_ERROR(B_ERROR);
+		return status;
 	}
 
 #ifdef DEBUG
@@ -2982,7 +2999,9 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 
 	node->type = HOST_ENDIAN_TO_BFS_INT32(type);
 
-	inode->WriteBack(transaction);
+	status = inode->WriteBack(transaction);
+	if (status < B_OK)
+		return status;
 		// make sure the initialized node is available to others
 
 	// only add the name to regular files, directories, or symlinks

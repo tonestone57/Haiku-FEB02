@@ -805,6 +805,7 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 
 			if (user_memcpy(&checker->Control(), buffer,
 					sizeof(check_control)) != B_OK) {
+				volume->DeleteCheckVisitor();
 				return B_BAD_ADDRESS;
 			}
 
@@ -869,8 +870,11 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 					// tells StopChecking() that we finished the pass
 
 				if (checker->Pass() == BFS_CHECK_PASS_BITMAP) {
-					if (checker->WriteBackCheckBitmap() == B_OK)
+					status_t writeStatus = checker->WriteBackCheckBitmap();
+					if (writeStatus == B_OK)
 						status = checker->StartIndexPass();
+					else
+						status = writeStatus;
 				}
 			}
 

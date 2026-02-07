@@ -194,8 +194,10 @@ CheckVisitor::StopChecking()
 
 	_FreeIndices();
 
-	recursive_lock_unlock(&GetVolume()->Allocator().Lock());
-	GetVolume()->GetJournal(0)->Unlock(NULL, true);
+	if (fCheckBitmap != NULL) {
+		recursive_lock_unlock(&GetVolume()->Allocator().Lock());
+		GetVolume()->GetJournal(0)->Unlock(NULL, true);
+	}
 	return B_OK;
 }
 
@@ -448,7 +450,7 @@ CheckVisitor::_CheckBitmapIsUsedAt(off_t block) const
 {
 	size_t size = _BitmapSize();
 	uint32 index = block / 32;	// 32bit resolution
-	if (index > size / 4)
+	if (index >= size / 4)
 		return false;
 
 	return BFS_ENDIAN_TO_HOST_INT32(fCheckBitmap[index])
@@ -461,7 +463,7 @@ CheckVisitor::_SetCheckBitmapAt(off_t block)
 {
 	size_t size = _BitmapSize();
 	uint32 index = block / 32;	// 32bit resolution
-	if (index > size / 4)
+	if (index >= size / 4)
 		return;
 
 	fCheckBitmap[index] |= HOST_ENDIAN_TO_BFS_INT32(1UL << (block & 0x1f));
