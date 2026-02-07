@@ -2029,11 +2029,7 @@ BPlusTree::_RemoveDuplicate(Transaction& transaction,
 				memcpy(target, array,
 					(NUM_FRAGMENT_VALUES + 1) * sizeof(off_t));
 
-				status_t status = cachedDuplicate.Free(transaction,
-					duplicateOffset);
-				if (status != B_OK)
-					return status;
-
+				cachedDuplicate.Free(transaction, duplicateOffset);
 				duplicateOffset = offset;
 			} else {
 				// convert node
@@ -2221,25 +2217,17 @@ BPlusTree::Remove(Transaction& transaction, const uint8* key, uint16 keyLength,
 		// we have to update the right/left link of the
 		// siblings first
 		CachedNode otherCached(this);
-		if (writableNode->LeftLink() != BPLUSTREE_NULL) {
-			bplustree_node* other = otherCached.SetToWritable(transaction,
-				writableNode->LeftLink());
-			if (other == NULL)
-				return B_IO_ERROR;
+		bplustree_node* other = otherCached.SetToWritable(transaction,
+			writableNode->LeftLink());
+		if (other != NULL)
 			other->right_link = writableNode->right_link;
-		}
 
-		if (writableNode->RightLink() != BPLUSTREE_NULL) {
-			bplustree_node* other = otherCached.SetToWritable(transaction,
-				writableNode->RightLink());
-			if (other == NULL)
-				return B_IO_ERROR;
+		if ((other = otherCached.SetToWritable(transaction, node->RightLink()))
+				!= NULL) {
 			other->left_link = writableNode->left_link;
 		}
 
-		status_t status = cached.Free(transaction, nodeAndKey.nodeOffset);
-		if (status != B_OK)
-			return status;
+		cached.Free(transaction, nodeAndKey.nodeOffset);
 	}
 	RETURN_ERROR(B_ERROR);
 }
