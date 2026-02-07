@@ -126,7 +126,7 @@ satisfy_cache_io(file_cache_ref *ref, void *cookie, cache_func function,
 	if (lastBuffer == buffer)
 		return FSSH_B_OK;
 
-	fssh_size_t requestSize = (uint8_t*)buffer - (uint8_t*)lastBuffer;
+	fssh_size_t requestSize = (uint8*)buffer - (uint8*)lastBuffer;
 
 	fssh_status_t status = function(ref, cookie, lastOffset, lastPageOffset,
 		lastBuffer, requestSize);
@@ -201,12 +201,12 @@ cache_io(void *_cacheRef, void *cookie, fssh_off_t offset, void* buffer,
 		if (bytesLeft <= bytesInPage)
 			break;
 
-		buffer = (uint8_t*)buffer + bytesInPage;
+		buffer = (uint8*)buffer + bytesInPage;
 		bytesLeft -= bytesInPage;
 		pageOffset = 0;
 		offset += FSSH_B_PAGE_SIZE;
 
-		if ((uint8_t*)buffer - (uint8_t*)lastBuffer + lastPageOffset >= kMaxChunkSize) {
+		if ((uint8*)buffer - (uint8*)lastBuffer + lastPageOffset >= kMaxChunkSize) {
 			fssh_status_t status = satisfy_cache_io(ref, cookie, function,
 				offset, buffer, pageOffset, bytesLeft, lastOffset,
 				lastBuffer, lastPageOffset, lastLeft);

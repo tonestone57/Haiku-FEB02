@@ -236,9 +236,27 @@ status_t
 Attribute::_Truncate()
 {
 	if (fSmall != NULL) {
-		// TODO: as long as Inode::_AddSmallData() works like it does,
-		// we've got nothing to do here
-		return B_OK;
+		Transaction transaction(fInode->GetVolume(), fInode->BlockNumber());
+		if (!transaction.IsStarted())
+			return B_ERROR;
+
+		NodeGetter node(fInode->GetVolume());
+		status_t status = node.SetToWritable(transaction, fInode);
+		if (status != B_OK)
+			return status;
+
+		status = fInode->_AddSmallData(transaction, node, fName,
+			fSmall->Type(), 0, (const uint8*)"", 0, true);
+		if (status == B_OK)
+			status = fInode->WriteBack(transaction);
+
+		if (status == B_OK)
+			status = transaction.Done();
+
+		if (status != B_OK)
+			fInode->UpdateNodeFromDisk();
+
+		return status;
 	}
 
 	if (fAttribute != NULL) {

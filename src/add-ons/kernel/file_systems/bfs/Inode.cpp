@@ -724,9 +724,16 @@ Inode::_RemoveSmallData(Transaction& transaction, NodeGetter& nodeGetter,
 	if (item->IsLast(node))
 		return B_ENTRY_NOT_FOUND;
 
+	// We need to calculate the offset to the item, as the node pointer might
+	// change when making the node writable.
+	size_t itemOffset = (uint8*)item - (uint8*)node;
+
 	status_t status = nodeGetter.MakeWritable(transaction);
 	if (status != B_OK)
 		return status;
+
+	node = nodeGetter.WritableNode();
+	item = (small_data*)((uint8*)node + itemOffset);
 
 	status = _RemoveSmallData(node, item, index);
 	if (status == B_OK) {
