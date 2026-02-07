@@ -272,7 +272,11 @@ struct file_cookie {
 
 RingBuffer::RingBuffer()
 	:
-	fBuffer(NULL)
+	fBuffer(NULL),
+	fBufferSize(0),
+	fWriteHead(0),
+	fWriteAvailable(0),
+	fReadHead(0)
 {
 	mutex_init(&fWriteLock, "fifo ring write");
 }
@@ -316,8 +320,10 @@ RingBuffer::Write(const void* data, size_t length, size_t minimum, bool isUser, 
 {
 	if (fBuffer == NULL)
 		return B_NO_MEMORY;
-	if (isUser && !IS_USER_ADDRESS(data))
+	if (isUser && (!IS_USER_ADDRESS(data)
+			|| !IS_USER_ADDRESS((const uint8*)data + length))) {
 		return B_BAD_ADDRESS;
+	}
 
 	MutexLocker _(fWriteLock);
 	uint32 writeAvailable = atomic_get((int32*)&fWriteAvailable);
@@ -364,8 +370,10 @@ RingBuffer::Read(void* data, size_t length, bool isUser, bool* wasFull)
 {
 	if (fBuffer == NULL)
 		return B_NO_MEMORY;
-	if (isUser && !IS_USER_ADDRESS(data))
+	if (isUser && (!IS_USER_ADDRESS(data)
+			|| !IS_USER_ADDRESS((uint8*)data + length))) {
 		return B_BAD_ADDRESS;
+	}
 
 	uint32 readHead = 0;
 	uint32 readable = 0;
@@ -1131,10 +1139,10 @@ fifo_read(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 
 	ReadLocker _(inode->ChangeLock());
 
-	if (inode->IsActive() && inode->WriterCount() == 0) {
+	if (inode->WriterCount() == 0) {
 		// as long there is no writer, and the pipe is empty,
 		// we always just return 0 to indicate end of file
-		if (inode->BytesAvailable() == 0) {
+		if (!inode->IsActive() || inode->BytesAvailable() == 0) {
 			*_length = 0;
 			return B_OK;
 		}
@@ -1268,7 +1276,11 @@ fifo_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 op,
 			if (buffer == NULL)
 				return B_BAD_VALUE;
 
-			int available = (int)inode->BytesAvailable();
+			size_t bytesAvailable = inode->BytesAvailable();
+			if (bytesAvailable > INT_MAX)
+				bytesAvailable = INT_MAX;
+
+			int available = (int)bytesAvailable;
 
 			if (is_called_via_syscall()) {
 				if (!IS_USER_ADDRESS(buffer)

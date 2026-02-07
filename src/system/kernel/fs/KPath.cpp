@@ -344,7 +344,7 @@ KPath::Append(const char* component, bool isComponent)
 		&& component[0] != '/';
 	size_t resultPathLength = fPathLength + componentLength
 		+ (insertSlash ? 1 : 0);
-	if (resultPathLength >= fBufferSize)
+	if (resultPathLength < fPathLength || resultPathLength >= fBufferSize)
 		return B_BUFFER_OVERFLOW;
 
 	// compose the result path

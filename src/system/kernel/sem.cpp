@@ -766,8 +766,10 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		return B_NOT_ALLOWED;
 	}
 
-	if ((int64)sSems[slot].u.used.count - count < INT_MIN)
+	if ((int64)sSems[slot].u.used.count - count < INT_MIN
+		|| (int64)sSems[slot].u.used.net_count - count < INT_MIN) {
 		return B_BAD_VALUE;
+	}
 
 	if (sSems[slot].u.used.count - count < 0) {
 		if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0) {
@@ -930,7 +932,8 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 		// Don't release more than necessary -- there might be interrupted/
 		// timed out threads in the queue.
 		flags |= B_RELEASE_IF_WAITING_ONLY;
-	} else if (count > 0 && sSems[slot].u.used.count > INT_MAX - count) {
+	} else if (count > 0 && (sSems[slot].u.used.count > INT_MAX - count
+			|| sSems[slot].u.used.net_count > INT_MAX - count)) {
 		return B_RESULT_NOT_REPRESENTABLE;
 	}
 
