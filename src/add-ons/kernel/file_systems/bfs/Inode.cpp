@@ -1693,8 +1693,11 @@ Inode::WriteAt(Transaction& transaction, off_t pos, const uint8* buffer,
 
 	if (oldSize < pos) {
 		status_t status = FillGapWithZeros(transaction, oldSize, pos);
-		if (status != B_OK)
+		if (status != B_OK) {
+			// Note: If FillGapWithZeros fails (e.g. B_DEVICE_FULL), we must
+			// propagate the error to avoid file corruption or inconsistency.
 			return status;
+		}
 	}
 
 	// If we don't want to write anything, we can now return (we may
