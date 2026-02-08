@@ -264,6 +264,7 @@ public:
 
 			size_t				NodeSize() const { return fNodeSize; }
 			Inode*				Stream() const { return fStream; }
+			bool				IsInTransaction() const { return fInTransaction; }
 
 #if !_BOOT_MODE
 			status_t			Validate(bool repair, bool& _errorsFound);
@@ -368,6 +369,7 @@ private:
 			friend class TreeIterator;
 			friend class CachedNode;
 			friend struct TreeCheck;
+			friend class InodeAllocator;
 
 			Inode*				fStream;
 			bplustree_header	fHeader;

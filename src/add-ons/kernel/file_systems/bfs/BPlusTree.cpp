@@ -409,13 +409,20 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 	InternalSetTo(&transaction, 0LL);
 
 	if (fNode != NULL && !fTree->fInTransaction) {
+		PRINT(("BPlusTree %p added to transaction\n", fTree));
+		dprintf("DEBUG_BFS_FIX: BPlusTree %p added to transaction\n", fTree);
 		transaction.AddListener(fTree);
 		fTree->fInTransaction = true;
 
 		if (!transaction.GetVolume()->IsInitializing()
 				&& fTree->fStream != transaction.GetVolume()->IndicesNode()) {
-			acquire_vnode(transaction.GetVolume()->FSVolume(),
+			status_t acquireStatus = acquire_vnode(transaction.GetVolume()->FSVolume(),
 				fTree->fStream->ID());
+			if (acquireStatus != B_OK) {
+				dprintf("DEBUG_BFS_FIX: FATAL: acquire_vnode failed for BPlusTree %p inode %" B_PRIdINO ": %s\n",
+					fTree, fTree->fStream->ID(), strerror(acquireStatus));
+				panic("acquire_vnode failed in BPlusTree::SetToWritableHeader");
+			}
 		}
 	}
 
@@ -652,6 +659,8 @@ BPlusTree::~BPlusTree()
 
 	mutex_destroy(&fIteratorLock);
 
+	if (fInTransaction)
+		PRINT(("BPlusTree::~BPlusTree: fInTransaction is true! %p\n", this));
 	ASSERT(!fInTransaction);
 #endif // !_BOOT_MODE
 }
@@ -999,6 +1008,8 @@ BPlusTree::TransactionDone(bool success)
 void
 BPlusTree::RemovedFromTransaction()
 {
+	PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
+	dprintf("DEBUG_BFS_FIX: BPlusTree::RemovedFromTransaction %p\n", this);
 	fInTransaction = false;
 
 	if (!fStream->GetVolume()->IsInitializing() && fStream != fStream->GetVolume()->IndicesNode())

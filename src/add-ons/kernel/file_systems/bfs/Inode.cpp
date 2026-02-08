@@ -181,13 +181,27 @@ InodeAllocator::~InodeAllocator()
 	if (fTransaction != NULL) {
 		Volume* volume = fTransaction->GetVolume();
 
+		dprintf("DEBUG_BFS_FIX: InodeAllocator %p: Destructor fInode %p fTree %p trans %p\n",
+			this, fInode, fInode ? fInode->fTree : NULL, fTransaction);
+
 		if (fInode != NULL) {
 			fInode->Node().flags &= ~HOST_ENDIAN_TO_BFS_INT32(INODE_IN_USE);
 				// this unblocks any pending bfs_read_vnode() calls
 			fInode->Free(*fTransaction);
 
-			if (fInode->fTree != NULL)
-				fTransaction->RemoveListener(fInode->fTree);
+			if (fInode->fTree != NULL) {
+				bool inTrans = fInode->fTree->IsInTransaction();
+				dprintf("DEBUG_BFS_FIX: Tree %p IsInTransaction: %d\n", fInode->fTree, inTrans);
+				if (inTrans) {
+					fTransaction->RemoveListener(fInode->fTree);
+					bool stillIn = fInode->fTree->IsInTransaction();
+					dprintf("DEBUG_BFS_FIX: Removed listener. StillIn: %d\n", stillIn);
+					if (stillIn) {
+						panic("InodeAllocator: tree %p still in transaction after removal!",
+							fInode->fTree);
+					}
+				}
+			}
 			fTransaction->RemoveListener(fInode);
 
 			ino_t id = fInode->ID();
@@ -474,6 +488,12 @@ Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
 
+	if (fTree != NULL) {
+		dprintf("DEBUG_BFS_FIX: Inode::~Inode() fTree %p IsInTransaction: %d\n", fTree, fTree->IsInTransaction());
+		if (fTree->IsInTransaction())
+			panic("Inode::~Inode: tree %p is still in transaction!", fTree);
+	}
+
 	file_cache_delete(FileCache());
 	file_map_delete(Map());
 	delete fTree;
@@ -541,12 +561,19 @@ Inode::WriteLockInTransaction(Transaction& transaction)
 	if ((Flags() & INODE_DELETED) != 0)
 		fVolume->RemovedInodes().Remove(this);
 
-	if (!fVolume->IsInitializing() && this != fVolume->IndicesNode())
-		acquire_vnode(fVolume->FSVolume(), ID());
+	if (!fVolume->IsInitializing() && this != fVolume->IndicesNode()) {
+		status_t acquireStatus = acquire_vnode(fVolume->FSVolume(), ID());
+		if (acquireStatus != B_OK) {
+			dprintf("DEBUG_BFS_FIX: FATAL: acquire_vnode failed for Inode %p %" B_PRIdINO ": %s\n",
+				this, ID(), strerror(acquireStatus));
+			panic("acquire_vnode failed in Inode::WriteLockInTransaction");
+		}
+	}
 
 	rw_lock_write_lock(&Lock());
 	Node().flags |= HOST_ENDIAN_TO_BFS_INT32(INODE_IN_TRANSACTION);
 
+	dprintf("DEBUG_BFS_FIX: Inode %p %" B_PRIdINO " added to transaction\n", this, ID());
 	transaction.AddListener(this);
 }
 
