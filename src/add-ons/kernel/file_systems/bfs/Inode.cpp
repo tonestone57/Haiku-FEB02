@@ -194,6 +194,8 @@ InodeAllocator::~InodeAllocator()
 							fInode->fTree);
 					}
 				}
+				delete fInode->fTree;
+				fInode->fTree = NULL;
 			}
 			if ((fInode->Flags() & INODE_IN_TRANSACTION) != 0)
 				fTransaction->RemoveListener(fInode);
