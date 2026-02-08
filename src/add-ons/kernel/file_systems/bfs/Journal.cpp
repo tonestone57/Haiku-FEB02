@@ -1298,6 +1298,7 @@ Transaction::RemoveListener(TransactionListener* listener)
 	if (fJournal == NULL)
 		panic("Transaction is not running!");
 
+	PRINT(("Transaction::RemoveListener %p\n", listener));
 	fListeners.Remove(listener);
 	listener->RemovedFromTransaction();
 }

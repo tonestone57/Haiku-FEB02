@@ -186,8 +186,11 @@ InodeAllocator::~InodeAllocator()
 				// this unblocks any pending bfs_read_vnode() calls
 			fInode->Free(*fTransaction);
 
-			if (fInode->fTree != NULL)
+			if (fInode->fTree != NULL) {
+				PRINT(("InodeAllocator: removing tree listener %p\n", fInode->fTree));
 				fTransaction->RemoveListener(fInode->fTree);
+			}
+			PRINT(("InodeAllocator: removing inode listener %p\n", fInode));
 			fTransaction->RemoveListener(fInode);
 
 			ino_t id = fInode->ID();

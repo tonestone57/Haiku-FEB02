@@ -409,6 +409,7 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 	InternalSetTo(&transaction, 0LL);
 
 	if (fNode != NULL && !fTree->fInTransaction) {
+		PRINT(("BPlusTree %p added to transaction\n", fTree));
 		transaction.AddListener(fTree);
 		fTree->fInTransaction = true;
 
@@ -652,6 +653,8 @@ BPlusTree::~BPlusTree()
 
 	mutex_destroy(&fIteratorLock);
 
+	if (fInTransaction)
+		PRINT(("BPlusTree::~BPlusTree: fInTransaction is true! %p\n", this));
 	ASSERT(!fInTransaction);
 #endif // !_BOOT_MODE
 }
@@ -999,6 +1002,7 @@ BPlusTree::TransactionDone(bool success)
 void
 BPlusTree::RemovedFromTransaction()
 {
+	PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
 	fInTransaction = false;
 
 	if (!fStream->GetVolume()->IsInitializing() && fStream != fStream->GetVolume()->IndicesNode())
