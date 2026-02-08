@@ -561,12 +561,19 @@ Inode::WriteLockInTransaction(Transaction& transaction)
 	if ((Flags() & INODE_DELETED) != 0)
 		fVolume->RemovedInodes().Remove(this);
 
-	if (!fVolume->IsInitializing() && this != fVolume->IndicesNode())
-		acquire_vnode(fVolume->FSVolume(), ID());
+	if (!fVolume->IsInitializing() && this != fVolume->IndicesNode()) {
+		status_t acquireStatus = acquire_vnode(fVolume->FSVolume(), ID());
+		if (acquireStatus != B_OK) {
+			dprintf("DEBUG_BFS_FIX: FATAL: acquire_vnode failed for Inode %p %" B_PRIdINO ": %s\n",
+				this, ID(), strerror(acquireStatus));
+			panic("acquire_vnode failed in Inode::WriteLockInTransaction");
+		}
+	}
 
 	rw_lock_write_lock(&Lock());
 	Node().flags |= HOST_ENDIAN_TO_BFS_INT32(INODE_IN_TRANSACTION);
 
+	dprintf("DEBUG_BFS_FIX: Inode %p %" B_PRIdINO " added to transaction\n", this, ID());
 	transaction.AddListener(this);
 }
 

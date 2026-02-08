@@ -416,8 +416,13 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 
 		if (!transaction.GetVolume()->IsInitializing()
 				&& fTree->fStream != transaction.GetVolume()->IndicesNode()) {
-			acquire_vnode(transaction.GetVolume()->FSVolume(),
+			status_t acquireStatus = acquire_vnode(transaction.GetVolume()->FSVolume(),
 				fTree->fStream->ID());
+			if (acquireStatus != B_OK) {
+				dprintf("DEBUG_BFS_FIX: FATAL: acquire_vnode failed for BPlusTree %p inode %" B_PRIdINO ": %s\n",
+					fTree, fTree->fStream->ID(), strerror(acquireStatus));
+				panic("acquire_vnode failed in BPlusTree::SetToWritableHeader");
+			}
 		}
 	}
 
