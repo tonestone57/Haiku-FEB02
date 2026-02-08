@@ -554,7 +554,7 @@ Inode::WriteLockInTransaction(Transaction& transaction)
 	if ((Flags() & INODE_DELETED) != 0)
 		fVolume->RemovedInodes().Remove(this);
 
-	if (!fVolume->IsInitializing() && this != fVolume->IndicesNode()) {
+	if (fVolume->FSVolume() != NULL && this != fVolume->IndicesNode()) {
 		status_t acquireStatus = acquire_vnode(fVolume->FSVolume(), ID());
 		if (acquireStatus != B_OK)
 			panic("acquire_vnode failed in Inode::WriteLockInTransaction: %s", strerror(acquireStatus));
