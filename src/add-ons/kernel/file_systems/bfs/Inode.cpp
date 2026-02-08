@@ -187,10 +187,14 @@ InodeAllocator::~InodeAllocator()
 			fInode->Free(*fTransaction);
 
 			if (fInode->fTree != NULL) {
-				PRINT(("InodeAllocator: removing tree listener %p\n", fInode->fTree));
-				fTransaction->RemoveListener(fInode->fTree);
+				if (fInode->fTree->IsInTransaction()) {
+					fTransaction->RemoveListener(fInode->fTree);
+					if (fInode->fTree->IsInTransaction()) {
+						panic("InodeAllocator: tree %p still in transaction after removal!",
+							fInode->fTree);
+					}
+				}
 			}
-			PRINT(("InodeAllocator: removing inode listener %p\n", fInode));
 			fTransaction->RemoveListener(fInode);
 
 			ino_t id = fInode->ID();
@@ -476,6 +480,9 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
+
+	if (fTree != NULL && fTree->IsInTransaction())
+		panic("Inode::~Inode: tree %p is still in transaction!", fTree);
 
 	file_cache_delete(FileCache());
 	file_map_delete(Map());
