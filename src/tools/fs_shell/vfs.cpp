@@ -2022,12 +2022,20 @@ fssh_acquire_vnode(fssh_fs_volume *volume, fssh_vnode_id vnodeID)
 
 	fssh_mutex_lock(&sVnodeMutex);
 	vnode = lookup_vnode(volume->id, vnodeID);
+
+	if (vnode != NULL) {
+		if (vnode->ref_count == 0) {
+			list_remove_item(&sUnusedVnodeList, vnode);
+			sUnusedVnodes--;
+		}
+		inc_vnode_ref_count(vnode);
+	}
+
 	fssh_mutex_unlock(&sVnodeMutex);
 
 	if (vnode == NULL)
 		return FSSH_B_BAD_VALUE;
 
-	inc_vnode_ref_count(vnode);
 	return FSSH_B_OK;
 }
 
