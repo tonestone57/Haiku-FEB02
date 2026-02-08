@@ -410,7 +410,6 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 
 	if (fNode != NULL && !fTree->fInTransaction) {
 		PRINT(("BPlusTree %p added to transaction\n", fTree));
-		dprintf("DEBUG_BFS_FIX: BPlusTree %p added to transaction\n", fTree);
 		transaction.AddListener(fTree);
 		fTree->fInTransaction = true;
 
@@ -419,9 +418,8 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 			status_t acquireStatus = acquire_vnode(transaction.GetVolume()->FSVolume(),
 				fTree->fStream->ID());
 			if (acquireStatus != B_OK) {
-				dprintf("DEBUG_BFS_FIX: FATAL: acquire_vnode failed for BPlusTree %p inode %" B_PRIdINO ": %s\n",
-					fTree, fTree->fStream->ID(), strerror(acquireStatus));
-				panic("acquire_vnode failed in BPlusTree::SetToWritableHeader");
+				panic("acquire_vnode failed in BPlusTree::SetToWritableHeader: %s",
+					strerror(acquireStatus));
 			}
 		}
 	}
@@ -1009,7 +1007,6 @@ void
 BPlusTree::RemovedFromTransaction()
 {
 	PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
-	dprintf("DEBUG_BFS_FIX: BPlusTree::RemovedFromTransaction %p\n", this);
 	fInTransaction = false;
 
 	if (!fStream->GetVolume()->IsInitializing() && fStream != fStream->GetVolume()->IndicesNode())
