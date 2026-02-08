@@ -2978,8 +2978,10 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 	InodeAllocator allocator(transaction);
 	block_run run;
 	Inode* inode;
+	PRINT(("Inode::Create: calling allocator.New\n"));
 	status = allocator.New(&parentRun, mode, publishFlags, run, vnodeOps,
 		&inode);
+	PRINT(("Inode::Create: allocator.New returned %s\n", strerror(status)));
 	if (status < B_OK)
 		return status;
 
@@ -3016,7 +3018,9 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 	// Initialize b+tree if it's a directory (and add "." & ".." if it's
 	// a standard directory for files - not for attributes or indices)
 	if (inode->IsContainer()) {
+		PRINT(("Inode::Create: calling allocator.CreateTree\n"));
 		status = allocator.CreateTree();
+		PRINT(("Inode::Create: allocator.CreateTree returned %s\n", strerror(status)));
 		if (status != B_OK)
 			return status;
 	}
@@ -3025,7 +3029,9 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 	// (the vnode is not published yet, so it is safe to make the inode
 	// accessable to the file system here)
 	if (tree != NULL) {
+		PRINT(("Inode::Create: calling tree->Insert\n"));
 		status = tree->Insert(transaction, name, inode->ID());
+		PRINT(("Inode::Create: tree->Insert returned %s\n", strerror(status)));
 	} else if (parent != NULL && (mode & S_ATTR_DIR) != 0) {
 		parent->Attributes() = run;
 		status = parent->WriteBack(transaction);
@@ -3088,6 +3094,7 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 
 	// Everything worked well until this point, we have a fully
 	// initialized inode, and we want to keep it
+	PRINT(("Inode::Create: calling allocator.Keep\n"));
 	allocator.Keep(vnodeOps, publishFlags);
 
 	if (_created)
