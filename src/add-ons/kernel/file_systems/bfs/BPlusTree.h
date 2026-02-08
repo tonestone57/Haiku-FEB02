@@ -264,6 +264,7 @@ public:
 
 			size_t				NodeSize() const { return fNodeSize; }
 			Inode*				Stream() const { return fStream; }
+			bool				IsInTransaction() const { return fInTransaction; }
 
 #if !_BOOT_MODE
 			status_t			Validate(bool repair, bool& _errorsFound);
