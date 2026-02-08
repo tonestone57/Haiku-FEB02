@@ -195,7 +195,8 @@ InodeAllocator::~InodeAllocator()
 					}
 				}
 			}
-			fTransaction->RemoveListener(fInode);
+			if ((fInode->Flags() & INODE_IN_TRANSACTION) != 0)
+				fTransaction->RemoveListener(fInode);
 
 			ino_t id = fInode->ID();
 			// We need to set fInode to NULL before calling remove_vnode() because that may call
@@ -2623,10 +2624,19 @@ Inode::Free(Transaction& transaction)
 		}
 	}
 
-	if (WriteBack(transaction) < B_OK)
-		return B_IO_ERROR;
+	status_t status = WriteBack(transaction);
+	if (status < B_OK)
+		status = B_IO_ERROR;
+	else
+		status = fVolume->Free(transaction, BlockRun());
 
-	return fVolume->Free(transaction, BlockRun());
+	if (fTree != NULL && fTree->IsInTransaction())
+		transaction.RemoveListener(fTree);
+
+	if ((Flags() & INODE_IN_TRANSACTION) != 0)
+		transaction.RemoveListener(this);
+
+	return status;
 }
 
 
