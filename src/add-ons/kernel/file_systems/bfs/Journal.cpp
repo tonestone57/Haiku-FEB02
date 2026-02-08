@@ -1315,7 +1315,8 @@ Transaction::MoveListenersTo(Transaction* transaction)
 void
 Transaction::NotifyListeners(bool success)
 {
-	while (TransactionListener* listener = fListeners.RemoveHead()) {
+	while (TransactionListener* listener = fListeners.Last()) {
+		fListeners.Remove(listener);
 		listener->TransactionDone(success);
 		listener->RemovedFromTransaction();
 	}
