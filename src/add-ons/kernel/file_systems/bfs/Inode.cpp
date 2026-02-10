@@ -449,6 +449,12 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 
 	memset(&fNode, 0, sizeof(bfs_inode));
 
+#ifdef FS_SHELL
+	PRINT(("Inode::Inode: FS_SHELL is defined\n"));
+#else
+	PRINT(("Inode::Inode: FS_SHELL is NOT defined\n"));
+#endif
+
 	NodeGetter node(volume);
 	status_t status = node.SetToWritable(transaction, this, true);
 	if (status != B_OK) {

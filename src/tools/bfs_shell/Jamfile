@@ -64,6 +64,9 @@ local bfsSource =
 	kernel_interface.cpp
 ;
 
+# Force rebuild of bfs objects
+# Timestamp: 1
+
 BuildPlatformMergeObject <build>bfs.o : $(bfsSource) ;
 
 BuildPlatformMain <build>bfs_shell
