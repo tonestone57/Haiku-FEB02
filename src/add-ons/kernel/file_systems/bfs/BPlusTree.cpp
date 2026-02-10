@@ -421,6 +421,7 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 				panic("acquire_vnode failed in BPlusTree::SetToWritableHeader: %s",
 					strerror(acquireStatus));
 			}
+			fTree->fVnodeAcquired = true;
 		}
 	}
 
@@ -607,7 +608,8 @@ CachedNode::Allocate(Transaction& transaction, bplustree_node** _node,
 BPlusTree::BPlusTree(Transaction& transaction, Inode* stream, int32 nodeSize)
 	:
 	fStream(NULL),
-	fInTransaction(false)
+	fInTransaction(false),
+	fVnodeAcquired(false)
 {
 	mutex_init(&fIteratorLock, "bfs b+tree iterator");
 	SetTo(transaction, stream);
@@ -618,7 +620,8 @@ BPlusTree::BPlusTree(Transaction& transaction, Inode* stream, int32 nodeSize)
 BPlusTree::BPlusTree(Inode* stream)
 	:
 	fStream(NULL),
-	fInTransaction(false)
+	fInTransaction(false),
+	fVnodeAcquired(false)
 {
 #if !_BOOT_MODE
 	mutex_init(&fIteratorLock, "bfs b+tree iterator");
@@ -634,6 +637,7 @@ BPlusTree::BPlusTree()
 	fNodeSize(BPLUSTREE_NODE_SIZE),
 	fAllowDuplicates(true),
 	fInTransaction(false),
+	fVnodeAcquired(false),
 	fStatus(B_NO_INIT)
 {
 #if !_BOOT_MODE
@@ -1010,9 +1014,10 @@ BPlusTree::RemovedFromTransaction()
 	// PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
 	fInTransaction = false;
 
-	if (fStream != NULL && !fStream->GetVolume()->IsInitializing()
-		&& fStream != fStream->GetVolume()->IndicesNode()) {
-		put_vnode(fStream->GetVolume()->FSVolume(), fStream->ID());
+	if (fVnodeAcquired) {
+		if (fStream != NULL)
+			put_vnode(fStream->GetVolume()->FSVolume(), fStream->ID());
+		fVnodeAcquired = false;
 	}
 }
 
