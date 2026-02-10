@@ -769,9 +769,12 @@ ModulesView::SaveState()
 void
 ModulesView::EmptyScreenSaverList()
 {
+	// We need to deselect items first, because MakeEmpty() would try to access
+	// them to update the selection state.
 	fScreenSaversListView->DeselectAll();
-	while (BListItem* item = fScreenSaversListView->RemoveItem((int32)0))
-		delete item;
+	for (int32 i = 0; i < fScreenSaversListView->CountItems(); i++)
+		delete fScreenSaversListView->ItemAt(i);
+	fScreenSaversListView->MakeEmpty();
 }
 
 
