@@ -193,9 +193,7 @@ InodeAllocator::~InodeAllocator()
 				PRINT(("InodeAllocator::~InodeAllocator: FS_SHELL defined, LEAKING tree\n"));
 				// In fs_shell, race conditions can cause IsInTransaction() to return false
 				// even if the tree is still referenced by a transaction. We leak the tree
-				// here to ensure the transaction can safely access it later (it will see
-				// fStream as NULL).
-				fInode->fTree->fStream = NULL;
+				// here to ensure the transaction can safely access it later.
 				fInode->fTree = NULL;
 #else
 				PRINT(("InodeAllocator::~InodeAllocator: FS_SHELL NOT defined, deleting tree\n"));
