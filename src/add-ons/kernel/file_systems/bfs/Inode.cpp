@@ -416,6 +416,9 @@ Inode::Inode(Volume* volume, ino_t id)
 	fAttributes(NULL),
 	fCache(NULL),
 	fMap(NULL)
+#ifdef FS_SHELL
+	, fTransaction(NULL)
+#endif
 {
 	PRINT(("Inode::Inode(volume = %p, id = %" B_PRIdINO ") @ %p\n",
 		volume, id, this));
@@ -455,6 +458,9 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 	fAttributes(NULL),
 	fCache(NULL),
 	fMap(NULL)
+#ifdef FS_SHELL
+	, fTransaction(NULL)
+#endif
 {
 	PRINT(("Inode::Inode(volume = %p, transaction = %p, id = %" B_PRIdINO
 		") @ %p\n", volume, &transaction, id, this));
@@ -497,6 +503,12 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 
 Inode::~Inode()
 {
+#ifdef FS_SHELL
+	if (fTransaction != NULL) {
+		fTransaction->RemoveListener(this);
+	}
+#endif
+
 	PRINT(("Inode::~Inode() @ %p\n", this));
 	PRINT(("Inode::~Inode: fTree is %p\n", fTree));
 
@@ -596,6 +608,9 @@ Inode::WriteLockInTransaction(Transaction& transaction)
 	Node().flags |= HOST_ENDIAN_TO_BFS_INT32(INODE_IN_TRANSACTION);
 
 	transaction.AddListener(this);
+#ifdef FS_SHELL
+	fTransaction = &transaction;
+#endif
 }
 
 
@@ -2796,6 +2811,10 @@ void
 Inode::RemovedFromTransaction()
 {
 	Node().flags &= ~HOST_ENDIAN_TO_BFS_INT32(INODE_IN_TRANSACTION);
+
+#ifdef FS_SHELL
+	fTransaction = NULL;
+#endif
 
 	// See AddInode() why we do this here
 	if ((Flags() & INODE_DELETED) != 0)

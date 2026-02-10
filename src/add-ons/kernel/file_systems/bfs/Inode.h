@@ -294,6 +294,10 @@ private:
 
 			mutable recursive_lock fSmallDataLock;
 			SinglyLinkedList<AttributeIterator> fIterators;
+
+#ifdef FS_SHELL
+			Transaction*		fTransaction;
+#endif
 };
 
 
