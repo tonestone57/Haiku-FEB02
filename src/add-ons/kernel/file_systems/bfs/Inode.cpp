@@ -489,6 +489,7 @@ Inode::~Inode()
 		// In fs_shell, due to race conditions with Small Data optimization,
 		// the tree might still be in a transaction. We leak it to avoid
 		// crashing the transaction listener list.
+		fTree->fStream = NULL;
 		fTree = NULL;
 	}
 

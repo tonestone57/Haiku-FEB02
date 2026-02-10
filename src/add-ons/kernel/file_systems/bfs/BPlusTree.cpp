@@ -1009,8 +1009,10 @@ BPlusTree::RemovedFromTransaction()
 	PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
 	fInTransaction = false;
 
-	if (!fStream->GetVolume()->IsInitializing() && fStream != fStream->GetVolume()->IndicesNode())
+	if (fStream != NULL && !fStream->GetVolume()->IsInitializing()
+		&& fStream != fStream->GetVolume()->IndicesNode()) {
 		put_vnode(fStream->GetVolume()->FSVolume(), fStream->ID());
+	}
 }
 
 
