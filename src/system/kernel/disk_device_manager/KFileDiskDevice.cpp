@@ -160,7 +160,7 @@ KFileDiskDevice::GetGeometry(device_geometry* geometry)
 	geometry->sectors_per_track = 1;
 	geometry->cylinder_count = blocks / heads;
 	geometry->head_count = heads;
-	geometry->device_type = B_DISK;	// TODO: Add a new constant.
+	geometry->device_type = B_VIRTUAL_DISK;
 	geometry->removable = false;
 	geometry->read_only = false;
 	geometry->write_once = false;
