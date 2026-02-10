@@ -516,7 +516,7 @@ Inode::~Inode()
 		// the tree might still be in a transaction. We leak it to avoid
 		// crashing the transaction listener list.
 		fTree->fStream = NULL;
-		fTree = NULL;
+		fTree = NULL; // Prevent destructor from deleting fTree
 	}
 
 	file_cache_delete(FileCache());
@@ -3307,4 +3307,3 @@ AttributeIterator::Update(uint16 index, int8 change)
 	if (index < fCurrentSmallData)
 		fCurrentSmallData += change;
 }
-
