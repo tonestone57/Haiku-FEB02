@@ -8,8 +8,6 @@
 
 #include "CatchUpManager.h"
 
-#include <vector>
-
 #include <Debug.h>
 #include <Query.h>
 
@@ -89,23 +87,24 @@ CatchUpAnalyser::_CatchUp()
 
 	query.Fetch();
 
-	std::vector<entry_ref> entryList;
 	entry_ref ref;
-	while (query.GetNextRef(&ref) == B_OK)
-		entryList.push_back(ref);
-
-	printf("CatchUpAnalyser:: entryList.size() %i\n", (int)entryList.size());
-
-	if (entryList.size() == 0)
-		return;
-
-	for (uint32 i = 0; i < entryList.size(); i++) {
+	int32 count = 0;
+	while (query.GetNextRef(&ref) == B_OK) {
 		if (Stopped())
 			return;
-		if (i % 100 == 0)
-			printf("Catch up: %i/%i\n", (int)i,(int)entryList.size());
-		AnalyseEntry(entryList[i]);
+
+		if (count % 100 == 0)
+			printf("Catch up: %i\n", (int)count);
+
+		AnalyseEntry(ref);
+		count++;
 	}
+
+	printf("CatchUpAnalyser:: processed %i entries\n", (int)count);
+
+	if (count == 0)
+		return;
+
 	LastEntry();
 
 	_WriteSyncSatus(fEnd * kSecond);
