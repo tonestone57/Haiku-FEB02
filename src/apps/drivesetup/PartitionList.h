@@ -24,7 +24,7 @@ class BPartition;
 class BBitmapStringField : public BStringField {
 	typedef BStringField Inherited;
 public:
-								BBitmapStringField(BBitmap* bitmap,
+								BBitmapStringField(BRow* row, BBitmap* bitmap,
 									const char* string);
 	virtual						~BBitmapStringField();
 
@@ -34,6 +34,7 @@ public:
 
 private:
 			BBitmap*			fBitmap;
+			BRow*				fRow;
 };
 
 
