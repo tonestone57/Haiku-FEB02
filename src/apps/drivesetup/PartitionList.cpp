@@ -389,7 +389,7 @@ PartitionListRow::PartitionListRow(partition_id parentID, partition_id id,
 {
 	BBitmap* icon = new BBitmap(BRect(0, 0, 15, 15), B_RGBA32);
 	BIconUtils::GetVectorIcon(kEmptySpace, sizeof(kEmptySpace), icon);
-	SetField(new BBitmapStringField(icon, "-"), kDeviceColumn);
+	SetField(new BBitmapStringField(this, icon, "-"), kDeviceColumn);
 
 	SetField(new BStringField(B_TRANSLATE("Empty space")),
 		kFilesystemColumn);
