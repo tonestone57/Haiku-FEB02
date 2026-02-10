@@ -3116,7 +3116,7 @@ Inode::Create(Transaction& transaction, Inode* parent, const char* name,
 		*_inode = inode;
 
 	// if either _id or _inode is passed, we will keep the inode locked
-	if (_id == NULL && _inode == NULL)
+	if (_id == NULL && _inode == NULL && !volume->IsInitializing())
 		put_vnode(volume->FSVolume(), inode->ID());
 
 	return B_OK;
