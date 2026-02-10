@@ -179,6 +179,42 @@ private:
 };
 
 
+class MountedCheckVisitor : public BDiskDeviceVisitor {
+public:
+	MountedCheckVisitor()
+		:
+		fHasMounted(false)
+	{
+	}
+
+	virtual bool Visit(BDiskDevice* device)
+	{
+		if (device->IsMounted()) {
+			fHasMounted = true;
+			return true;
+		}
+		return false;
+	}
+
+	virtual bool Visit(BPartition* partition, int32 level)
+	{
+		if (partition->IsMounted()) {
+			fHasMounted = true;
+			return true; // Stop visiting
+		}
+		return false;
+	}
+
+	bool HasMounted() const
+	{
+		return fHasMounted;
+	}
+
+private:
+	bool fHasMounted;
+};
+
+
 class ModificationPreparer {
 public:
 	ModificationPreparer(BDiskDevice* disk)
@@ -453,11 +489,32 @@ MainWindow::MessageReceived(BMessage* message)
 			break;
 
 		case MSG_EJECT:
-			// TODO: completely untested, especially interesting
-			// if partition list behaves when partitions disappear
 			if (fCurrentDisk) {
-				// TODO: only if no partitions are mounted anymore?
-				fCurrentDisk->Eject(true);
+				MountedCheckVisitor visitor;
+				fCurrentDisk->VisitEachDescendant(&visitor);
+				if (visitor.HasMounted()) {
+					BAlert* alert = new BAlert("eject failed",
+						B_TRANSLATE("The disk cannot be ejected because some "
+							"partitions are still mounted. Please unmount them "
+							"first."),
+						B_TRANSLATE("OK"), NULL, NULL,
+						B_WIDTH_AS_USUAL, B_STOP_ALERT);
+					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+					alert->Go();
+					break;
+				}
+
+				status_t status = fCurrentDisk->Eject(true);
+				if (status != B_OK) {
+					BString message;
+					message.SetToFormat(B_TRANSLATE("Could not eject media: "
+						"%s"), strerror(status));
+					BAlert* alert = new BAlert("eject failed", message.String(),
+						B_TRANSLATE("OK"), NULL, NULL,
+						B_WIDTH_AS_USUAL, B_STOP_ALERT);
+					alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
+					alert->Go();
+				}
 				_ScanDrives();
 			}
 			break;
