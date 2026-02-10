@@ -182,12 +182,15 @@ InodeAllocator::~InodeAllocator()
 		Volume* volume = fTransaction->GetVolume();
 
 		if (fInode != NULL) {
+			PRINT(("InodeAllocator::~InodeAllocator: freeing inode %p\n", fInode));
 			fInode->Node().flags &= ~HOST_ENDIAN_TO_BFS_INT32(INODE_IN_USE);
 				// this unblocks any pending bfs_read_vnode() calls
 			fInode->Free(*fTransaction);
 
 			if (fInode->fTree != NULL) {
+				PRINT(("InodeAllocator::~InodeAllocator: fTree is %p\n", fInode->fTree));
 #ifdef FS_SHELL
+				PRINT(("InodeAllocator::~InodeAllocator: FS_SHELL defined, LEAKING tree\n"));
 				// In fs_shell, race conditions can cause IsInTransaction() to return false
 				// even if the tree is still referenced by a transaction. We leak the tree
 				// here to ensure the transaction can safely access it later (it will see
@@ -195,6 +198,7 @@ InodeAllocator::~InodeAllocator()
 				fInode->fTree->fStream = NULL;
 				fInode->fTree = NULL;
 #else
+				PRINT(("InodeAllocator::~InodeAllocator: FS_SHELL NOT defined, deleting tree\n"));
 				if (fInode->fTree->IsInTransaction()) {
 					fTransaction->RemoveListener(fInode->fTree);
 					if (fInode->fTree->IsInTransaction()) {
@@ -205,6 +209,8 @@ InodeAllocator::~InodeAllocator()
 				delete fInode->fTree;
 				fInode->fTree = NULL;
 #endif
+			} else {
+				PRINT(("InodeAllocator::~InodeAllocator: fTree is NULL\n"));
 			}
 			if ((fInode->Flags() & INODE_IN_TRANSACTION) != 0)
 				fTransaction->RemoveListener(fInode);
@@ -492,6 +498,7 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
+	PRINT(("Inode::~Inode: fTree is %p\n", fTree));
 
 	if (fTree != NULL
 #ifdef FS_SHELL

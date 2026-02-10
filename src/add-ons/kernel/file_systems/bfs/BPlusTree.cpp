@@ -1006,7 +1006,8 @@ BPlusTree::TransactionDone(bool success)
 void
 BPlusTree::RemovedFromTransaction()
 {
-	PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
+	PRINT(("BPlusTree::RemovedFromTransaction %p start\n", this));
+	// PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
 	fInTransaction = false;
 
 	if (fStream != NULL && !fStream->GetVolume()->IsInitializing()
