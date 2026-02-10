@@ -484,19 +484,13 @@ Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
 
-	if (fTree != NULL) {
-		PRINT(("Inode::~Inode: fTree %p, IsInTransaction %d\n", fTree, fTree->IsInTransaction()));
-		if (fTree->IsInTransaction()) {
-			// panic("Inode::~Inode: tree %p is still in transaction!", fTree);
-			// In fs_shell, due to race conditions with Small Data optimization,
-			// the tree might still be in a transaction. We leak it to avoid
-			// crashing the transaction listener list.
-			PRINT(("Inode::~Inode: Leaking tree %p, nullifying fStream\n", fTree));
-			fTree->fStream = NULL;
-			fTree = NULL;
-		} else {
-			PRINT(("Inode::~Inode: Deleting tree %p\n", fTree));
-		}
+	if (fTree != NULL && fTree->IsInTransaction()) {
+		// panic("Inode::~Inode: tree %p is still in transaction!", fTree);
+		// In fs_shell, due to race conditions with Small Data optimization,
+		// the tree might still be in a transaction. We leak it to avoid
+		// crashing the transaction listener list.
+		fTree->fStream = NULL;
+		fTree = NULL;
 	}
 
 	file_cache_delete(FileCache());

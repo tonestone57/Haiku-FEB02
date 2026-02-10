@@ -925,11 +925,6 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 	if (fAllowedEndBlock > fVolume->NumBlocks())
 		return B_BAD_VALUE;
 
-	// Diagnostic output for AllocateBlocks
-	PRINT(("BlockAllocator::AllocateBlocks: group %" B_PRId32 ", start %" B_PRIu16
-		", max %" B_PRIu16 ", min %" B_PRIu16 ", allowed [%" B_PRIdOFF ", %" B_PRIdOFF ")\n",
-		groupIndex, start, maximum, minimum, fAllowedBeginBlock, fAllowedEndBlock));
-
 	FUNCTION_START(("group = %" B_PRId32 ", start = %" B_PRIu16
 		", maximum = %" B_PRIu16 ", minimum = %" B_PRIu16 "\n",
 		groupIndex, start, maximum, minimum));
@@ -1140,11 +1135,8 @@ BlockAllocator::AllocateBlocks(Transaction& transaction, int32 groupIndex,
 
 	// If we found a suitable range, mark the blocks as in use, and
 	// write the updated block bitmap back to disk
-	if (bestLength < minimum) {
-		PRINT(("BlockAllocator::AllocateBlocks: failed, bestLength %d < minimum %d\n",
-			(int)bestLength, (int)minimum));
+	if (bestLength < minimum)
 		return B_DEVICE_FULL;
-	}
 
 	if (bestLength > maximum)
 		bestLength = maximum;
@@ -1186,9 +1178,6 @@ allocate_success:
 	run.allocation_group = HOST_ENDIAN_TO_BFS_INT32(bestGroup);
 	run.start = HOST_ENDIAN_TO_BFS_INT16(bestStart);
 	run.length = HOST_ENDIAN_TO_BFS_INT16(bestLength);
-
-	PRINT(("BlockAllocator::AllocateBlocks: success, run %" B_PRId32 ".%" B_PRIu16 ".%" B_PRIu16 "\n",
-		run.AllocationGroup(), run.Start(), run.Length()));
 
 	ASSERT(fVolume->ToBlock(run) >= fAllowedBeginBlock);
 	ASSERT(fAllowedEndBlock == 0 || fVolume->ToBlock(run) + run.Length() <= fAllowedEndBlock);
