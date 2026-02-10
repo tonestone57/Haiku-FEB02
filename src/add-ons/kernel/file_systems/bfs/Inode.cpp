@@ -501,6 +501,7 @@ Inode::~Inode()
 	PRINT(("Inode::~Inode: fTree is %p\n", fTree));
 
 	if (fTree != NULL) {
+		PRINT(("Inode::~Inode: clearing fVnodeAcquired for %p\n", fTree));
 		fTree->fVnodeAcquired = false;
 	}
 
