@@ -492,7 +492,7 @@ MainWindow::MessageReceived(BMessage* message)
 			if (fCurrentDisk) {
 				MountedCheckVisitor visitor;
 				fCurrentDisk->VisitEachDescendant(&visitor);
-				if (visitor.HasMounted()) {
+				if (fCurrentDisk->IsMounted() || visitor.HasMounted()) {
 					BAlert* alert = new BAlert("eject failed",
 						B_TRANSLATE("The disk cannot be ejected because some "
 							"partitions are still mounted. Please unmount them "
