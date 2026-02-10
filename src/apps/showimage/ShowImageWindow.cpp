@@ -1549,13 +1549,54 @@ ShowImageWindow::_Print(BMessage* msg)
 		}
 
 		// TODO: eventually print large images on several pages
+		float scale = width / imageWidth;
+		fImageView->SetScale(scale);
+
+		float printableWidth = printableRect.Width();
+		float printableHeight = printableRect.Height();
+		float scaledHeight = imageHeight * scale;
+
+		int pagesX = (int)ceil(width / printableWidth);
+		int pagesY = (int)ceil(scaledHeight / printableHeight);
+		int totalPages = pagesX * pagesY;
+
+		if (lastPage > totalPages)
+			lastPage = totalPages;
+
 		printJob.BeginJob();
-		fImageView->SetScale(width / imageWidth);
-		// coordinates are relative to printable rectangle
-		BRect bounds(bitmap->Bounds());
-		printJob.DrawView(fImageView, bounds, BPoint(0, 0));
+
+		int pageCount = 0;
+		for (int y = 0; y < pagesY; y++) {
+			for (int x = 0; x < pagesX; x++) {
+				pageCount++;
+
+				if (pageCount < firstPage)
+					continue;
+				if (pageCount > lastPage)
+					break;
+
+				float xOffset = x * printableWidth;
+				float yOffset = y * printableHeight;
+
+				float viewLeft = xOffset / scale;
+				float viewTop = yOffset / scale;
+				float viewRight = (xOffset + printableWidth) / scale;
+				float viewBottom = (yOffset + printableHeight) / scale;
+
+				if (viewRight > imageWidth)
+					viewRight = imageWidth;
+				if (viewBottom > imageHeight)
+					viewBottom = imageHeight;
+
+				BRect tileRect(viewLeft, viewTop, viewRight, viewBottom);
+				printJob.DrawView(fImageView, tileRect, BPoint(0, 0));
+				printJob.SpoolPage();
+			}
+			if (pageCount > lastPage)
+				break;
+		}
+
 		fImageView->SetScale(1.0);
-		printJob.SpoolPage();
 		printJob.CommitJob();
 	}
 }

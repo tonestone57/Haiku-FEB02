@@ -56,10 +56,12 @@ enum {
 // #pragma mark - BBitmapStringField
 
 
-BBitmapStringField::BBitmapStringField(BBitmap* bitmap, const char* string)
+BBitmapStringField::BBitmapStringField(BRow* row, BBitmap* bitmap,
+	const char* string)
 	:
 	Inherited(string),
-	fBitmap(bitmap)
+	fBitmap(bitmap),
+	fRow(row)
 {
 }
 
@@ -73,9 +75,13 @@ BBitmapStringField::~BBitmapStringField()
 void
 BBitmapStringField::SetBitmap(BBitmap* bitmap)
 {
+	if (fBitmap == bitmap)
+		return;
+
 	delete fBitmap;
 	fBitmap = bitmap;
-	// TODO: cause a redraw?
+	if (fRow)
+		fRow->Invalidate();
 }
 
 
@@ -286,7 +292,7 @@ PartitionListRow::PartitionListRow(BPartition* partition)
 		icon = NULL;
 	}
 
-	SetField(new BBitmapStringField(icon, path.Path()), kDeviceColumn);
+	SetField(new BBitmapStringField(this, icon, path.Path()), kDeviceColumn);
 
 	// File system & volume name
 
