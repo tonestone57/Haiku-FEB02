@@ -483,6 +483,11 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
+#ifdef FS_SHELL
+	PRINT(("Inode::~Inode: FS_SHELL is defined\n"));
+#else
+	PRINT(("Inode::~Inode: FS_SHELL is NOT defined\n"));
+#endif
 
 	if (fTree != NULL
 #ifdef FS_SHELL
