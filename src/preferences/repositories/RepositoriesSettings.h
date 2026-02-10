@@ -30,7 +30,7 @@ public:
 
 private:
 	BMessage				_ReadFromFile();
-	status_t				_SaveToFile(BMessage settings);
+	status_t				_SaveToFile(const BMessage& settings);
 	
 	BPath					fFilePath;
 	BFile					fFile;

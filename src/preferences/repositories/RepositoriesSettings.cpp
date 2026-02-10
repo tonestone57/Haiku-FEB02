@@ -106,7 +106,7 @@ RepositoriesSettings::_ReadFromFile()
 
 
 status_t
-RepositoriesSettings::_SaveToFile(BMessage settings)
+RepositoriesSettings::_SaveToFile(const BMessage& settings)
 {
 	status_t status = fFile.SetTo(fFilePath.Path(),
 		B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
