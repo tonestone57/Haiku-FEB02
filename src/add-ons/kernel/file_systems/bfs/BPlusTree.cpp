@@ -648,6 +648,7 @@ BPlusTree::BPlusTree()
 
 BPlusTree::~BPlusTree()
 {
+	PRINT(("BPlusTree::~BPlusTree %p\n", this));
 #if !_BOOT_MODE
 	// if there are any TreeIterators left, we need to stop them
 	// (can happen when the tree's inode gets deleted while
@@ -1011,6 +1012,8 @@ void
 BPlusTree::RemovedFromTransaction()
 {
 	PRINT(("BPlusTree::RemovedFromTransaction %p start\n", this));
+	PRINT(("BPlusTree::RemovedFromTransaction: this=%p, fVnodeAcquired=%d, fStream=%p\n",
+		this, fVnodeAcquired, fStream));
 	// PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
 	fInTransaction = false;
 
