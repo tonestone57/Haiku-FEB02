@@ -145,7 +145,8 @@ enum {
 	B_SCANNER,						/* Scanners */
 	B_OPTICAL,						/* Optical devices */
 	B_JUKEBOX,						/* Jukeboxes */
-	B_NETWORK						/* Network devices */
+	B_NETWORK,						/* Network devices */
+	B_VIRTUAL_DISK					/* Virtual disks */
 };
 
 

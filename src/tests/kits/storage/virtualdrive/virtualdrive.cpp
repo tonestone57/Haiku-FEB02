@@ -230,7 +230,7 @@ init_device_info(int32 index, virtual_drive_info *initInfo)
 		    info.geometry.sectors_per_track = 1;
 		    info.geometry.cylinder_count = blocks / heads;
 		    info.geometry.head_count = heads;
-		    info.geometry.device_type = B_DISK;	// TODO: Add a new constant.
+		    info.geometry.device_type = B_VIRTUAL_DISK;
 		    info.geometry.removable = false;
 		    info.geometry.read_only = false;
 		    info.geometry.write_once = false;

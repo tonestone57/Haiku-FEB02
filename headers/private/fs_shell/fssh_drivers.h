@@ -169,7 +169,8 @@ enum {
 	FSSH_B_SCANNER,						/* Scanners */
 	FSSH_B_OPTICAL,						/* Optical devices */
 	FSSH_B_JUKEBOX,						/* Jukeboxes */
-	FSSH_B_NETWORK						/* Network devices */
+	FSSH_B_NETWORK,						/* Network devices */
+	FSSH_B_VIRTUAL_DISK					/* Virtual disks */
 };
 
 

@@ -473,6 +473,7 @@
 #define B_OPTICAL	FSSH_B_OPTICAL
 #define B_JUKEBOX	FSSH_B_JUKEBOX
 #define B_NETWORK	FSSH_B_NETWORK
+#define B_VIRTUAL_DISK	FSSH_B_VIRTUAL_DISK
 
 
 #define partition_info			fssh_partition_info
