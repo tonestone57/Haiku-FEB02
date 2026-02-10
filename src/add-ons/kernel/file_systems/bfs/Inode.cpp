@@ -500,6 +500,10 @@ Inode::~Inode()
 	PRINT(("Inode::~Inode() @ %p\n", this));
 	PRINT(("Inode::~Inode: fTree is %p\n", fTree));
 
+	if (fTree != NULL) {
+		fTree->fVnodeAcquired = false;
+	}
+
 	if (fTree != NULL
 #ifdef FS_SHELL
 		) {
