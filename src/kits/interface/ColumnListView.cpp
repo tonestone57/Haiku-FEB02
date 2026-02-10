@@ -4340,8 +4340,6 @@ OutlineView::ToggleFocusRowOpen()
 void
 OutlineView::ExpandOrCollapse(BRow* parentRow, bool expand)
 {
-	// TODO: Could use CopyBits here to speed things up.
-
 	if (parentRow == NULL)
 		return;
 
@@ -4352,25 +4350,64 @@ OutlineView::ExpandOrCollapse(BRow* parentRow, bool expand)
 
 	BRect parentRect;
 	if (FindRect(parentRow, &parentRect)) {
-		// Determine my new height
 		float subTreeHeight = 0.0;
-		if (parentRow->fIsExpanded)
-			for (RecursiveOutlineIterator iterator(parentRow->fChildList);
-			     iterator.CurrentRow();
-			     iterator.GoToNext()
-			    )
-			{
-				subTreeHeight += iterator.CurrentRow()->Height()+1;
-			}
-		else
-			for (RecursiveOutlineIterator iterator(parentRow->fChildList);
-			     iterator.CurrentRow();
-			     iterator.GoToNext()
-			    )
-			{
-				subTreeHeight -= iterator.CurrentRow()->Height()+1;
-			}
+		for (RecursiveOutlineIterator iterator(parentRow->fChildList);
+			iterator.CurrentRow();
+			iterator.GoToNext()
+		) {
+			subTreeHeight += iterator.CurrentRow()->Height() + 1.0f;
+		}
+
+		if (!expand)
+			subTreeHeight = -subTreeHeight;
+
 		fItemsHeight += subTreeHeight;
+
+		float startY = parentRect.bottom + 1.0f;
+
+		if (startY <= fVisibleRect.bottom) {
+			if (expand) {
+				// Moving down
+				float srcTop = startY;
+				float copyTop = std::max(srcTop, fVisibleRect.top);
+				float copyHeight = fVisibleRect.bottom - subTreeHeight
+					- copyTop;
+
+				if (copyHeight > 0) {
+					BRect src(fVisibleRect.left, copyTop, fVisibleRect.right,
+						copyTop + copyHeight);
+					BRect dst = src;
+					dst.OffsetBy(0, subTreeHeight);
+					CopyBits(src, dst);
+				}
+
+				BRect newArea(fVisibleRect.left, copyTop, fVisibleRect.right,
+					copyTop + subTreeHeight);
+				Invalidate(newArea & fVisibleRect);
+			} else {
+				// Moving up
+				float delta = -subTreeHeight;
+				float srcTop = startY + delta;
+
+				float copyTop = std::max(srcTop, fVisibleRect.top);
+				float copyBottom = fVisibleRect.bottom;
+				float validBottom = startY;
+
+				if (copyTop <= copyBottom) {
+					BRect src(fVisibleRect.left, copyTop, fVisibleRect.right,
+						copyBottom);
+					BRect dst = src;
+					dst.OffsetBy(0, -delta);
+					CopyBits(src, dst);
+					validBottom = copyBottom - delta;
+				}
+
+				if (validBottom < fVisibleRect.bottom) {
+					Invalidate(BRect(fVisibleRect.left, validBottom,
+						fVisibleRect.right, fVisibleRect.bottom));
+				}
+			}
+		}
 
 		// Adjust focus row if necessary.
 		if (FindRect(fFocusRow, &fFocusRowRect) == false) {
@@ -4380,8 +4417,7 @@ OutlineView::ExpandOrCollapse(BRow* parentRow, bool expand)
 			FindRect(fFocusRow, &fFocusRowRect);
 		}
 
-		Invalidate(BRect(0, parentRect.top, fVisibleRect.right,
-			fVisibleRect.bottom));
+		Invalidate(parentRect);
 		FixScrollBar(false);
 	}
 }
