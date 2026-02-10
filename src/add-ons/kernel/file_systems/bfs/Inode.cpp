@@ -484,7 +484,12 @@ Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
 
-	if (fTree != NULL && fTree->IsInTransaction()) {
+	if (fTree != NULL
+#ifdef FS_SHELL
+		) {
+#else
+		&& fTree->IsInTransaction()) {
+#endif
 		// panic("Inode::~Inode: tree %p is still in transaction!", fTree);
 		// In fs_shell, due to race conditions with Small Data optimization,
 		// the tree might still be in a transaction. We leak it to avoid
