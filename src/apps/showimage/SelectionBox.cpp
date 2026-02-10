@@ -24,9 +24,21 @@
 #include "ShowImageView.h"
 
 
+const float kHandleSize = 6.0;
+
+enum {
+	kDragNone = 0,
+	kDragLeftTop,
+	kDragRightTop,
+	kDragLeftBottom,
+	kDragRightBottom
+};
+
+
 SelectionBox::SelectionBox()
 	:
-	fBounds()
+	fBounds(),
+	fDragMode(kDragNone)
 {
 	_InitPatterns();
 }
@@ -67,32 +79,42 @@ SelectionBox::Bounds() const
 }
 
 
-void
+bool
 SelectionBox::MouseDown(ShowImageView* view, BPoint where)
 {
-	// TODO: Allow to re-adjust corners.
-	where = view->ViewToImage(where);
-	SetBounds(view, BRect(where, where));
+	fDragMode = _GetDragHandle(view, where);
+	return fDragMode != kDragNone;
 }
 
 
 void
 SelectionBox::MouseMoved(ShowImageView* view, BPoint where)
 {
-	// TODO: Allow to re-adjust corners.
+	if (fDragMode == kDragNone)
+		return;
+
 	where = view->ViewToImage(where);
 
 	BRect bounds(fBounds);
 
-	if (where.x >= bounds.left)
-		bounds.right = where.x;
-	else
-		bounds.left = where.x;
-
-	if (where.y >= bounds.top)
-		bounds.bottom = where.y;
-	else
-		bounds.top = where.y;
+	switch (fDragMode) {
+		case kDragLeftTop:
+			bounds.left = min_c(where.x, bounds.right);
+			bounds.top = min_c(where.y, bounds.bottom);
+			break;
+		case kDragRightTop:
+			bounds.right = max_c(where.x, bounds.left);
+			bounds.top = min_c(where.y, bounds.bottom);
+			break;
+		case kDragLeftBottom:
+			bounds.left = min_c(where.x, bounds.right);
+			bounds.bottom = max_c(where.y, bounds.top);
+			break;
+		case kDragRightBottom:
+			bounds.right = max_c(where.x, bounds.left);
+			bounds.bottom = max_c(where.y, bounds.top);
+			break;
+	}
 
 	SetBounds(view, bounds);
 }
@@ -101,6 +123,7 @@ SelectionBox::MouseMoved(ShowImageView* view, BPoint where)
 void
 SelectionBox::MouseUp(ShowImageView* view, BPoint where)
 {
+	fDragMode = kDragNone;
 }
 
 
@@ -198,4 +221,31 @@ SelectionBox::_RectInView(ShowImageView* view) const
 	r.InsetBy(-1, -1);
 
 	return r;
+}
+
+
+uint32
+SelectionBox::_GetDragHandle(ShowImageView* view, BPoint point) const
+{
+	BRect r = _RectInView(view);
+	if (!r.IsValid())
+		return kDragNone;
+
+	// Top-Left
+	if (BRect(r.left - kHandleSize, r.top - kHandleSize, r.left + kHandleSize, r.top + kHandleSize).Contains(point))
+		return kDragLeftTop;
+
+	// Top-Right
+	if (BRect(r.right - kHandleSize, r.top - kHandleSize, r.right + kHandleSize, r.top + kHandleSize).Contains(point))
+		return kDragRightTop;
+
+	// Bottom-Left
+	if (BRect(r.left - kHandleSize, r.bottom - kHandleSize, r.left + kHandleSize, r.bottom + kHandleSize).Contains(point))
+		return kDragLeftBottom;
+
+	// Bottom-Right
+	if (BRect(r.right - kHandleSize, r.bottom - kHandleSize, r.right + kHandleSize, r.bottom + kHandleSize).Contains(point))
+		return kDragRightBottom;
+
+	return kDragNone;
 }

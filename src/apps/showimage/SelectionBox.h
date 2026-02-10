@@ -29,7 +29,7 @@ public:
 			void				SetBounds(ShowImageView* view, BRect bounds);
 			BRect				Bounds() const;
 
-			void				MouseDown(ShowImageView* view, BPoint where);
+			bool				MouseDown(ShowImageView* view, BPoint where);
 			void				MouseMoved(ShowImageView* view, BPoint where);
 			void				MouseUp(ShowImageView* view, BPoint where);
 
@@ -41,6 +41,8 @@ private:
 			void				_InitPatterns();
 
 			BRect				_RectInView(ShowImageView* view) const;
+			uint32				_GetDragHandle(ShowImageView* view,
+									BPoint point) const;
 
 private:
 			BRect				fBounds;
@@ -50,6 +52,8 @@ private:
 			pattern				fPatternDown;
 			pattern				fPatternLeft;
 			pattern				fPatternRight;
+
+			uint32				fDragMode;
 };
 
 #endif	// SELECTION_BOX_H
