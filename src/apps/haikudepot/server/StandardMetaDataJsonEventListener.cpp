@@ -59,7 +59,8 @@ public:
 class SmdStackedObjectMessageEventListener : public SmdStackedEventListener {
 public:
 								SmdStackedObjectMessageEventListener(
-									BStringList* jsonPathObjectNames,
+									const BStringList* jsonPathObjectNames,
+									int32 index,
 									StandardMetaDataJsonEventListener*
 										mainListener,
 									SmdStackedEventListener* parent);
@@ -68,7 +69,8 @@ public:
 				bool			Handle(const BJsonEvent& event);
 
 private:
-			BStringList*		fJsonPathObjectNames;
+			const BStringList*	fJsonPathObjectNames;
+			int32				fIndex;
 			BString				fNextItemName;
 };
 
@@ -168,7 +170,7 @@ SmdStackedArrayEventListener::Handle(const BJsonEvent& event)
 
 		case B_JSON_OBJECT_START:
 			SetStackedListenerMainListener(
-				new SmdStackedObjectMessageEventListener(NULL, fMainListener,
+				new SmdStackedObjectMessageEventListener(NULL, 0, fMainListener,
 					this));
 			break;
 
@@ -196,20 +198,20 @@ SmdStackedArrayEventListener::Handle(const BJsonEvent& event)
 // #pragma mark - SmdStackedObjectMessageEventListener
 
 SmdStackedObjectMessageEventListener::SmdStackedObjectMessageEventListener(
-	BStringList* jsonPathObjectNames,
+	const BStringList* jsonPathObjectNames,
+	int32 index,
 	StandardMetaDataJsonEventListener* mainListener,
 	SmdStackedEventListener* parent)
 	:
-	SmdStackedEventListener(mainListener, parent)
+	SmdStackedEventListener(mainListener, parent),
+	fJsonPathObjectNames(jsonPathObjectNames),
+	fIndex(index)
 {
-	fJsonPathObjectNames = jsonPathObjectNames;
 }
 
 
 SmdStackedObjectMessageEventListener::~SmdStackedObjectMessageEventListener()
 {
-	if (fJsonPathObjectNames != NULL)
-		delete fJsonPathObjectNames;
 }
 
 
@@ -227,7 +229,7 @@ SmdStackedObjectMessageEventListener::Handle(const BJsonEvent& event)
 
 		case B_JSON_NUMBER:
 			if (fJsonPathObjectNames != NULL
-				&& fJsonPathObjectNames->IsEmpty()) {
+				&& fIndex == fJsonPathObjectNames->CountStrings()) {
 
 				if (fNextItemName == KEY_CREATE_TIMESTAMP) {
 					MetaData()->SetCreateTimestamp(
@@ -251,22 +253,23 @@ SmdStackedObjectMessageEventListener::Handle(const BJsonEvent& event)
 
 		case B_JSON_OBJECT_START:
 		{
-			BStringList* nextJsonPathObjectNames = NULL;
+			const BStringList* nextJsonPathObjectNames = NULL;
+			int32 nextIndex = 0;
 
-			// if this next object is on the path then remove it from the
-			// path and carry on down.  If it's not on the path then just
+			// if this next object is on the path then increment the index
+			// and carry on down.  If it's not on the path then just
 			// drop the path from the next object.
 
 			if (fJsonPathObjectNames != NULL
-				&& !fJsonPathObjectNames->IsEmpty()
-				&& fNextItemName == fJsonPathObjectNames->StringAt(0)) {
-				nextJsonPathObjectNames = new BStringList(*fJsonPathObjectNames);
-				nextJsonPathObjectNames->Remove(0);
+				&& fIndex < fJsonPathObjectNames->CountStrings()
+				&& fNextItemName == fJsonPathObjectNames->StringAt(fIndex)) {
+				nextJsonPathObjectNames = fJsonPathObjectNames;
+				nextIndex = fIndex + 1;
 			}
 
 			SetStackedListenerMainListener(
 				new SmdStackedObjectMessageEventListener(nextJsonPathObjectNames,
-					fMainListener, this));
+					nextIndex, fMainListener, this));
 			break;
 		}
 
@@ -358,13 +361,9 @@ StandardMetaDataJsonEventListener::Handle(const BJsonEvent& event)
 
 		case B_JSON_OBJECT_START:
 		{
-			BStringList* jsonPathObjectNames = new BStringList(
-				fJsonPathObjectNames);
-			jsonPathObjectNames->Remove(0);
-
 			SetStackedListener(
 				new SmdStackedObjectMessageEventListener(
-					jsonPathObjectNames, this, NULL)
+					&fJsonPathObjectNames, 1, this, NULL)
 			);
 		}
 		break;
