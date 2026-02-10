@@ -377,6 +377,7 @@ private:
 			int32				fNodeSize;
 			bool				fAllowDuplicates;
 			bool				fInTransaction;
+			bool				fVnodeAcquired;
 			status_t			fStatus;
 
 #if !_BOOT_MODE
