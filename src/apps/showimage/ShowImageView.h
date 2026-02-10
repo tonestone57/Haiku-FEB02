@@ -194,6 +194,7 @@ private:
 	bool				fHideCursor;
 	bool				fScrollingBitmap;
 	bool				fCreatingSelection;
+	bool				fResizingSelection;
 	BPoint				fFirstPoint;
 	BRect				fCopyFromRect;
 	bool				fSelectionMode;

@@ -191,6 +191,7 @@ ShowImageView::ShowImageView(const char* name, uint32 flags)
 	fHideCursor(false),
 	fScrollingBitmap(false),
 	fCreatingSelection(false),
+	fResizingSelection(false),
 	fFirstPoint(0.0, 0.0),
 	fSelectionMode(false),
 	fAnimateSelection(true),
@@ -394,6 +395,7 @@ ShowImageView::SetImage(const entry_ref* ref, BBitmap* bitmap,
 	// Delete the old one, and clear everything
 	_SetHasSelection(false);
 	fCreatingSelection = false;
+	fResizingSelection = false;
 	_DeleteBitmap();
 
 	fBitmap = bitmap;
@@ -1134,6 +1136,12 @@ ShowImageView::MouseDown(BPoint position)
 		return;
 	}
 
+	if (fHasSelection && fSelectionBox.MouseDown(this, position)) {
+		fResizingSelection = true;
+		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
+		return;
+	}
+
 	if (fHasSelection && fSelectionBox.Bounds().Contains(point)
 		&& (buttons
 				& (B_PRIMARY_MOUSE_BUTTON | B_SECONDARY_MOUSE_BUTTON)) != 0) {
@@ -1205,7 +1213,10 @@ ShowImageView::MouseMoved(BPoint point, uint32 state, const BMessage* message)
 	}
 	if (fCreatingSelection)
 		_UpdateSelectionRect(point, false);
-	else if (fScrollingBitmap)
+	else if (fResizingSelection) {
+		fSelectionBox.MouseMoved(this, point);
+		_UpdateStatusText();
+	} else if (fScrollingBitmap)
 		_ScrollBitmap(point);
 }
 
@@ -1216,6 +1227,10 @@ ShowImageView::MouseUp(BPoint point)
 	if (fCreatingSelection) {
 		_UpdateSelectionRect(point, true);
 		fCreatingSelection = false;
+	} else if (fResizingSelection) {
+		fSelectionBox.MouseUp(this, point);
+		fResizingSelection = false;
+		_UpdateStatusText();
 	} else if (fScrollingBitmap) {
 		_ScrollBitmap(point);
 		fScrollingBitmap = false;
@@ -1534,6 +1549,9 @@ ShowImageView::_SetHasSelection(bool hasSelection)
 {
 	_DeleteSelectionBitmap();
 	fHasSelection = hasSelection;
+
+	if (!fHasSelection)
+		fResizingSelection = false;
 
 	_UpdateStatusText();
 
