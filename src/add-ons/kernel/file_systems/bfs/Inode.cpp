@@ -187,6 +187,14 @@ InodeAllocator::~InodeAllocator()
 			fInode->Free(*fTransaction);
 
 			if (fInode->fTree != NULL) {
+#ifdef FS_SHELL
+				// In fs_shell, race conditions can cause IsInTransaction() to return false
+				// even if the tree is still referenced by a transaction. We leak the tree
+				// here to ensure the transaction can safely access it later (it will see
+				// fStream as NULL).
+				fInode->fTree->fStream = NULL;
+				fInode->fTree = NULL;
+#else
 				if (fInode->fTree->IsInTransaction()) {
 					fTransaction->RemoveListener(fInode->fTree);
 					if (fInode->fTree->IsInTransaction()) {
@@ -196,6 +204,7 @@ InodeAllocator::~InodeAllocator()
 				}
 				delete fInode->fTree;
 				fInode->fTree = NULL;
+#endif
 			}
 			if ((fInode->Flags() & INODE_IN_TRANSACTION) != 0)
 				fTransaction->RemoveListener(fInode);
@@ -449,12 +458,6 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 
 	memset(&fNode, 0, sizeof(bfs_inode));
 
-#ifdef FS_SHELL
-	PRINT(("Inode::Inode: FS_SHELL is defined\n"));
-#else
-	PRINT(("Inode::Inode: FS_SHELL is NOT defined\n"));
-#endif
-
 	NodeGetter node(volume);
 	status_t status = node.SetToWritable(transaction, this, true);
 	if (status != B_OK) {
@@ -489,11 +492,6 @@ Inode::Inode(Volume* volume, Transaction& transaction, ino_t id, mode_t mode,
 Inode::~Inode()
 {
 	PRINT(("Inode::~Inode() @ %p\n", this));
-#ifdef FS_SHELL
-	PRINT(("Inode::~Inode: FS_SHELL is defined\n"));
-#else
-	PRINT(("Inode::~Inode: FS_SHELL is NOT defined\n"));
-#endif
 
 	if (fTree != NULL
 #ifdef FS_SHELL
