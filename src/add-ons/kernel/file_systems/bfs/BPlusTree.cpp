@@ -1015,11 +1015,16 @@ BPlusTree::RemovedFromTransaction()
 	PRINT(("BPlusTree::RemovedFromTransaction: this=%p, fVnodeAcquired=%d, fStream=%p\n",
 		this, fVnodeAcquired, fStream));
 	// PRINT(("BPlusTree::RemovedFromTransaction %p\n", this));
+
+	if (fStream == NULL) {
+		PRINT(("BPlusTree::RemovedFromTransaction: fStream is NULL, returning early.\n"));
+		return;
+	}
+
 	fInTransaction = false;
 
 	if (fVnodeAcquired) {
-		if (fStream != NULL)
-			put_vnode(fStream->GetVolume()->FSVolume(), fStream->ID());
+		put_vnode(fStream->GetVolume()->FSVolume(), fStream->ID());
 		fVnodeAcquired = false;
 	}
 }
