@@ -1843,6 +1843,65 @@ elf_lookup_kernel_symbol(const char* name, elf_symbol_info* info)
 #endif // ELF32_COMPAT
 
 
+static status_t
+elf_find_user_symbol_v1(struct elf_image_info *image, const char *name,
+	uint32 *_value)
+{
+	if (image->dynamic_section == 0)
+		return B_ENTRY_NOT_FOUND;
+
+	uint32 hashTabSize;
+	if (user_memcpy(&hashTabSize, &image->symhash[1], sizeof(uint32)) != B_OK)
+		return B_BAD_ADDRESS;
+
+	if (hashTabSize == 0)
+		return B_ENTRY_NOT_FOUND;
+
+	uint32 hash = elf_hash(name) % hashTabSize;
+	uint32 i;
+	if (user_memcpy(&i, &image->symhash[2 + hash], sizeof(uint32)) != B_OK)
+		return B_BAD_ADDRESS;
+
+	while (i != STN_UNDEF) {
+		elf_sym symbol;
+		if (user_memcpy(&symbol, &image->syms[i], sizeof(elf_sym)) != B_OK)
+			return B_BAD_ADDRESS;
+
+		char candidateName[128];
+		if (user_strlcpy(candidateName, image->strtab + symbol.st_name,
+				sizeof(candidateName)) >= 0) {
+			if (strcmp(candidateName, name) == 0) {
+				if (symbol.st_shndx != SHN_UNDEF
+					&& symbol.st_value > 0
+					&& symbol.Type() == STT_OBJECT
+					&& symbol.st_size >= sizeof(uint32)) {
+
+					addr_t address = symbol.st_value + image->text_region.delta;
+					bool inText = (address >= image->text_region.start
+						&& address + sizeof(uint32) <= image->text_region.start
+							+ image->text_region.size);
+					bool inData = (address >= image->data_region.start
+						&& address + sizeof(uint32) <= image->data_region.start
+							+ image->data_region.size);
+
+					if (inText || inData) {
+						return user_memcpy(_value, (void*)address,
+							sizeof(uint32));
+					}
+				}
+			}
+		}
+
+		// Next in chain
+		if (user_memcpy(&i, &image->symhash[2 + hashTabSize + i],
+				sizeof(uint32)) != B_OK)
+			return B_BAD_ADDRESS;
+	}
+
+	return B_ENTRY_NOT_FOUND;
+}
+
+
 status_t
 elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 {
@@ -2109,41 +2168,17 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 	imageInfo.basic_info.abi = B_HAIKU_ABI;
 
 	// Haiku API version
-	elf_sym* symbol = elf_find_symbol(image,
-		B_SHARED_OBJECT_HAIKU_VERSION_VARIABLE_NAME, NULL, true);
-	if (symbol != NULL && symbol->st_shndx != SHN_UNDEF
-		&& symbol->st_value > 0
-		&& symbol->Type() == STT_OBJECT
-		&& symbol->st_size >= sizeof(uint32)) {
-		addr_t symbolAddress = symbol->st_value + image->text_region.delta;
-		if (symbolAddress >= image->text_region.start
-			&& symbolAddress + sizeof(uint32)
-				<= image->text_region.start + image->text_region.size) {
-			imageInfo.basic_info.api_version = *(uint32*)symbolAddress;
-		} else if (symbolAddress >= image->data_region.start
-			&& symbolAddress + sizeof(uint32)
-				<= image->data_region.start + image->data_region.size) {
-			imageInfo.basic_info.api_version = *(uint32*)symbolAddress;
-		}
+	uint32 apiVersion;
+	if (elf_find_user_symbol_v1(image,
+			B_SHARED_OBJECT_HAIKU_VERSION_VARIABLE_NAME, &apiVersion) == B_OK) {
+		imageInfo.basic_info.api_version = apiVersion;
 	}
 
 	// Haiku ABI
-	symbol = elf_find_symbol(image,
-		B_SHARED_OBJECT_HAIKU_ABI_VARIABLE_NAME, NULL, true);
-	if (symbol != NULL && symbol->st_shndx != SHN_UNDEF
-		&& symbol->st_value > 0
-		&& symbol->Type() == STT_OBJECT
-		&& symbol->st_size >= sizeof(uint32)) {
-		addr_t symbolAddress = symbol->st_value + image->text_region.delta;
-		if (symbolAddress >= image->text_region.start
-			&& symbolAddress + sizeof(uint32)
-				<= image->text_region.start + image->text_region.size) {
-			imageInfo.basic_info.abi = *(uint32*)symbolAddress;
-		} else if (symbolAddress >= image->data_region.start
-			&& symbolAddress + sizeof(uint32)
-				<= image->data_region.start + image->data_region.size) {
-			imageInfo.basic_info.abi = *(uint32*)symbolAddress;
-		}
+	uint32 abiVersion;
+	if (elf_find_user_symbol_v1(image,
+			B_SHARED_OBJECT_HAIKU_ABI_VARIABLE_NAME, &abiVersion) == B_OK) {
+		imageInfo.basic_info.abi = abiVersion;
 	}
 
 	imageInfo.text_delta = delta;
