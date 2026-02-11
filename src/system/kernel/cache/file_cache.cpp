@@ -1316,6 +1316,11 @@ file_cache_create(dev_t mountID, ino_t vnodeID, off_t size)
 	if (vfs_get_vnode_cache(ref->vnode, &ref->cache, true) != B_OK)
 		goto err1;
 
+	if (ref->cache->type != CACHE_TYPE_VNODE) {
+		ref->cache->ReleaseRef();
+		goto err1;
+	}
+
 	ref->cache->virtual_end = size;
 	((VMVnodeCache*)ref->cache)->SetFileCacheRef(ref);
 	return ref;

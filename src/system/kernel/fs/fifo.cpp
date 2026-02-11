@@ -382,8 +382,10 @@ RingBuffer::Read(void* data, size_t length, bool isUser, bool* wasFull)
 		// the add() at the end comes after the test_and_set()
 		uint32 readEnd = atomic_get((int32*)&fWriteHead);
 		readHead = atomic_get((int32*)&fReadHead);
-		if (readEnd < readHead || (readEnd == readHead && fWriteAvailable == 0))
+		if (readEnd < readHead || (readEnd == readHead
+				&& atomic_get((int32*)&fWriteAvailable) == 0)) {
 			readEnd += fBufferSize;
+		}
 
 		readable = readEnd - readHead;
 		if (readable == 0)
@@ -571,7 +573,7 @@ Inode::Write(const void* _data, size_t* _length, bool nonBlocking,
 
 		// write only as long as there are readers left
 		if (fActive && fReaderCount == 0) {
-			if (written == 0)
+			if (written == 0 && isUser)
 				send_signal(find_thread(NULL), SIGPIPE);
 			return EPIPE;
 		}

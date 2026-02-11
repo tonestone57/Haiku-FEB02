@@ -41,7 +41,7 @@ read_from_buffer(struct ring_buffer *buffer, uint8 *data, ssize_t length,
 {
 	size_t available = buffer->in;
 
-	if (length > (ssize_t)available)
+	if ((size_t)length > available)
 		length = available;
 
 	if (length == 0)
@@ -86,7 +86,7 @@ write_to_buffer(struct ring_buffer *buffer, const uint8 *data, ssize_t length,
 	bool user)
 {
 	size_t left = space_left_in_buffer(buffer);
-	if (length > (ssize_t)left)
+	if ((size_t)length > left)
 		length = left;
 
 	if (length == 0)
@@ -345,10 +345,10 @@ size_t
 ring_buffer_move(struct ring_buffer *to, ssize_t length,
 	struct ring_buffer *from)
 {
-	if (length > (ssize_t)from->in)
+	if ((size_t)length > (size_t)from->in)
 		length = from->in;
 
-	if (length > (ssize_t)(to->size - to->in))
+	if ((size_t)length > to->size - to->in)
 		length = to->size - to->in;
 
 	size_t bytesMoved = 0;

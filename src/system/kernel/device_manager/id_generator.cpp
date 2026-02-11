@@ -40,7 +40,7 @@
 #	define TRACE(x) ;
 #endif
 
-#define GENERATOR_MAX_ID 64
+#define GENERATOR_MAX_ID 4096
 
 struct id_generator : DoublyLinkedListLinkImpl<id_generator> {
 	id_generator(const char* name)

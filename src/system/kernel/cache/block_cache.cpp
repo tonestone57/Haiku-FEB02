@@ -2878,12 +2878,15 @@ block_notifier_and_writer(void* /*data*/)
 			// Give some breathing room: wait 2x the length of the potential
 			// maximum block count-sized write between writes, and also skip
 			// if there are more than 16 blocks currently being written.
-			const bigtime_t next = cache->last_block_write
-					+ cache->last_block_write_duration * 2 * 64;
+			const bigtime_t kMaxWait = 2000000;
+			bigtime_t waitTime = cache->last_block_write_duration * 2 * 64;
+			if (waitTime > kMaxWait)
+				waitTime = kMaxWait;
+
+			const bigtime_t next = cache->last_block_write + waitTime;
 			if (cache->busy_writing_count > 16 || system_time() < next) {
 				if (cache->last_block_write_duration > 0) {
-					timeout = min_c(timeout,
-						cache->last_block_write_duration * 2 * 64);
+					timeout = min_c(timeout, waitTime);
 				}
 				continue;
 			}

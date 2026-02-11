@@ -2637,6 +2637,8 @@ dir_vnode_to_path(struct vnode* vnode, char* buffer, size_t bufferSize,
 
 	if (vnode == NULL || buffer == NULL || bufferSize == 0)
 		return B_BAD_VALUE;
+	if (bufferSize > SSIZE_MAX)
+		return B_BAD_VALUE;
 
 	if (!S_ISDIR(vnode->Type()))
 		return B_NOT_A_DIRECTORY;
@@ -4773,7 +4775,7 @@ vfs_read_pages(struct vnode* vnode, void* cookie, off_t pos,
 	if (status == B_OK) {
 		status = vfs_vnode_io(vnode, cookie, &request);
 		if (status == B_OK)
-			status = request.Wait();
+			status = request.Wait(B_CAN_INTERRUPT, B_INFINITE_TIMEOUT);
 		*_numBytes = request.TransferredBytes();
 	}
 
@@ -4801,7 +4803,7 @@ vfs_write_pages(struct vnode* vnode, void* cookie, off_t pos,
 	if (status == B_OK) {
 		status = vfs_vnode_io(vnode, cookie, &request);
 		if (status == B_OK)
-			status = request.Wait();
+			status = request.Wait(B_CAN_INTERRUPT, B_INFINITE_TIMEOUT);
 		*_numBytes = request.TransferredBytes();
 	}
 
@@ -6820,8 +6822,13 @@ common_rename(int fd, char* path, int newFD, char* newPath, bool kernel)
 	if (status != B_OK)
 		return status;
 
-	if (fromVnode->device != toVnode->device)
-		return B_CROSS_DEVICE_LINK;
+	if (fromVnode->device != toVnode->device) {
+		if (fromVnode->mount->volume->private_volume == NULL
+			|| fromVnode->mount->volume->private_volume
+				!= toVnode->mount->volume->private_volume) {
+			return B_CROSS_DEVICE_LINK;
+		}
+	}
 
 	if (fromVnode.Get() == toVnode.Get() && !strcmp(fromName, toName))
 		return B_OK;

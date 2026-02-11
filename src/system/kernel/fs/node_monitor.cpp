@@ -81,10 +81,9 @@ class UserNodeListener : public UserMessagingListener {
 
 		bool operator==(const NotificationListener& _other) const
 		{
-			const UserNodeListener* other
-				= dynamic_cast<const UserNodeListener*>(&_other);
-			return other != NULL && other->Port() == Port()
-				&& other->Token() == Token();
+			const UserMessagingListener* other = _other.AsUserMessagingListener();
+			return other != NULL && &other->Sender() == &sNodeMonitorSender
+				&& other->Port() == Port() && other->Token() == Token();
 		}
 };
 
@@ -306,7 +305,10 @@ NodeMonitorService::_RemoveListener(monitor_listener *listener)
 	monitor->listeners.Remove(listener);
 	list_remove_link(&listener->context_link);
 
-	if (dynamic_cast<UserNodeListener*>(listener->listener) != NULL) {
+	UserMessagingListener* userListener
+		= listener->listener->AsUserMessagingListener();
+	if (userListener != NULL
+		&& &userListener->Sender() == &sNodeMonitorSender) {
 		// This is a listener we copied ourselves in UpdateUserListener(),
 		// so we have to delete it here.
 		delete listener->listener;
