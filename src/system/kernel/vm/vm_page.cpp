@@ -2107,6 +2107,7 @@ PageWriteWrapper::Done(status_t result)
 			// it now.
 			vm_remove_all_page_mappings(fPage);
 // TODO: Unmapping should already happen when resizing the cache!
+			swap_free_page_swap_space(fPage);
 			fCache->RemovePage(fPage);
 			free_page(fPage, false);
 			unreserve_pages(1);
