@@ -14,7 +14,9 @@
 #include "Inode.h"
 #include "Volume.h"
 
-#include <fs_query.h>
+#ifndef FS_SHELL
+#	include <fs_query.h>
+#endif
 
 #include <file_systems/QueryParser.h>
 
