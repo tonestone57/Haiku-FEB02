@@ -121,6 +121,8 @@ rule PreprocessPackageOrRepositoryInfo target : source : architecture
 	local revisionFile = [ DetermineHaikuRevision ] ;
 	Depends $(target) : $(source) $(revisionFile) ;
 
+	Depends $(target) : [ FDirName $(HAIKU_TOP) build jam PackageRules ] ;
+
 	if useCPP in $(flags) {
 		PREPROCESSOR on $(target)
 			= "|" $(HOST_CC) -E -w [ FDefines $(defines) ] - ;
