@@ -1657,8 +1657,9 @@ _user_set_clock(clockid_t clockID, bigtime_t time)
 
 		case CLOCK_THREAD_CPUTIME_ID:
 		{
+			InterruptsWriteSequentialLocker locker(sUserTimerLock);
 			Thread* thread = thread_get_current_thread();
-			InterruptsSpinLocker timeLocker(thread->time_lock);
+			SpinLocker timeLocker(thread->time_lock);
 			bigtime_t diff = time - thread->CPUTime(false);
 			thread->cpu_clock_offset += diff;
 
@@ -1711,7 +1712,8 @@ _user_set_clock(clockid_t clockID, bigtime_t time)
 			BReference<Team> teamReference(team, true);
 
 			// set the time offset
-			InterruptsSpinLocker timeLocker(team->time_lock);
+			InterruptsWriteSequentialLocker locker(sUserTimerLock);
+			SpinLocker timeLocker(team->time_lock);
 			bigtime_t diff = time - team->CPUTime(false);
 			team->cpu_clock_offset += diff;
 
