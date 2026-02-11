@@ -392,14 +392,60 @@ VMUserAddressSpace::UnreserveAddressRange(addr_t address, size_t size,
 	addr_t endAddress = address + size - 1;
 	for (VMUserAreaTree::Iterator it = fAreas.GetIterator(area);
 		(area = it.Next()) != NULL
-			&& area->Base() + area->Size() - 1 <= endAddress;) {
+			&& area->Base() <= endAddress;) {
 
-		if (area->id == RESERVED_AREA_ID) {
-			// remove reserved range
+		if (area->id != RESERVED_AREA_ID)
+			continue;
+
+		// Check if the area overlaps with the range we want to unreserve
+		addr_t areaBase = area->Base();
+		addr_t areaEnd = area->Base() + area->Size() - 1;
+
+		if (areaBase > endAddress || areaEnd < address)
+			continue;
+
+		// We have an overlap. We need to cut out the part of the area that falls
+		// into the range [address, endAddress].
+
+		if (areaBase >= address && areaEnd <= endAddress) {
+			// Case 1: Area is fully contained in range -> Remove it
 			RemoveArea(area, allocationFlags);
 			Put();
 			area->~VMUserArea();
 			free_etc(area, allocationFlags);
+		} else if (areaBase < address && areaEnd > endAddress) {
+			// Case 2: Range is fully contained in area -> Split area
+			// We keep the head of the area, resize it to end at address - 1.
+			// We create a new area for the tail, starting at endAddress + 1.
+
+			VMUserArea* newArea = VMUserArea::CreateReserved(this,
+				area->protection, allocationFlags);
+			if (newArea == NULL)
+				return B_NO_MEMORY;
+
+			Get();
+
+			// Resize original area (head)
+			area->SetSize(address - areaBase);
+
+			// Configure new area (tail)
+			newArea->SetBase(endAddress + 1);
+			newArea->SetSize(areaEnd - endAddress);
+			newArea->cache_offset = newArea->Base();
+
+			fAreas.Insert(newArea);
+			IncrementChangeCount();
+		} else if (areaBase < address) {
+			// Case 3: Area overlaps start of range (Head is outside, Tail is inside)
+			// Resize area to end at address - 1.
+			area->SetSize(address - areaBase);
+		} else {
+			// Case 4: Area overlaps end of range (Head is inside, Tail is outside)
+			// Resize area to start at endAddress + 1.
+			addr_t offset = endAddress + 1 - areaBase;
+			area->SetBase(endAddress + 1);
+			area->SetSize(area->Size() - offset);
+			area->cache_offset = area->Base();
 		}
 	}
 
