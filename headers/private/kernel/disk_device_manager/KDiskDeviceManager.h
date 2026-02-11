@@ -122,7 +122,7 @@ private:
 	bool _AddDevice(KDiskDevice *device);
 	bool _RemoveDevice(KDiskDevice *device);
 
-	status_t _Scan(const char *path);
+	status_t _Scan(const char *path, int depth = 0);
 	status_t _ScanPartition(KPartition *partition, bool async,
 		DiskSystemMap* restrictScan = NULL);
 		// the manager must be locked and the device write locked

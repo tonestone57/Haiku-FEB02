@@ -1269,9 +1269,12 @@ KDiskDeviceManager::_UpdateBusyPartitions(KDiskDevice *device)
 
 
 status_t
-KDiskDeviceManager::_Scan(const char* path)
+KDiskDeviceManager::_Scan(const char* path, int depth)
 {
-	TRACE("KDiskDeviceManager::_Scan(%s)\n", path);
+	TRACE("KDiskDeviceManager::_Scan(%s, %d)\n", path, depth);
+	if (depth > 8)
+		return B_OK;
+
 	status_t error = B_ENTRY_NOT_FOUND;
 	struct stat st;
 	if (lstat(path, &st) < 0) {
@@ -1291,7 +1294,7 @@ KDiskDeviceManager::_Scan(const char* path)
 				|| entryPath.Append(entry->d_name) != B_OK) {
 				continue;
 			}
-			if (_Scan(entryPath.Path()) == B_OK)
+			if (_Scan(entryPath.Path(), depth + 1) == B_OK)
 				error = B_OK;
 		}
 		closedir(dir);
