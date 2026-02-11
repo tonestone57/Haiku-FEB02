@@ -313,7 +313,7 @@ swap_slot_alloc(uint32 count)
 
 
 static swap_file*
-find_swap_file(swap_addr_t slotIndex)
+find_swap_file_locked(swap_addr_t slotIndex)
 {
 	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
 		swap_file* swapFile = it.Next();) {
@@ -329,6 +329,14 @@ find_swap_file(swap_addr_t slotIndex)
 }
 
 
+static swap_file*
+find_swap_file(swap_addr_t slotIndex)
+{
+	MutexLocker locker(sSwapFileListLock);
+	return find_swap_file_locked(slotIndex);
+}
+
+
 static void
 swap_slot_dealloc(swap_addr_t slotIndex, uint32 count)
 {
@@ -336,7 +344,7 @@ swap_slot_dealloc(swap_addr_t slotIndex, uint32 count)
 		return;
 
 	mutex_lock(&sSwapFileListLock);
-	swap_file* swapFile = find_swap_file(slotIndex);
+	swap_file* swapFile = find_swap_file_locked(slotIndex);
 	slotIndex -= swapFile->first_slot;
 	radix_bitmap_dealloc(swapFile->bmp, slotIndex, count);
 	mutex_unlock(&sSwapFileListLock);

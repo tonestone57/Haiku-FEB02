@@ -1568,6 +1568,8 @@ user_timer_real_time_clock_changed()
 void
 user_timer_stop_cpu_timers(Thread* thread, Thread* nextThread)
 {
+	InterruptsWriteSequentialLocker locker(sUserTimerLock);
+
 	// stop thread timers
 	for (ThreadTimeUserTimerList::ConstIterator it
 				= thread->CPUTimeUserTimerIterator();
@@ -1589,6 +1591,8 @@ user_timer_stop_cpu_timers(Thread* thread, Thread* nextThread)
 void
 user_timer_continue_cpu_timers(Thread* thread, Thread* previousThread)
 {
+	InterruptsWriteSequentialLocker locker(sUserTimerLock);
+
 	// update team timers
 	if (previousThread == NULL || previousThread->team != thread->team) {
 		for (TeamTimeUserTimerList::ConstIterator it
