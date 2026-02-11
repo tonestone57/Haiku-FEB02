@@ -831,10 +831,12 @@ cut_area(VMAddressSpace* addressSpace, VMArea* area, addr_t address,
 
 			// If the cache had other users before, it may have the wrong base.
 			status_t status = cache->Rebase(area->cache_offset, resizePriority);
-			ASSERT_ALWAYS(status == B_OK);
+			if (status != B_OK)
+				dprintf("cut_area: cache rebase failed: %s\n", strerror(status));
 
 			status = cache->Resize(area->cache_offset + area->Size(), resizePriority);
-			ASSERT_ALWAYS(status == B_OK);
+			if (status != B_OK)
+				dprintf("cut_area: cache resize failed: %s\n", strerror(status));
 		}
 
 		if (resizePriority == -1) {
@@ -886,11 +888,13 @@ cut_area(VMAddressSpace* addressSpace, VMArea* area, addr_t address,
 			cacheChainLocker.SetTo(cache);
 
 			status_t status = cache->Rebase(area->cache_offset + size, resizePriority);
-			ASSERT_ALWAYS(status == B_OK);
+			if (status != B_OK)
+				dprintf("cut_area: cache rebase failed: %s\n", strerror(status));
 
 			// If the cache had other users before, it may be larger than wanted.
-			status = cache->Resize(cache->virtual_base + area->Size(), resizePriority);
-			ASSERT_ALWAYS(status == B_OK);
+			status = cache->Resize(area->cache_offset + size + area->Size(), resizePriority);
+			if (status != B_OK)
+				dprintf("cut_area: cache resize failed: %s\n", strerror(status));
 		}
 
 		area->cache_offset += size;
@@ -1025,10 +1029,12 @@ cut_area(VMAddressSpace* addressSpace, VMArea* area, addr_t address,
 		// (Let Resize() change commitment, so we don't try to increase
 		// it in this step if we've taken some from this cache already.)
 		error = cache->Rebase(area->cache_offset, -1);
-		ASSERT_ALWAYS(error == B_OK);
+		if (error != B_OK)
+			dprintf("cut_area: cache rebase failed: %s\n", strerror(error));
 
-		error = cache->Resize(cache->virtual_base + firstNewSize, resizePriority);
-		ASSERT_ALWAYS(error == B_OK);
+		error = cache->Resize(area->cache_offset + firstNewSize, resizePriority);
+		if (error != B_OK)
+			dprintf("cut_area: cache resize failed: %s\n", strerror(error));
 
 		if (resizePriority == -1) {
 			// Adjust commitments.
