@@ -803,3 +803,147 @@ The function calculates `areaSize` adding a user-provided `guard_size`.
 
 ### Consequence
 Stack overflow / memory corruption.
+
+## 36. Integer Overflow in `KMessage::_CapacityFor`
+
+**Severity:** High
+**File:** `src/system/kernel/messaging/KMessage.cpp`
+**Function:** `KMessage::_CapacityFor`
+
+### Description
+The function calculates capacity using `(size + 63) / 64 * 64`. If `size` is close to `INT_MAX`, `size + 63` overflows `int32` (signed), resulting in a small or negative value. This leads to allocating a buffer too small for the data, causing heap overflow in `_AllocateSpace`.
+
+### Consequence
+Heap buffer overflow.
+
+## 37. Integer Truncation in `XsiSemaphoreSet::RecordUndo`
+
+**Severity:** Medium
+**File:** `src/system/kernel/posix/xsi_semaphore.cpp`
+**Function:** `XsiSemaphoreSet::RecordUndo`
+
+### Description
+The result of adding the undo value is stored in `int newValue`, checked against `USHRT_MAX` (65535), and then assigned to `int16` array `undo_values`. Values between 32768 and 65535 pass the check but are truncated to negative values in `int16`, corrupting the undo state. The check should use `SHRT_MAX`.
+
+### Consequence
+Corruption of semaphore undo state, leading to incorrect semaphore values on process exit.
+
+## 38. Integer Overflow in `elf_load_user_image` Segment Calculation
+
+**Severity:** High
+**File:** `src/system/kernel/elf.cpp`
+**Function:** `elf_load_user_image`
+
+### Description
+The calculation `programHeaders[i].p_vaddr + programHeaders[i].p_memsz` can overflow `size_t` (on 32-bit or if 64-bit values are large/malformed). This leads to `memUpperBound` wrapping around, potentially causing `vm_map_file` to map a small area or `create_area` to underflow `bssSize`, leading to memory corruption.
+
+### Consequence
+Memory corruption, potential code execution via malformed ELF.
+
+## 39. Integer Overflow in `load_kernel_add_on` Reservation
+
+**Severity:** High
+**File:** `src/system/kernel/elf.cpp`
+**Function:** `load_kernel_add_on`
+
+### Description
+The function sums up segment sizes into `reservedSize`. `length += ROUNDUP(...)`. If a kernel add-on has huge segments (malformed), `length` can overflow `ssize_t`. The subsequent `vm_reserve_address_range` might succeed with a smaller size, but loading content will write beyond the reserved area.
+
+### Consequence
+Kernel memory corruption.
+
+## 40. Missing Null Termination Check in `_user_register_image`
+
+**Severity:** Medium
+**File:** `src/system/kernel/image.cpp`
+**Function:** `_user_register_image`
+
+### Description
+The function copies `extended_image_info` from user space but does not validate that `basic_info.name` is null-terminated. Subsequent usage of this name (e.g. printing in debugger or log) can read out of bounds.
+
+### Consequence
+Information disclosure (OOB read).
+
+## 41. Unsafe User Buffer Access in `_user_get_next_loaded_module_name`
+
+**Severity:** High
+**File:** `src/system/kernel/module.cpp`
+**Function:** `_user_get_next_loaded_module_name`
+
+### Description
+The function passes a user-space buffer `buffer` directly to `get_next_loaded_module_name`, which calls `strlcpy` on it. This accesses user memory without `user_memcpy` or SMAP protection, leading to potential crashes or security violations.
+
+### Consequence
+Kernel crash or security violation (SMAP bypass).
+
+## 42. Missing Ownership Check in `_user_xsi_msgctl`
+
+**Severity:** High
+**File:** `src/system/kernel/posix/xsi_message_queue.cpp`
+**Function:** `_user_xsi_msgctl`
+
+### Description
+For `IPC_SET` and `IPC_RMID` commands, the function checks `messageQueue->HasPermission()` which requires write permission. However, POSIX specifies that the caller must be the owner (uid/cuid) or privileged. This allows any user with write access to the queue to delete it or change its parameters.
+
+### Consequence
+Unauthorized deletion or modification of message queues.
+
+## 43. Missing Ownership Check in `_user_xsi_semctl`
+
+**Severity:** High
+**File:** `src/system/kernel/posix/xsi_semaphore.cpp`
+**Function:** `_user_xsi_semctl`
+
+### Description
+Similar to `xsi_msgctl`, `IPC_SET` and `IPC_RMID` checks only verify write permissions (`HasPermission`) instead of ownership, allowing unauthorized modification or deletion of semaphore sets.
+
+### Consequence
+Unauthorized deletion or modification of semaphore sets.
+
+## 44. Unsafe Kernel Copy in `receive_data_etc`
+
+**Severity:** High
+**File:** `src/system/kernel/thread.cpp`
+**Function:** `receive_data_etc`
+
+### Description
+The function unconditionally uses `user_memcpy` to copy the message to the receiver's buffer. If the receiver is a kernel thread (using `receive_data`), `user_memcpy` will fail (or panic depending on implementation) when accessing the kernel address `buffer`, breaking kernel-internal messaging.
+
+### Consequence
+Kernel malfunction or crash.
+
+## 45. Unsafe Kernel Copy in `send_data_etc`
+
+**Severity:** High
+**File:** `src/system/kernel/thread.cpp`
+**Function:** `send_data_etc`
+
+### Description
+Similar to `receive_data_etc`, this function unconditionally uses `user_memcpy` to copy data from the sender's buffer. If the sender is a kernel thread, this operation is invalid.
+
+### Consequence
+Kernel malfunction or crash.
+
+## 46. Missing Argument Relocation in `team_create_thread_start_internal`
+
+**Severity:** High
+**File:** `src/system/kernel/team.cpp`
+**Function:** `team_create_thread_start_internal`
+
+### Description
+The function copies `flatArgs` to the user stack `userArgs` using `user_memcpy`. However, `flatArgs` (allocated in kernel) contains pointers that point to addresses within the kernel buffer. These pointers are not relocated to point to the user stack addresses. The user process receives `argv` pointers pointing to kernel memory, which causes a crash or potential info leak.
+
+### Consequence
+Process crash or potential kernel memory disclosure.
+
+## 47. Use-After-Free in `unload_module`
+
+**Severity:** High
+**File:** `src/system/kernel/module.cpp`
+**Function:** `unload_module`
+
+### Description
+The function looks up `moduleImage`, unlocks `sModulesLock`, and then calls `put_module_image(moduleImage)`. Since the lock is released, another thread can unload and free `moduleImage` before `put_module_image` is called. Accessing `moduleImage` (to decrement ref count) in `put_module_image` is a use-after-free.
+
+### Consequence
+Use-after-free, potential kernel crash or corruption.
