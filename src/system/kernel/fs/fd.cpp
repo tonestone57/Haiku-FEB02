@@ -970,7 +970,7 @@ _user_ioctl(int fd, uint32 op, void* buffer, size_t length)
 	// check that it is a userland buffer here. Instead we check that
 	// it is at least not within the bounds of kernel memory; as in
 	// the cases where it is a numeric constant it is usually a low one.
-	if (IS_KERNEL_ADDRESS(buffer))
+	if (!is_user_address_range(buffer, length))
 		return B_BAD_ADDRESS;
 
 	SyscallRestartWrapper<status_t> status;

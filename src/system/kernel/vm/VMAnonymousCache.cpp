@@ -459,9 +459,10 @@ public:
 		generic_size_t bytesTransferred)
 	{
 		if (fNewSlot) {
-			if (status == B_OK) {
-				fCache->_SwapBlockBuild(fPageIndex, fSlotIndex, 1);
-			} else {
+			if (status == B_OK)
+				status = fCache->_SwapBlockBuild(fPageIndex, fSlotIndex, 1);
+
+			if (status != B_OK) {
 				AutoLocker<VMCache> locker(fCache);
 				fCache->fAllocatedSwapSize -= B_PAGE_SIZE;
 				locker.Unlock();
@@ -957,7 +958,15 @@ VMAnonymousCache::Write(off_t offset, const generic_io_vec* vecs, size_t count,
 
 			swap_file_release(swapFile);
 
-			_SwapBlockBuild(pageIndex + totalPages, slotIndex, n);
+			status = _SwapBlockBuild(pageIndex + totalPages, slotIndex, n);
+			if (status != B_OK) {
+				locker.Lock();
+				fAllocatedSwapSize -= (off_t)pagesLeft * B_PAGE_SIZE;
+				locker.Unlock();
+
+				swap_slot_dealloc(slotIndex, n);
+				return status;
+			}
 			pagesLeft -= n;
 
 			if (n != pageCount) {
@@ -1159,7 +1168,7 @@ VMAnonymousCache::DeleteObject()
 }
 
 
-void
+status_t
 VMAnonymousCache::_SwapBlockBuild(off_t startPageIndex,
 	swap_addr_t startSlotIndex, uint32 count)
 {
@@ -1173,10 +1182,15 @@ VMAnonymousCache::_SwapBlockBuild(off_t startPageIndex,
 		swap_hash_key key = { this, pageIndex };
 
 		swap_block* swap = sSwapHashTable.Lookup(key);
+		int32 retries = 0;
 		while (swap == NULL) {
 			swap = (swap_block*)object_cache_alloc(sSwapBlockCache,
 				CACHE_DONT_WAIT_FOR_MEMORY | CACHE_DONT_LOCK_KERNEL_SPACE);
 			if (swap == NULL) {
+				if (++retries > 10) {
+					locker.Unlock();
+					return B_NO_MEMORY;
+				}
 				// Wait a short time until memory is available again.
 				locker.Unlock();
 				snooze(10000);
@@ -1202,6 +1216,8 @@ VMAnonymousCache::_SwapBlockBuild(off_t startPageIndex,
 
 		swap->used += j;
 	}
+
+	return B_OK;
 }
 
 

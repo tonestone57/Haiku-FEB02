@@ -29,6 +29,8 @@
 
 class NotificationService;
 
+class UserMessagingListener;
+
 class NotificationListener {
 public:
 	virtual						~NotificationListener();
@@ -44,6 +46,11 @@ public:
 			bool				operator!=(
 									const NotificationListener& other) const
 									{ return !(*this == other); }
+
+	virtual const UserMessagingListener*
+								AsUserMessagingListener() const { return NULL; }
+	virtual UserMessagingListener*
+								AsUserMessagingListener() { return NULL; }
 };
 
 class UserMessagingMessageSender {
@@ -78,9 +85,15 @@ public:
 
 			port_id				Port() const	{ return fPort; }
 			int32				Token() const	{ return fToken; }
+			UserMessagingMessageSender& Sender() const { return fSender; }
 
 			bool				operator==(
 									const NotificationListener& _other) const;
+
+	virtual const UserMessagingListener*
+								AsUserMessagingListener() const { return this; }
+	virtual UserMessagingListener*
+								AsUserMessagingListener() { return this; }
 
 private:
 	UserMessagingMessageSender&	fSender;
@@ -91,8 +104,7 @@ private:
 inline bool
 UserMessagingListener::operator==(const NotificationListener& _other) const
 {
-	const UserMessagingListener* other
-		= dynamic_cast<const UserMessagingListener*>(&_other);
+	const UserMessagingListener* other = _other.AsUserMessagingListener();
 	return other != NULL && other->Port() == Port()
 		&& other->Token() == Token();
 }
