@@ -72,7 +72,7 @@ read_from_buffer(struct ring_buffer *buffer, uint8 *data, ssize_t length,
 	}
 
 	buffer->first = (buffer->first + bytesRead) % buffer->size;
-	if (buffer->in < bytesRead)
+	if (buffer->in < (size_t)bytesRead)
 		buffer->in = 0;
 	else
 		buffer->in -= bytesRead;
