@@ -918,10 +918,12 @@ ThreadTimeUserTimer::Schedule(bigtime_t nextTime, bigtime_t interval,
 
 	// Cancel the old timer, if still scheduled, and get the previous values.
 	if (fThread != NULL) {
+		InterruptsSpinLocker schedulerLocker(fThread->scheduler_lock);
 		if (fScheduled) {
 			CancelTimer();
 			fScheduled = false;
 		}
+		schedulerLocker.Unlock();
 
 		_oldRemainingTime = fNextTime - now;
 		_oldInterval = fInterval;
@@ -964,6 +966,7 @@ ThreadTimeUserTimer::Schedule(bigtime_t nextTime, bigtime_t interval,
 	fThread->UserTimerActivated(this);
 
 	// If the thread is currently running, also schedule a kernel timer.
+	InterruptsSpinLocker schedulerLocker(fThread->scheduler_lock);
 	if (fThread->cpu != NULL)
 		Start();
 }
@@ -1097,6 +1100,7 @@ ThreadTimeUserTimer::TimeWarped(bigtime_t changedBy)
 		fNextTime += changedBy;
 
 	// reschedule the kernel timer
+	InterruptsSpinLocker schedulerLocker(fThread->scheduler_lock);
 	if (fScheduled) {
 		Stop();
 		Start();
