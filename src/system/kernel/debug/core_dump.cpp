@@ -97,8 +97,16 @@ struct Allocator {
 
 	void* AllocateAligned(size_t size)
 	{
+		if (size > SIZE_MAX - 7)
+			return NULL;
+
 		size_t offset = fAlignedSize;
-		fAlignedSize += (size + 7) / 8 * 8;
+		size_t alignedSize = (size + 7) / 8 * 8;
+
+		if (fAlignedSize > SIZE_MAX - alignedSize)
+			return NULL;
+
+		fAlignedSize += alignedSize;
 		if (fAlignedSize <= fAlignedCapacity)
 			return fAligned + offset;
 		return NULL;
@@ -106,8 +114,16 @@ struct Allocator {
 
 	char* AllocateString(size_t length)
 	{
+		if (length > SIZE_MAX - 1)
+			return NULL;
+
 		size_t offset = fStringSize;
-		fStringSize += length + 1;
+		size_t size = length + 1;
+
+		if (fStringSize > SIZE_MAX - size)
+			return NULL;
+
+		fStringSize += size;
 		if (fStringSize <= fStringCapacity)
 			return fStrings + offset;
 		return NULL;

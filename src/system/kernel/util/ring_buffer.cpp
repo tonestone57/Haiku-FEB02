@@ -28,7 +28,7 @@
  */
 
 
-static inline int32
+static inline size_t
 space_left_in_buffer(struct ring_buffer *buffer)
 {
 	return buffer->size - buffer->in;
@@ -39,9 +39,9 @@ static ssize_t
 read_from_buffer(struct ring_buffer *buffer, uint8 *data, ssize_t length,
 	bool user)
 {
-	int32 available = buffer->in;
+	size_t available = buffer->in;
 
-	if (length > available)
+	if (length > (ssize_t)available)
 		length = available;
 
 	if (length == 0)
@@ -85,17 +85,17 @@ static ssize_t
 write_to_buffer(struct ring_buffer *buffer, const uint8 *data, ssize_t length,
 	bool user)
 {
-	int32 left = space_left_in_buffer(buffer);
-	if (length > left)
+	size_t left = space_left_in_buffer(buffer);
+	if (length > (ssize_t)left)
 		length = left;
 
 	if (length == 0)
 		return 0;
 
 	ssize_t bytesWritten = length;
-	int32 position = (buffer->first + buffer->in) % buffer->size;
+	size_t position = (buffer->first + buffer->in) % buffer->size;
 
-	if (position + length <= buffer->size) {
+	if (position + length <= (size_t)buffer->size) {
 		// simple copy
 		if (user) {
 			if (user_memcpy(buffer->buffer + position, data, length) < B_OK)
@@ -116,9 +116,6 @@ write_to_buffer(struct ring_buffer *buffer, const uint8 *data, ssize_t length,
 			memcpy(buffer->buffer, data + upper, lower);
 		}
 	}
-
-	if (buffer->in > INT_MAX - bytesWritten)
-		return B_NO_MEMORY;
 
 	buffer->in += bytesWritten;
 
@@ -348,10 +345,10 @@ size_t
 ring_buffer_move(struct ring_buffer *to, ssize_t length,
 	struct ring_buffer *from)
 {
-	if (length > from->in)
+	if (length > (ssize_t)from->in)
 		length = from->in;
 
-	if (length > (to->size - to->in))
+	if (length > (ssize_t)(to->size - to->in))
 		length = to->size - to->in;
 
 	size_t bytesMoved = 0;
