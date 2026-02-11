@@ -13,6 +13,9 @@
 #include "Index.h"
 #include "Inode.h"
 #include "Volume.h"
+
+#include <fs_query.h>
+
 #include <file_systems/QueryParser.h>
 
 
