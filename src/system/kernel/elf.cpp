@@ -2040,8 +2040,18 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 			size_t fileUpperBound = (programHeaders[i].p_vaddr % B_PAGE_SIZE)
 				+ programHeaders[i].p_filesz;
 
+			if (memUpperBound < programHeaders[i].p_memsz
+				|| fileUpperBound < programHeaders[i].p_filesz) {
+				return B_BAD_DATA;
+			}
+
 			memUpperBound = ROUNDUP(memUpperBound, B_PAGE_SIZE);
 			fileUpperBound = ROUNDUP(fileUpperBound, B_PAGE_SIZE);
+
+			if (memUpperBound < programHeaders[i].p_memsz
+				|| fileUpperBound < programHeaders[i].p_filesz) {
+				return B_BAD_DATA;
+			}
 
 			snprintf(regionName, B_OS_NAME_LENGTH, "%s_seg%drw", baseName, i);
 
@@ -2099,6 +2109,9 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 
 			size_t segmentSize = ROUNDUP(programHeaders[i].p_memsz
 				+ (programHeaders[i].p_vaddr % B_PAGE_SIZE), B_PAGE_SIZE);
+
+			if (segmentSize < programHeaders[i].p_memsz)
+				return B_BAD_DATA;
 
 			id = vm_map_file(team->id, regionName, (void **)&regionAddress,
 				addressSpec, segmentSize,
@@ -2308,11 +2321,20 @@ load_kernel_add_on(const char *path)
 		if (programHeaders[i].p_type != PT_LOAD)
 			continue;
 
-		length += ROUNDUP(programHeaders[i].p_memsz
+		size_t segmentSize = ROUNDUP(programHeaders[i].p_memsz
 			+ (programHeaders[i].p_vaddr % B_PAGE_SIZE), B_PAGE_SIZE);
+		if (segmentSize < programHeaders[i].p_memsz || length + segmentSize < length) {
+			status = B_BAD_DATA;
+			goto error3;
+		}
+		length += segmentSize;
 
 		end = ROUNDUP(programHeaders[i].p_memsz + programHeaders[i].p_vaddr,
 			B_PAGE_SIZE);
+		if (end < programHeaders[i].p_vaddr) {
+			status = B_BAD_DATA;
+			goto error3;
+		}
 		if (end > reservedSize)
 			reservedSize = end;
 

@@ -1046,6 +1046,9 @@ KMessage::_AllocateSpace(int32 size, bool alignAddress, bool alignSize,
 int32
 KMessage::_CapacityFor(int32 size)
 {
+	if (size > INT_MAX - kMessageReallocChunkSize + 1)
+		return size;
+
 	return (size + kMessageReallocChunkSize - 1) / kMessageReallocChunkSize
 		* kMessageReallocChunkSize;
 }

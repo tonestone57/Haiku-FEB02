@@ -295,6 +295,16 @@ public:
 		return false;
 	}
 
+	bool HasOwnership() const
+	{
+		uid_t uid = geteuid();
+		if (uid == 0 || uid == fPermissions.uid
+			|| uid == fPermissions.cuid)
+			return true;
+
+		return false;
+	}
+
 	bool HasReadPermission() const
 	{
 		// TODO: fix this
@@ -960,9 +970,9 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 		}
 
 		case IPC_SET: {
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasOwnership()) {
 				TRACE(("xsi_semctl: calling process has not "
-					"permission on semaphore %d, key %d\n",
+					"ownership on semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)semaphoreSet->IpcKey()));
 				result = B_NOT_ALLOWED;
 			} else {
@@ -983,9 +993,9 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 			// ipc hash table lock and the semaphore set lock
 			// itself, this way we are sure there is not
 			// one waiting in the queue of the mutex.
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasOwnership()) {
 				TRACE(("xsi_semctl: calling process has not "
-					"permission on semaphore %d, key %d\n",
+					"ownership on semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)semaphoreSet->IpcKey()));
 				return B_NOT_ALLOWED;
 			}

@@ -2355,10 +2355,9 @@ _vm_map_file(team_id team, const char* name, void** _address,
 
 	cache->Lock();
 
-	off_t mapEnd = offset + (off_t)size;
-	if (mapping != REGION_PRIVATE_MAP && ((off_t)size < 0 || mapEnd < offset
-			|| cache->virtual_base > offset
-			|| PAGE_ALIGN(cache->virtual_end) < mapEnd)) {
+	if (mapping != REGION_PRIVATE_MAP && (cache->virtual_base > offset
+			|| (off_t)size > OFF_MAX - offset
+			|| PAGE_ALIGN(cache->virtual_end) < (off_t)(offset + size))) {
 		cache->ReleaseRefAndUnlock();
 		return B_BAD_VALUE;
 	}
@@ -4766,7 +4765,10 @@ vm_try_reserve_memory(size_t amount, int priority, bigtime_t timeout)
 		return B_NO_MEMORY;
 
 	// turn timeout into an absolute timeout
-	timeout += system_time();
+	if (B_INFINITE_TIMEOUT - system_time() < timeout)
+		timeout = B_INFINITE_TIMEOUT;
+	else
+		timeout += system_time();
 
 	// loop until we're out of retries or the timeout occurs
 	int32 retries = 3;

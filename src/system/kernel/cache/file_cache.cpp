@@ -167,6 +167,8 @@ PrecacheIO::Prepare(vm_page_reservation* reservation)
 	for (generic_size_t pos = 0; pos < fSize; pos += B_PAGE_SIZE) {
 		vm_page* page = vm_page_allocate_page(reservation,
 			PAGE_STATE_CACHED | VM_PAGE_ALLOC_BUSY);
+		if (page == NULL)
+			return B_NO_MEMORY;
 
 		fCache->InsertPage(page, fOffset + pos);
 
@@ -422,6 +424,14 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 		vm_page* page = pages[pageIndex++] = vm_page_allocate_page(
 			reservation, PAGE_STATE_CACHED | VM_PAGE_ALLOC_BUSY);
+		if (page == NULL) {
+			for (int32 i = 0; i < pageIndex - 1; i++) {
+				cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				cache->RemovePage(pages[i]);
+				vm_page_free(cache, pages[i]);
+			}
+			return B_NO_MEMORY;
+		}
 
 		cache->InsertPage(page, offset + pos);
 
@@ -576,6 +586,14 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 			reservation,
 			(writeThrough ? PAGE_STATE_CACHED : PAGE_STATE_MODIFIED)
 				| VM_PAGE_ALLOC_BUSY);
+		if (page == NULL) {
+			for (int32 i = 0; i < pageIndex - 1; i++) {
+				ref->cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				ref->cache->RemovePage(pages[i]);
+				vm_page_free(ref->cache, pages[i]);
+			}
+			return B_NO_MEMORY;
+		}
 
 		page->modified = !writeThrough;
 

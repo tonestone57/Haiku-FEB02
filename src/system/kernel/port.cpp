@@ -1588,7 +1588,10 @@ writev_port_etc(port_id id, int32 msgCode, const iovec* msgVecs,
 		// Make the timeout absolute, since we have more than one step where
 		// we might have to wait
 		flags = (flags & ~B_RELATIVE_TIMEOUT) | B_ABSOLUTE_TIMEOUT;
-		timeout += system_time();
+		if (B_INFINITE_TIMEOUT - system_time() < timeout)
+			timeout = B_INFINITE_TIMEOUT;
+		else
+			timeout += system_time();
 	}
 
 	status_t status;
@@ -1682,6 +1685,9 @@ writev_port_etc(port_id id, int32 msgCode, const iovec* msgVecs,
 			offset += bytes;
 		}
 	}
+
+	if (bufferSize > 0)
+		memset(message->buffer + message->size - bufferSize, 0, bufferSize);
 
 	portRef->messages.Add(message);
 	portRef->read_count++;
