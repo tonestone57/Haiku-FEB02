@@ -1691,6 +1691,7 @@ _user_set_clock(clockid_t clockID, bigtime_t time)
 					return B_NOT_ALLOWED;
 
 				// set the time offset
+				InterruptsWriteSequentialLocker locker(sUserTimerLock);
 				InterruptsSpinLocker timeLocker(thread->time_lock);
 				bigtime_t diff = time - thread->CPUTime(false);
 				thread->cpu_clock_offset += diff;
