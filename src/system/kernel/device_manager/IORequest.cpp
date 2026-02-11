@@ -996,10 +996,6 @@ IORequest::NotifyFinished()
 	bool partialTransfer = status != B_OK || fPartialTransfer;
 	bool deleteRequest = (fFlags & B_DELETE_IO_REQUEST) != 0;
 
-	// unblock waiters
-	fIsNotified = true;
-	fFinishedCondition.NotifyAll();
-
 	locker.Unlock();
 
 	// notify callback
@@ -1013,6 +1009,14 @@ IORequest::NotifyFinished()
 		parent->SubRequestFinished(this, status, partialTransfer,
 			lastTransferredOffset);
 	}
+
+	locker.Lock();
+
+	// unblock waiters
+	fIsNotified = true;
+	fFinishedCondition.NotifyAll();
+
+	locker.Unlock();
 
 	if (deleteRequest)
 		delete this;
