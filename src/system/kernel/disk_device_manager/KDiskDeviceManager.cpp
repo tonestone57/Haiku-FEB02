@@ -1271,9 +1271,10 @@ KDiskDeviceManager::_UpdateBusyPartitions(KDiskDevice *device)
 status_t
 KDiskDeviceManager::_Scan(const char* path, int depth)
 {
-	TRACE("KDiskDeviceManager::_Scan(%s, %d)\n", path, depth);
-	if (depth > 8)
-		return B_OK;
+	TRACE("KDiskDeviceManager::_Scan(%s)\n", path);
+
+	if (depth > 16)
+		return B_LINK_LIMIT;
 
 	status_t error = B_ENTRY_NOT_FOUND;
 	struct stat st;

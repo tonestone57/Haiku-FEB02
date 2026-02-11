@@ -1283,6 +1283,7 @@ device_node::~device_node()
 
 	// Delete children
 	while (device_node* child = fChildren.RemoveHead()) {
+		child->fParent = NULL;
 		delete child;
 	}
 

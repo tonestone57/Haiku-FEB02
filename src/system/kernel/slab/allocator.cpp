@@ -90,10 +90,9 @@ block_alloc(size_t size, size_t alignment, uint32 flags)
 		// in the kernel and always with power of two size == alignment anyway.
 		ASSERT((alignment & (alignment - 1)) == 0);
 		while (alignment < size) {
-			size_t next = alignment << 1;
-			if (next < alignment)
+			if (alignment >= (size_t)1 << (sizeof(size_t) * 8 - 1))
 				return NULL;
-			alignment = next;
+			alignment <<= 1;
 		}
 		size = alignment;
 

@@ -1709,9 +1709,8 @@ unload_module(const char* path)
 {
 	struct module_image* moduleImage;
 
-	recursive_lock_lock(&sModulesLock);
+	RecursiveLocker locker(sModulesLock);
 	moduleImage = sModuleImagesHash->Lookup(path);
-	recursive_lock_unlock(&sModulesLock);
 
 	if (moduleImage == NULL)
 		return B_ENTRY_NOT_FOUND;
