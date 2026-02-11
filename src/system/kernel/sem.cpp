@@ -856,6 +856,10 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 #if DEBUG_SEM_LAST_ACQUIRER
 		sSems[slot].u.used.last_acquire_count = count;
 #endif
+		semLocker.Unlock();
+
+		if (semToBeReleased >= 0)
+			release_sem_etc(semToBeReleased, 1, B_DO_NOT_RESCHEDULE);
 	}
 
 	KTRACE("switch_sem_etc() done: 0x%lx", status);

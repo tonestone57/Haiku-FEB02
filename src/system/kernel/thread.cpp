@@ -922,6 +922,10 @@ create_thread_user_stack(Team* team, Thread* thread, void* _stackBase,
 			stackSize = PAGE_ALIGN(stackSize);
 		}
 
+	if (guardSize > SIZE_MAX - stackSize - TLS_SIZE - additionalSize
+		|| guardSize + stackSize + TLS_SIZE + additionalSize > SIZE_MAX - B_PAGE_SIZE + 1)
+		return B_NO_MEMORY;
+
 		size_t areaSize = PAGE_ALIGN(guardSize + stackSize + TLS_SIZE
 			+ additionalSize);
 
@@ -1347,9 +1351,13 @@ send_data_etc(thread_id id, int32 code, const void *buffer, size_t bufferSize,
 		data = malloc(bufferSize);
 		if (data == NULL)
 			return B_NO_MEMORY;
-		if (user_memcpy(data, buffer, bufferSize) != B_OK) {
-			free(data);
-			return B_BAD_DATA;
+		if (IS_USER_ADDRESS(buffer)) {
+			if (user_memcpy(data, buffer, bufferSize) != B_OK) {
+				free(data);
+				return B_BAD_DATA;
+			}
+		} else {
+			memcpy(data, buffer, bufferSize);
 		}
 	} else
 		data = NULL;
@@ -1396,7 +1404,13 @@ receive_data_etc(thread_id *_sender, void *buffer, size_t bufferSize,
 
 	if (buffer != NULL && bufferSize != 0 && thread->msg.buffer != NULL) {
 		size = min_c(bufferSize, thread->msg.size);
-		status = user_memcpy(buffer, thread->msg.buffer, size);
+		if (IS_USER_ADDRESS(buffer)) {
+			status = user_memcpy(buffer, thread->msg.buffer, size);
+		} else {
+			memcpy(buffer, thread->msg.buffer, size);
+			status = B_OK;
+		}
+
 		if (status != B_OK) {
 			free(thread->msg.buffer);
 			release_sem(thread->msg.write_sem);

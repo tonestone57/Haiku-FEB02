@@ -2156,8 +2156,20 @@ get_next_loaded_module_name(uint32* _cookie, char* buffer, size_t* _bufferSize)
 	if (_cookie == NULL || buffer == NULL || _bufferSize == NULL)
 		return B_BAD_VALUE;
 
+	if (!IS_USER_ADDRESS(_cookie) || !IS_USER_ADDRESS(buffer)
+		|| !IS_USER_ADDRESS(_bufferSize)) {
+		return B_BAD_ADDRESS;
+	}
+
+	uint32 offset;
+	if (user_memcpy(&offset, _cookie, sizeof(uint32)) != B_OK)
+		return B_BAD_ADDRESS;
+
+	size_t bufferSize;
+	if (user_memcpy(&bufferSize, _bufferSize, sizeof(size_t)) != B_OK)
+		return B_BAD_ADDRESS;
+
 	status_t status = B_ENTRY_NOT_FOUND;
-	uint32 offset = *_cookie;
 
 	RecursiveLocker _(sModulesLock);
 
@@ -2166,8 +2178,18 @@ get_next_loaded_module_name(uint32* _cookie, char* buffer, size_t* _bufferSize)
 	for (uint32 i = 0; iterator.HasNext(); i++) {
 		struct module* module = iterator.Next();
 		if (i >= offset) {
-			*_bufferSize = strlcpy(buffer, module->name, *_bufferSize);
-			*_cookie = i + 1;
+			ssize_t length = user_strlcpy(buffer, module->name, bufferSize);
+			if (length < 0)
+				return B_BAD_ADDRESS;
+
+			bufferSize = length;
+			if (user_memcpy(_bufferSize, &bufferSize, sizeof(size_t)) != B_OK)
+				return B_BAD_ADDRESS;
+
+			offset = i + 1;
+			if (user_memcpy(_cookie, &offset, sizeof(uint32)) != B_OK)
+				return B_BAD_ADDRESS;
+
 			status = B_OK;
 			break;
 		}

@@ -167,6 +167,8 @@ PrecacheIO::Prepare(vm_page_reservation* reservation)
 	for (generic_size_t pos = 0; pos < fSize; pos += B_PAGE_SIZE) {
 		vm_page* page = vm_page_allocate_page(reservation,
 			PAGE_STATE_CACHED | VM_PAGE_ALLOC_BUSY);
+		if (page == NULL)
+			return B_NO_MEMORY;
 
 		fCache->InsertPage(page, fOffset + pos);
 
@@ -422,6 +424,14 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 		vm_page* page = pages[pageIndex++] = vm_page_allocate_page(
 			reservation, PAGE_STATE_CACHED | VM_PAGE_ALLOC_BUSY);
+		if (page == NULL) {
+			for (int32 i = 0; i < pageIndex - 1; i++) {
+				cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				cache->RemovePage(pages[i]);
+				vm_page_free(cache, pages[i]);
+			}
+			return B_NO_MEMORY;
+		}
 
 		cache->InsertPage(page, offset + pos);
 
@@ -576,6 +586,14 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 			reservation,
 			(writeThrough ? PAGE_STATE_CACHED : PAGE_STATE_MODIFIED)
 				| VM_PAGE_ALLOC_BUSY);
+		if (page == NULL) {
+			for (int32 i = 0; i < pageIndex - 1; i++) {
+				ref->cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+				ref->cache->RemovePage(pages[i]);
+				vm_page_free(ref->cache, pages[i]);
+			}
+			return B_NO_MEMORY;
+		}
 
 		page->modified = !writeThrough;
 
@@ -611,9 +629,8 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 		status = vfs_read_pages(ref->vnode, cookie, offset, &readVec, 1,
 			B_PHYSICAL_IO_REQUEST, &bytesRead);
-		// ToDo: handle errors for real!
 		if (status < B_OK)
-			panic("1. vfs_read_pages() failed: %s!\n", strerror(status));
+			goto err;
 
 		if (bytesRead < (generic_size_t)pageOffset) {
 			vm_memset_physical(vecs[0].base + bytesRead, 0,
@@ -640,9 +657,8 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 			status = vfs_read_pages(ref->vnode, cookie,
 				PAGE_ALIGN(offset + pageOffset + bufferSize) - B_PAGE_SIZE,
 				&readVec, 1, B_PHYSICAL_IO_REQUEST, &bytesRead);
-			// ToDo: handle errors for real!
 			if (status < B_OK)
-				panic("vfs_read_pages() failed: %s!\n", strerror(status));
+				goto err;
 
 			if (bytesRead < B_PAGE_SIZE) {
 				// the space beyond the file size needs to be cleaned
@@ -676,13 +692,10 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 	if (writeThrough) {
 		// write cached pages back to the file if we were asked to do that
-		status_t status = vfs_write_pages(ref->vnode, cookie, offset, vecs,
+		status = vfs_write_pages(ref->vnode, cookie, offset, vecs,
 			vecCount, B_PHYSICAL_IO_REQUEST, &numBytes);
-		if (status < B_OK) {
-			// ToDo: remove allocated pages, ...?
-			panic("file_cache: remove allocated pages! write pages failed: %s\n",
-				strerror(status));
-		}
+		if (status < B_OK)
+			goto err;
 	}
 
 	if (status == B_OK)
@@ -697,6 +710,14 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 		DEBUG_PAGE_ACCESS_END(pages[i]);
 	}
 
+	return status;
+
+err:
+	for (int32 i = 0; i < pageIndex; i++) {
+		ref->cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
+		ref->cache->RemovePage(pages[i]);
+		vm_page_free(ref->cache, pages[i]);
+	}
 	return status;
 }
 
@@ -1315,6 +1336,7 @@ file_cache_delete(void* _cacheRef)
 
 	TRACE(("file_cache_delete(ref = %p)\n", ref));
 
+	((VMVnodeCache*)ref->cache)->SetFileCacheRef(NULL);
 	ref->cache->ReleaseRef();
 	delete ref;
 }

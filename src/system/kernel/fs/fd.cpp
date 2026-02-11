@@ -773,8 +773,12 @@ common_vector_io(int fd, off_t pos, const iovec* vecs, size_t count, bool write,
 		else
 			bytesTransferred += (ssize_t)length;
 
-		if (pos != -1)
+		if (pos != -1) {
+			if (length > (size_t)(OFF_MAX - pos))
+				break;
+
 			pos += length;
+		}
 
 		if (length < vecs[i].iov_len)
 			break;
@@ -832,8 +836,15 @@ common_user_io(int fd, off_t pos, void* buffer, size_t length, bool write)
 		return status;
 
 	if (movePosition) {
-		descriptor->pos = write && (descriptor->open_mode & O_APPEND) != 0
-			? descriptor->ops->fd_seek(descriptor.Get(), 0, SEEK_END) : pos + length;
+		off_t newPos;
+		if (write && (descriptor->open_mode & O_APPEND) != 0)
+			newPos = descriptor->ops->fd_seek(descriptor.Get(), 0, SEEK_END);
+		else {
+			if (length > (size_t)(OFF_MAX - pos))
+				return EOVERFLOW;
+			newPos = pos + length;
+		}
+		descriptor->pos = newPos;
 	}
 
 	return length <= SSIZE_MAX ? (ssize_t)length : SSIZE_MAX;

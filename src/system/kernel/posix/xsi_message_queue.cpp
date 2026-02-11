@@ -167,6 +167,16 @@ public:
 		return false;
 	}
 
+	bool HasOwnership() const
+	{
+		uid_t uid = geteuid();
+		if (uid == 0 || uid == fMessageQueue.msg_perm.uid
+			|| uid == fMessageQueue.msg_perm.cuid)
+			return true;
+
+		return false;
+	}
+
 	bool HasReadPermission() const
 	{
 		// TODO: fix this
@@ -538,8 +548,8 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 		}
 
 		case IPC_SET: {
-			if (!messageQueue->HasPermission()) {
-				TRACE(("xsi_msgctl: calling process has not permission "
+			if (!messageQueue->HasOwnership()) {
+				TRACE(("xsi_msgctl: calling process has not ownership "
 					"on message queue %d, key %d\n", messageQueueID,
 					(int)messageQueue->IpcKey()));
 				return B_NOT_ALLOWED;
@@ -568,8 +578,8 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 			// queue hash table lock along with the ipc one, but not the
 			// message queue lock itself. This prevents other process
 			// to try and acquire a destroyed mutex
-			if (!messageQueue->HasPermission()) {
-				TRACE(("xsi_msgctl: calling process has not permission "
+			if (!messageQueue->HasOwnership()) {
+				TRACE(("xsi_msgctl: calling process has not ownership "
 					"on message queue %d, key %d\n", messageQueueID,
 					(int)messageQueue->IpcKey()));
 				return B_NOT_ALLOWED;

@@ -295,6 +295,16 @@ public:
 		return false;
 	}
 
+	bool HasOwnership() const
+	{
+		uid_t uid = geteuid();
+		if (uid == 0 || uid == fPermissions.uid
+			|| uid == fPermissions.cuid)
+			return true;
+
+		return false;
+	}
+
 	bool HasReadPermission() const
 	{
 		// TODO: fix this
@@ -357,7 +367,7 @@ public:
 				// Update its undo value
 				MutexLocker _(team->xsi_sem_context->lock);
 				int newValue = current->undo_values[semaphoreNumber] + value;
-				if (newValue > USHRT_MAX || newValue < -USHRT_MAX) {
+				if (newValue > SHRT_MAX || newValue < SHRT_MIN) {
 					TRACE_ERROR(("XsiSemaphoreSet::RecordUndo: newValue %d "
 						"out of range\n", newValue));
 					return ERANGE;
@@ -960,9 +970,9 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 		}
 
 		case IPC_SET: {
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasOwnership()) {
 				TRACE(("xsi_semctl: calling process has not "
-					"permission on semaphore %d, key %d\n",
+					"ownership on semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)semaphoreSet->IpcKey()));
 				result = B_NOT_ALLOWED;
 			} else {
@@ -983,9 +993,9 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 			// ipc hash table lock and the semaphore set lock
 			// itself, this way we are sure there is not
 			// one waiting in the queue of the mutex.
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasOwnership()) {
 				TRACE(("xsi_semctl: calling process has not "
-					"permission on semaphore %d, key %d\n",
+					"ownership on semaphore %d, key %d\n",
 					semaphoreSet->ID(), (int)semaphoreSet->IpcKey()));
 				return B_NOT_ALLOWED;
 			}

@@ -905,8 +905,12 @@ ssize_t
 _kern_select(int numFDs, fd_set *readSet, fd_set *writeSet, fd_set *errorSet,
 	bigtime_t timeout, const sigset_t *sigMask)
 {
-	if (timeout >= 0)
-		timeout += system_time();
+	if (timeout >= 0) {
+		if (B_INFINITE_TIMEOUT - system_time() < timeout)
+			timeout = B_INFINITE_TIMEOUT;
+		else
+			timeout += system_time();
+	}
 
 	return common_select(numFDs, readSet, writeSet, errorSet, timeout,
 		sigMask, true);
@@ -917,8 +921,12 @@ ssize_t
 _kern_poll(struct pollfd *fds, int numFDs, bigtime_t timeout,
 	const sigset_t *sigMask)
 {
-	if (timeout >= 0)
-		timeout += system_time();
+	if (timeout >= 0) {
+		if (B_INFINITE_TIMEOUT - system_time() < timeout)
+			timeout = B_INFINITE_TIMEOUT;
+		else
+			timeout += system_time();
+	}
 
 	return common_poll(fds, numFDs, timeout, sigMask, true);
 }

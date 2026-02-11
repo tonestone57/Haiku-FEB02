@@ -1427,7 +1427,7 @@ static status_t
 copy_user_process_args(const char* const* userFlatArgs, size_t flatArgsSize,
 	int32 argCount, int32 envCount, char**& _flatArgs)
 {
-	if (argCount < 0 || envCount < 0)
+	if (argCount < 0 || envCount < 0 || argCount + envCount < 0)
 		return B_BAD_VALUE;
 
 	if (flatArgsSize > MAX_PROCESS_ARGS_SIZE)
@@ -1577,6 +1577,15 @@ team_create_thread_start_internal(void* args)
 	userArgs = (char**)(programArgs + 1);
 	userEnv = userArgs + argCount + 1;
 	path = teamArgs->path;
+
+	// Relocate the pointers in flatArgs to point to the user stack
+	char** flatArgs = teamArgs->flat_args;
+	for (int32 i = 0; i < (int32)(argCount + envCount + 2); i++) {
+		if (flatArgs[i] != NULL) {
+			size_t offset = (char*)flatArgs[i] - (char*)flatArgs;
+			flatArgs[i] = (char*)userArgs + offset;
+		}
+	}
 
 	if (user_strlcpy(programArgs->program_path, path,
 				sizeof(programArgs->program_path)) < B_OK
@@ -2975,7 +2984,7 @@ team_get_death_entry(Team* team, thread_id child, bool* _deleteEntry)
 		child);
 	if (entry) {
 		// remove the entry only, if the caller is the parent of the found team
-		if (team_get_current_team_id() == entry->thread) {
+		if (team_get_current_team_id() == team->id) {
 			team->dead_children.entries.Remove(entry);
 			team->dead_children.count--;
 			*_deleteEntry = true;
@@ -3799,7 +3808,7 @@ load_image_etc(int32 argCount, const char* const* args,
 	while (env != NULL && env[envCount] != NULL)
 		envSize += strlen(env[envCount++]) + 1;
 
-	int32 size = (argCount + envCount + 2) * sizeof(char*) + argSize + envSize;
+	size_t size = (argCount + envCount + 2) * sizeof(char*) + argSize + envSize;
 	if (size > MAX_PROCESS_ARGS_SIZE)
 		return B_TOO_MANY_ARGS;
 

@@ -1379,8 +1379,6 @@ IORequest::_CopyUser(void* _bounceBuffer, generic_addr_t _external, size_t size,
 		status_t error = get_memory_map_etc(team, external, size, entries,
 			&count);
 		if (error != B_OK && error != B_BUFFER_OVERFLOW) {
-			panic("IORequest::_CopyUser(): Failed to get physical memory for "
-				"user memory %p\n", external);
 			return B_BAD_ADDRESS;
 		}
 
@@ -1432,8 +1430,6 @@ IORequest::_ClearDataUser(generic_addr_t _external, generic_size_t size,
 		status_t error = get_memory_map_etc(team, external, size, entries,
 			&count);
 		if (error != B_OK && error != B_BUFFER_OVERFLOW) {
-			panic("IORequest::_ClearDataUser(): Failed to get physical memory "
-				"for user memory %p\n", external);
 			return B_BAD_ADDRESS;
 		}
 
