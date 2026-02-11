@@ -475,6 +475,7 @@ struct Team : TeamThreadIteratorEntry<team_id>, KernelReferenceable,
 	struct list		watcher_list;
 	struct list		sem_list;		// protected by sSemsSpinlock
 	struct list		port_list;		// protected by sPortsLock
+	int32			num_ports;		// protected by sTeamListLock[id % kTeamListLockCount]
 	struct arch_team arch_info;
 
 	addr_t			user_data;

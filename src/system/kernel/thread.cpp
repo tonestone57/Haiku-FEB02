@@ -922,6 +922,10 @@ create_thread_user_stack(Team* team, Thread* thread, void* _stackBase,
 			stackSize = PAGE_ALIGN(stackSize);
 		}
 
+	if (guardSize > SIZE_MAX - stackSize - TLS_SIZE - additionalSize
+		|| guardSize + stackSize + TLS_SIZE + additionalSize > SIZE_MAX - B_PAGE_SIZE + 1)
+		return B_NO_MEMORY;
+
 		size_t areaSize = PAGE_ALIGN(guardSize + stackSize + TLS_SIZE
 			+ additionalSize);
 

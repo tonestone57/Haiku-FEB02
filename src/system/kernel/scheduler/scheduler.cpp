@@ -544,6 +544,9 @@ scheduler_start()
 	SCHEDULER_ENTER_FUNCTION();
 
 	reschedule(B_THREAD_READY);
+
+	if (!B_SPINLOCK_IS_LOCKED(&thread_get_current_thread()->scheduler_lock))
+		_.Detach();
 }
 
 

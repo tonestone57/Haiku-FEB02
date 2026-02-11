@@ -780,7 +780,8 @@ _rw_lock_write_unlock(rw_lock* lock)
 		_rw_lock_set_read_locked(lock);
 #endif
 
-	int32 oldCount = atomic_add(&lock->count, -RW_LOCK_WRITER_COUNT_BASE);
+	int32 change = -RW_LOCK_WRITER_COUNT_BASE + readerCount;
+	int32 oldCount = atomic_add(&lock->count, change);
 	oldCount -= RW_LOCK_WRITER_COUNT_BASE;
 
 	if (oldCount != 0) {
@@ -797,8 +798,7 @@ _rw_lock_write_unlock(rw_lock* lock)
 			// seeing the writer count > 0, would also start to wait. We set
 			// pending_readers to the number of readers that are still expected
 			// to enter the critical section.
-			lock->pending_readers = oldCount - readerCount
-				- rw_lock_unblock(lock);
+			lock->pending_readers = oldCount - rw_lock_unblock(lock);
 		}
 	} else if (readerCount > 0) {
 		// This thread has downgraded its lock and no one else is waiting.

@@ -2355,8 +2355,10 @@ _vm_map_file(team_id team, const char* name, void** _address,
 
 	cache->Lock();
 
-	if (mapping != REGION_PRIVATE_MAP && (cache->virtual_base > offset
-			|| PAGE_ALIGN(cache->virtual_end) < (off_t)(offset + size))) {
+	off_t mapEnd = offset + (off_t)size;
+	if (mapping != REGION_PRIVATE_MAP && ((off_t)size < 0 || mapEnd < offset
+			|| cache->virtual_base > offset
+			|| PAGE_ALIGN(cache->virtual_end) < mapEnd)) {
 		cache->ReleaseRefAndUnlock();
 		return B_BAD_VALUE;
 	}

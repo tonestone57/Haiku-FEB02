@@ -947,3 +947,393 @@ The function looks up `moduleImage`, unlocks `sModulesLock`, and then calls `put
 
 ### Consequence
 Use-after-free, potential kernel crash or corruption.
+
+## 48. Race Condition / Use-After-Free in `swap_file_delete`
+
+**Severity:** Critical
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `swap_file_delete` / `VMAnonymousCache::Read`
+
+### Description
+`swap_file_delete` removes a swap file from `sSwapFileList` and destroys it. `VMAnonymousCache::Read` (and other functions) calls `find_swap_file`, which iterates `sSwapFileList` **without locking**. If `swap_file_delete` runs concurrently with a swap read operation, `find_swap_file` may access invalid memory or `swap_file_delete` may destroy the swap file structure while `Read` is using it.
+
+### Consequence
+Kernel crash or memory corruption during swap operations.
+
+## 49. Infinite Loop / DoS in `vfs_bind_mount_directory`
+
+**Severity:** Critical
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `vfs_bind_mount_directory`
+
+### Description
+The function allows creating arbitrary bind mounts by setting `covers` and `covered_by` pointers. It does not check for cycles. If a cycle is created (e.g., A covers B, B covers A), functions like `get_covering_vnode_locked` (which loop `while (coveringNode->covered_by != NULL)`) will enter an infinite loop.
+
+### Consequence
+Denial of Service (kernel hang) triggered by malicious or accidental bind mount configuration.
+
+## 50. Locking Violation / Race in `ThreadTimeUserTimer::Stop`
+
+**Severity:** Critical
+**File:** `src/system/kernel/UserTimer.cpp`
+**Function:** `ThreadTimeUserTimer::Stop`
+
+### Description
+The `Stop` function modifies the shared `fScheduled` flag and calls `CancelTimer`. It requires `sUserTimerLock` to be held (as per comments and `Schedule` usage), but it is called from `user_timer_stop_cpu_timers` (via `scheduler_reschedule`) **without** holding the lock. This creates a race condition with `Schedule` running on another CPU, potentially leaving `fScheduled` state inconsistent with the actual kernel timer state.
+
+### Consequence
+Timer state corruption, potentially leading to timers never firing or firing after being cancelled (double free risk in hooks).
+
+## 51. Uninterruptible Wait in `vfs_read_pages`
+
+**Severity:** Medium
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `vfs_read_pages`
+
+### Description
+The function uses an `IORequest` on the stack and calls `request.Wait()`. `IORequest::Wait` waits with `B_INFINITE_TIMEOUT` and no interruption flags (by default). If the underlying file system or driver hangs (e.g., network timeout, USB stall), the calling thread enters an uninterruptible sleep (D state) and cannot be killed.
+
+### Consequence
+Unresponsive system/processes when I/O devices hang.
+
+## 52. Logic Error / Data Miss in `RingBuffer::Read`
+
+**Severity:** Medium
+**File:** `src/system/kernel/fs/fifo.cpp`
+**Function:** `RingBuffer::Read`
+
+### Description
+There is a race condition between `fWriteHead` update and `fWriteAvailable` update in `Write`. The `Read` function checks `fWriteAvailable == 0` to determine if the buffer is empty when `readEnd == readHead`. If `Write` updates `fWriteHead` (wrapping it to match `readHead`) but hasn't yet decremented `fWriteAvailable`, `Read` sees `readEnd == readHead` and `fWriteAvailable > 0`. It interprets this as "empty" (or fails to read) even though data is present.
+
+### Consequence
+Reader misses available data, potentially causing stalls or higher latency in pipes/FIFOs.
+
+## 53. Busy Wait in `VMAnonymousCache::_SwapBlockBuild`
+
+**Severity:** Medium
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `_SwapBlockBuild`
+
+### Description
+The function implements a busy-wait loop to allocate memory.
+```cpp
+			if (swap == NULL) {
+				locker.Unlock();
+				snooze(10000);
+				locker.Lock();
+                // ... continue loop
+```
+It releases the lock, snoozes, and retries. This can lead to excessive CPU usage or livelocks under memory pressure, and holding `sSwapHashLock` (write lock) aggressively blocks other swap operations.
+
+### Consequence
+Performance degradation or livelock under high load/OOM.
+
+## 54. Swap Space Leak in `VMAnonymousCache::_FreeSwapPageRange`
+
+**Severity:** Medium
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `_FreeSwapPageRange`
+
+### Description
+The function explicitly skips freeing swap space for "busy" pages to avoid deadlocks.
+```cpp
+			if (page != NULL && page->busy) {
+				// We skip (i.e. leak) swap space of busy pages
+				continue;
+			}
+```
+This permanently leaks the allocated swap slots in the `radix_bitmap`.
+
+### Consequence
+Gradual exhaustion of swap space availability over time.
+
+## 55. Integer Overflow in `swap_file_add`
+
+**Severity:** Low
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `swap_file_add`
+
+### Description
+The calculation `(off_t)pageCount * B_PAGE_SIZE` can overflow `off_t` if the swap file size exceeds `LLONG_MAX`. While unlikely (requires exabytes), `pageCount` is `uint32`, so it wraps at 16TB (`4096 * 2^32`). If a user adds a swap file > 16TB, `pageCount` wraps, and `sAvailSwapSpace` is updated incorrectly.
+
+### Consequence
+Incorrect swap space accounting for extremely large swap files.
+
+## 56. `UserNodeListener` RTTI Usage in Kernel
+
+**Severity:** Low
+**File:** `src/system/kernel/fs/node_monitor.cpp`
+**Function:** `_RemoveListener`
+
+### Description
+The code uses `dynamic_cast<UserNodeListener*>` to identify listener types. `dynamic_cast` relies on RTTI. If the kernel is compiled with `-fno-rtti` (common for kernels), this code is invalid or will fail to link/run correctly. If enabled, it adds unnecessary overhead.
+
+### Consequence
+Potential build failure or undefined behavior depending on compiler flags.
+
+## 57. Signal to Kernel Thread in `FIFOInode::Write`
+
+**Severity:** Low
+**File:** `src/system/kernel/fs/fifo.cpp`
+**Function:** `FIFOInode::Write`
+
+### Description
+If a writer attempts to write to a closed pipe, `send_signal(find_thread(NULL), SIGPIPE)` is called. If the writer is a kernel thread (e.g., a kernel service using internal pipes), sending a signal might be unexpected or ignored, or cause termination if not handled.
+
+### Consequence
+Potential stability issue for kernel services using FIFOs.
+
+## 58. Bind Mount Renaming Limitation in `common_rename`
+
+**Severity:** Low
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `common_rename`
+
+### Description
+The function checks `if (fromVnode->device != toVnode->device) return B_CROSS_DEVICE_LINK;`. Bind mounts assign new device IDs. Thus, renaming a file within the *same* physical volume but across different bind mount points (or between a bind mount and the original mount) fails, even though it is physically possible.
+
+### Consequence
+Unexpected failure of `rename()` in bind-mount scenarios.
+
+## 59. `common_ioctl` Buffer Safety Design Flaw
+
+**Severity:** Medium
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `common_ioctl`
+
+### Description
+The `common_ioctl` function passes the user-provided `buffer` pointer directly to the file system's `ioctl` hook without validating that it is a valid user address (e.g. using `is_user_address`). While drivers are *supposed* to check this, a central check or `user_memcpy` enforcement would prevent a class of privilege escalation bugs in individual drivers.
+
+### Consequence
+Increased attack surface for privilege escalation via buggy drivers.
+
+## 60. Missing Status Update in `do_iterative_fd_io` Error Path
+
+**Severity:** High
+**File:** `src/system/kernel/fs/vfs_request_io.cpp`
+**Function:** `do_iterative_fd_io`
+
+### Description
+In `do_iterative_fd_io`, when the `getVecs` callback returns an error (other than `B_BUFFER_OVERFLOW` and a few others), the function returns the error directly. However, it fails to call `request->SetStatusAndNotify(error)`. Since the request was already created and potentially partially initialized or linked, failing to notify completion may leave the caller hanging indefinitely if it's waiting on the request.
+
+### Consequence
+Hung thread or resource leak if I/O iteration fails early.
+
+## 61. Race Condition in `republish_driver`
+
+**Severity:** Medium
+**File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
+**Function:** `republish_driver`
+
+### Description
+The function iterates over `driver->devices` to mark them as not republished, then calls `driver->publish_devices()` to get the new list. If a device is found in the new list, it updates hooks. However, `LegacyDevice::InitDevice` also accesses `fDriver` and `fDriver->devices_used`. There is a potential race where `republish_driver` might be modifying the device list or hooks while another thread is initializing or using a device from the same driver, potentially leading to inconsistent state or access to unloaded code if locking is not perfectly synchronized (global `sLock` is used, but interactions with `devfs` might be complex).
+
+### Consequence
+Potential instability during driver updates.
+
+## 62. Unsafe String Copy in `LegacyDevice::Control`
+
+**Severity:** Low
+**File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
+**Function:** `LegacyDevice::Control`
+
+### Description
+The `B_GET_DRIVER_FOR_DEVICE` case uses `user_strlcpy` to copy `fDriver->path`.
+```cpp
+			if (length != 0 && length <= strlen(fDriver->path))
+				return ERANGE;
+			return user_strlcpy(static_cast<char*>(buffer), fDriver->path, length);
+```
+The check `length <= strlen` is correct for ensuring full copy, but if `length` is 0, it returns `ERANGE` (which might be unexpected for 0 length). More importantly, `fDriver->path` might be modified by `add_driver` (reload) concurrently. `sLock` is not held in `Control`.
+
+### Consequence
+Potential race reading driver path.
+
+## 63. Integer Overflow in `id_generator`
+
+**Severity:** Low
+**File:** `src/system/kernel/device_manager/id_generator.cpp`
+**Function:** `create_id_internal`
+
+### Description
+The `id_generator` uses a fixed-size bitmap `uint8 alloc_map[(GENERATOR_MAX_ID + 7) / 8]`. `GENERATOR_MAX_ID` is 64. If more than 64 IDs are requested, it returns `B_ERROR`. While not a buffer overflow, it's a very small limit hardcoded in the kernel, which could cause system functionality issues if many devices of the same type are present (e.g., more than 64 partitions or disk devices if they use this generator).
+
+### Consequence
+Resource exhaustion (IDs) with relatively low limit.
+
+## 64. Integer Overflow in `DMABuffer::Create`
+
+**Severity:** Medium
+**File:** `src/system/kernel/device_manager/dma_resources.cpp`
+**Function:** `DMABuffer::Create`
+
+### Description
+The allocation size calculation is `sizeof(DMABuffer) + sizeof(generic_io_vec) * (count - 1)`.
+```cpp
+	DMABuffer* buffer = (DMABuffer*)malloc(
+		sizeof(DMABuffer) + sizeof(generic_io_vec) * (count - 1));
+```
+`count` is passed as `size_t`. If `count` is 0, `count - 1` underflows to `SIZE_MAX`, resulting in a huge allocation size (or overflow back to small if multiplied). `fRestrictions.max_segment_count` usually limits this, but `Init` allows `max_segment_count` to be 0 (then sets default 16). If a driver provides a bogus non-zero attribute, it might trigger this.
+
+### Consequence
+Huge allocation failure or heap corruption.
+
+## 65. Integer Overflow in `KPartition::SetSize`
+
+**Severity:** Low
+**File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
+**Function:** `KPartition::SetSize`
+
+### Description
+The function accepts `off_t size`. It does not check if `size` is negative.
+```cpp
+void KPartition::SetSize(off_t size) {
+	if (fPartitionData.size != size) { ... }
+}
+```
+A negative size could cause havoc in calculations like `offset + size`.
+
+### Consequence
+Logic errors in partition handling.
+
+## 66. `KDiskDevice::GetMediaStatus` Masks Errors
+
+**Severity:** Low
+**File:** `src/system/kernel/disk_device_manager/KDiskDevice.cpp`
+**Function:** `KDiskDevice::GetMediaStatus`
+
+### Description
+The function calls `ioctl(fFD, B_GET_MEDIA_STATUS, ...)` and `GetGeometry`.
+```cpp
+	if (error != B_OK) {
+        // ... checks geometry ...
+			if (!geometry.removable) {
+				error = B_OK;
+				*mediaStatus = B_OK;
+			}
+	}
+```
+If the ioctl fails with a specific error (e.g. `B_DEV_MEDIA_CHANGED` which is not an error but a status, or a real error), and the device is not removable, it forces `B_OK`. It might mask genuine hardware errors.
+
+### Consequence
+Masking of I/O errors.
+
+## 67. Buffer Overflow Risk in `KPartition::GetFileName`
+
+**Severity:** Medium
+**File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
+**Function:** `KPartition::GetFileName`
+
+### Description
+The function appends `_index` to the parent name.
+```cpp
+	size_t len = strlen(buffer);
+	if (snprintf(buffer + len, size - len, "_%" B_PRId32, Index()) >= int(size - len))
+		return B_NAME_TOO_LONG;
+```
+It relies on `buffer` containing the parent name. If the parent name is already close to `B_FILE_NAME_LENGTH`, this concatenation logic is safe due to `snprintf` checks, but if `GetFileName` is called recursively for deep partition nesting (partition of a partition of a partition...), the resulting name might exceed standard limits or be truncated/rejected, making the partition unpublishable.
+
+### Consequence
+Inability to publish deeply nested partitions.
+
+## 68. Livelock / Excessive Wait in `block_notifier_and_writer`
+
+**Severity:** Medium
+**File:** `src/system/kernel/cache/block_cache.cpp`
+**Function:** `block_notifier_and_writer`
+
+### Description
+The writer thread iterates over all caches.
+```cpp
+		while ((cache = get_next_locked_block_cache(cache)) != NULL) {
+            // ...
+			const bigtime_t next = cache->last_block_write
+					+ cache->last_block_write_duration * 2 * 64;
+			if (cache->busy_writing_count > 16 || system_time() < next) {
+                // ...
+				continue;
+			}
+```
+If `last_block_write_duration` is very large (slow disk), the thread might skip writing for a long time. If `busy_writing_count` is high, it also skips. This could lead to a backlog of dirty blocks that aren't flushed efficiently, or livelock if the condition is always met due to other activity.
+
+### Consequence
+Inefficient block flushing, potential memory pressure.
+
+## 69. Unchecked Return Value in `BlockPrefetcher::Allocate`
+
+**Severity:** Medium
+**File:** `src/system/kernel/cache/block_cache.cpp`
+**Function:** `BlockPrefetcher::Allocate`
+
+### Description
+The function allocates memory for `fBlocks` and `fDestVecs`.
+```cpp
+	fBlocks = new(std::nothrow) cached_block*[fNumRequested];
+	fDestVecs = new(std::nothrow) generic_io_vec[fNumRequested];
+	if (fBlocks == NULL || fDestVecs == NULL)
+		return B_NO_MEMORY;
+```
+If `fBlocks` succeeds but `fDestVecs` fails, `fBlocks` is leaked (array delete is in destructor, but `BlockPrefetcher` destructor might not be called if `Allocate` fails and caller handles it by deleting immediately? No, caller deletes it). However, `fBlocks` is not initialized to NULLs before the check. The destructor does `delete[] fBlocks`. `delete[]` on uninitialized pointers (if `fBlocks` succeeded) is fine if it was `new[]`, but `fBlocks` contains uninitialized `cached_block*` pointers? No, `fBlocks` is an array of pointers. `delete[] fBlocks` frees the array. It does not free the pointers inside. The logic seems safe from leaks *if* destructor is called, but `fBlocks` content is uninitialized garbage until the loop later.
+
+Correction: The issue is `BlockPrefetcher` destructor:
+```cpp
+BlockPrefetcher::~BlockPrefetcher()
+{
+	delete[] fBlocks;
+	delete[] fDestVecs;
+}
+```
+It does NOT free the blocks pointed to by `fBlocks`. `_RemoveAllocated` does that. If `Allocate` fails halfway through the loop (e.g. `fCache->NewBlock` fails), it calls `_RemoveAllocated`. But if the initial `new` fails, it returns `B_NO_MEMORY`. The caller deletes the object. `fBlocks` might be non-NULL (allocation succeeded) but `fDestVecs` NULL. Destructor frees `fBlocks`. That's okay.
+
+However, `BlockWriter::Write` ignores errors from `_WriteBlocks` for partial writes?
+```cpp
+		status_t status = _WriteBlocks(fBlocks + i, blocks);
+		if (status != B_OK) {
+			if (fStatus == B_OK)
+				fStatus = status;
+            // ... cleanup ...
+		}
+```
+It continues to the next batch. This might be intended (try to write as much as possible), but could mask partial failures until the end.
+
+### Consequence
+Potential data loss notification delayed.
+
+## 70. Use-After-Free in `nub_thread_cleanup`
+
+**Severity:** High
+**File:** `src/system/kernel/debug/user_debugger.cpp`
+**Function:** `nub_thread_cleanup`
+
+### Description
+The function uses `nubThread->team` after calling `finish_debugger_change(nubThread->team)`.
+```cpp
+	finish_debugger_change(nubThread->team);
+
+	if (destroyDebugInfo)
+		destroy_team_debug_info(&teamDebugInfo);
+
+	// notify all threads that the debugger is gone
+	broadcast_debugged_thread_message(nubThread, ...);
+```
+`broadcast_debugged_thread_message` accesses `nubThread->team`. If the team is being destroyed concurrently (e.g. because the nub thread was the last thing keeping it alive, though unlikely for a nub thread), there might be a race. More importantly, `nubThread` itself might be unsafe if we are not careful, but here it's passed as argument.
+The real issue: `team_debug_info` is copied to stack `teamDebugInfo`. `destroy_team_debug_info(&teamDebugInfo)` is called. This destroys the `nub_port`. `broadcast_debugged_thread_message` iterates threads.
+
+### Consequence
+Potential race condition during debugger teardown.
+
+## 71. Integer Overflow in `debugger_write` Message Size
+
+**Severity:** Low
+**File:** `src/system/kernel/debug/user_debugger.cpp`
+**Function:** `debugger_write`
+
+### Description
+The function takes `size_t bufferSize`. It calls `write_port_etc`.
+```cpp
+		error = write_port_etc(port, code, buffer, bufferSize, ...);
+```
+If `bufferSize` is huge (e.g. negative interpreted as unsigned), `write_port_etc` might fail or behave unexpectedly. `write_port_etc` checks limits, but `debugger_write` is called from various places with calculated sizes. For example `B_DEBUG_MESSAGE_WRITE_MEMORY` where `size` comes from the message.
+
+### Consequence
+Potential invalid memory access if size is unchecked.

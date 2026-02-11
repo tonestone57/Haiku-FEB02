@@ -13,9 +13,9 @@ struct iovec;
 
 
 struct ring_buffer {
-	int32		first;
-	int32		in;
-	int32		size;
+	size_t		first;
+	size_t		in;
+	size_t		size;
 	uint8		buffer[0];
 };
 
