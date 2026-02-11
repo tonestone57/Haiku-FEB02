@@ -5316,12 +5316,12 @@ vfs_bind_mount_directory(dev_t mountID, ino_t nodeID, dev_t coveredMountID,
 		return B_BUSY;
 	}
 
-	// Check for cycles
-	Vnode* iterator = vnode->covered_by;
-	while (iterator != NULL) {
-		if (iterator == coveredVnode)
+	// Check for cycles: vnode must not be in the covers chain of coveredVnode
+	Vnode* temp = coveredVnode;
+	while (temp != NULL) {
+		if (temp == vnode)
 			return B_BUSY;
-		iterator = iterator->covered_by;
+		temp = temp->covers;
 	}
 
 	vnode->covers = coveredVnode;
