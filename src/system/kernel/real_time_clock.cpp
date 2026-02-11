@@ -75,8 +75,14 @@ rtc_hw_to_system(void)
 	uint32 current_time;
 
 	current_time = arch_rtc_get_hw_time();
-	InterruptsSpinLocker _(sTimezoneLock);
-	set_real_time_clock(current_time + (sIsGMT ? 0 : sTimezoneOffset));
+
+	bigtime_t offset;
+	{
+		InterruptsSpinLocker _(sTimezoneLock);
+		offset = sIsGMT ? 0 : sTimezoneOffset;
+	}
+
+	set_real_time_clock(current_time + offset / 1000000);
 }
 
 
