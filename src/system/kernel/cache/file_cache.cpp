@@ -1125,7 +1125,7 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 	// Don't do anything if we don't have the resources left, or the cache
 	// already contains more than 2/3 of its pages
 	if (offset >= fileSize || vm_page_num_unused_pages() < 2 * pagesCount
-		|| (3 * cache->page_count) > (2 * fileSize / B_PAGE_SIZE)) {
+		|| ((off_t)3 * cache->page_count) > (2 * fileSize / B_PAGE_SIZE)) {
 		cache->ReleaseRef();
 		return;
 	}

@@ -872,6 +872,7 @@ delete_owned_ports(Team* team)
 		if (status == B_OK) {
 			list_remove_link(&port->team_link);
 			list_add_item(&deletionList, port);
+			team->num_ports--;
 		}
 
 		port = nextPort;
@@ -1011,7 +1012,7 @@ create_port(int32 queueLength, const char* name)
 	{
 		const uint8 lockIndex = team->id % kTeamListLockCount;
 		MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
-		if (list_count_items(&team->port_list) >= 4096) {
+		if (team->num_ports >= 4096) {
 			atomic_add(&sUsedPorts, -1);
 			return B_NO_MORE_PORTS;
 		}
@@ -1044,6 +1045,7 @@ create_port(int32 queueLength, const char* name)
 		MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
 		port->AcquireReference();
 		list_add_item(&team->port_list, port);
+		team->num_ports++;
 	}
 
 	// tracing, notifications, etc.
@@ -1134,6 +1136,12 @@ delete_port(port_id id)
 	{
 		const uint8 lockIndex = portRef->owner % kTeamListLockCount;
 		MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
+
+		Team* team = Team::Get(portRef->owner);
+		if (team != NULL) {
+			team->num_ports--;
+			team->ReleaseReference();
+		}
 
 		list_remove_link(&portRef->team_link);
 		portRef->ReleaseReference();
@@ -1746,9 +1754,16 @@ set_port_owner(port_id id, team_id newTeamID)
 
 		// Now that we have locked the team port lists, check the state again
 		if (portRef->state == Port::kActive) {
+			Team* oldTeam = Team::Get(portRef->owner);
+			if (oldTeam != NULL) {
+				oldTeam->num_ports--;
+				oldTeam->ReleaseReference();
+			}
+
 			list_remove_link(&portRef->team_link);
 			list_add_item(&team->port_list, portRef.Get());
 			portRef->owner = team->id;
+			team->num_ports++;
 		} else {
 			// Port was already deleted. We haven't changed anything yet so
 			// we can cancel the operation.

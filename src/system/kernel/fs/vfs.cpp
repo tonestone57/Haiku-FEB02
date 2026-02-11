@@ -2642,7 +2642,7 @@ dir_vnode_to_path(struct vnode* vnode, char* buffer, size_t bufferSize,
 		return B_NOT_A_DIRECTORY;
 
 	char* path = buffer;
-	int32 insert = bufferSize;
+	ssize_t insert = (ssize_t)bufferSize;
 	int32 maxLevel = 256;
 	int32 length;
 	status_t status = B_OK;

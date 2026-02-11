@@ -89,8 +89,11 @@ block_alloc(size_t size, size_t alignment, uint32 flags)
 		// waste quite a bit of memory, but memalign() is very rarely used
 		// in the kernel and always with power of two size == alignment anyway.
 		ASSERT((alignment & (alignment - 1)) == 0);
-		while (alignment < size)
+		while (alignment < size) {
+			if (alignment >= (size_t)1 << (sizeof(size_t) * 8 - 1))
+				return NULL;
 			alignment <<= 1;
+		}
 		size = alignment;
 
 		// If we're not using an object cache, make sure that the memory
