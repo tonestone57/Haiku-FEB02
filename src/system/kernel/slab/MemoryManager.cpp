@@ -1369,7 +1369,7 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 		vmArea = VMAreas::Lookup(areaID);
 		vmArea->protection = B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA;
 		status_t error = _MapChunk(vmArea, (addr_t)area, kAreaAdminSize,
-			pagesNeededToMap, flags);
+			pagesNeededToMap * B_PAGE_SIZE, flags);
 		if (error != B_OK) {
 			delete_area(areaID);
 			mutex_lock(&sLock);
