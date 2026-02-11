@@ -20,6 +20,8 @@
 	// take a long time to proceed.
 	// Also, not every file system might support this feature.
 
+#define FSSH_B_QUERY_WATCH_ALL		0x0000F000
+
 
 #ifdef  __cplusplus
 extern "C" {
