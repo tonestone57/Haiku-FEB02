@@ -1075,7 +1075,7 @@ public:
 		fTokenIndex = 0;
 		fFilterCount = 0;
 
-		TraceFilter* filter = _ParseExpression();
+		TraceFilter* filter = _ParseExpression(0);
 		return fTokenIndex == fTokenCount && filter != NULL;
 	}
 
@@ -1085,8 +1085,11 @@ public:
 	}
 
 private:
-	TraceFilter* _ParseExpression()
+	TraceFilter* _ParseExpression(int depth)
 	{
+		if (depth > 32)
+			return NULL;
+
 		const char* token = _NextToken();
 		if (!token) {
 			// unexpected end of expression
@@ -1120,22 +1123,22 @@ private:
 			return filter;
 		} else if (strcmp(token, "not") == 0) {
 			TraceFilter* filter = new(&fFilters[fFilterCount++]) NotTraceFilter;
-			if ((filter->fSubFilters.first = _ParseExpression()) != NULL)
+			if ((filter->fSubFilters.first = _ParseExpression(depth + 1)) != NULL)
 				return filter;
 			delete(filter);
 			return NULL;
 		} else if (strcmp(token, "and") == 0) {
 			TraceFilter* filter = new(&fFilters[fFilterCount++]) AndTraceFilter;
-			if ((filter->fSubFilters.first = _ParseExpression()) != NULL
-				&& (filter->fSubFilters.second = _ParseExpression()) != NULL) {
+			if ((filter->fSubFilters.first = _ParseExpression(depth + 1)) != NULL
+				&& (filter->fSubFilters.second = _ParseExpression(depth + 1)) != NULL) {
 				return filter;
 			}
 			delete(filter);
 			return NULL;
 		} else if (strcmp(token, "or") == 0) {
 			TraceFilter* filter = new(&fFilters[fFilterCount++]) OrTraceFilter;
-			if ((filter->fSubFilters.first = _ParseExpression()) != NULL
-				&& (filter->fSubFilters.second = _ParseExpression()) != NULL) {
+			if ((filter->fSubFilters.first = _ParseExpression(depth + 1)) != NULL
+				&& (filter->fSubFilters.second = _ParseExpression(depth + 1)) != NULL) {
 				return filter;
 			}
 			delete(filter);

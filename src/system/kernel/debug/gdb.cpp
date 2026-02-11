@@ -261,17 +261,37 @@ gdb_parse_command(void)
 			ptr = sCommand + 1;
 			address = 0;
 			len = 0;
+			int digits = 0;
 			while (ptr && *ptr && (*ptr != ',')) {
+				if (digits++ >= (int)sizeof(addr_t) * 2) {
+					gdb_reply("E01");
+					return WAITACK;
+				}
+				int nibble = parse_nibble(*ptr);
+				if (nibble > 0xf) {
+					gdb_reply("E01");
+					return WAITACK;
+				}
 				address <<= 4;
-				address += parse_nibble(*ptr);
+				address += nibble;
 				ptr += 1;
 			}
 			if (*ptr == ',')
 				ptr += 1;
 
+			digits = 0;
 			while (ptr && *ptr) {
+				if (digits++ >= (int)sizeof(size_t) * 2) {
+					gdb_reply("E01");
+					return WAITACK;
+				}
+				int nibble = parse_nibble(*ptr);
+				if (nibble > 0xf) {
+					gdb_reply("E01");
+					return WAITACK;
+				}
 				len <<= 4;
-				len += parse_nibble(*ptr);
+				len += nibble;
 				ptr += 1;
 			}
 

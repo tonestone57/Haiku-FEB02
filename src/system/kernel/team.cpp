@@ -465,6 +465,7 @@ Team::Team(team_id id, bool kernel)
 	list_init(&watcher_list);
 	list_init(&sem_list);
 	list_init_etc(&port_list, port_team_link_offset());
+	num_ports = 0;
 
 	user_data = 0;
 	user_data_area = -1;
@@ -2182,6 +2183,9 @@ fork_team(void)
 		&team->address_space);
 	if (status < B_OK)
 		goto err3;
+
+	team->address_space->SetRandomizingEnabled(
+		parentTeam->address_space->IsRandomizingEnabled());
 
 	// copy all areas of the team
 	// TODO: should be able to handle stack areas differently (ie. don't have
@@ -3904,13 +3908,19 @@ _get_next_team_info(int32* cookie, team_info* info, size_t size)
 
 	InterruptsReadSpinLocker locker(sTeamHashLock);
 
-	team_id lastTeamID = peek_next_thread_id();
-		// TODO: This is broken, since the id can wrap around!
-
 	// get next valid team
 	Team* team = NULL;
-	while (slot < lastTeamID && !(team = team_get_team_struct_locked(slot)))
-		slot++;
+	TeamTable::Iterator iterator = sTeamHash.GetIterator();
+	while (iterator.HasNext()) {
+		Team* current = iterator.Next();
+		if (current->visible && current->id >= slot) {
+			if (team == NULL || current->id < team->id) {
+				team = current;
+				if (team->id == slot)
+					break;
+			}
+		}
+	}
 
 	if (team == NULL)
 		return B_BAD_TEAM_ID;
@@ -3920,7 +3930,7 @@ _get_next_team_info(int32* cookie, team_info* info, size_t size)
 	locker.Unlock();
 
 	// fill in the info
-	*cookie = ++slot;
+	*cookie = team->id + 1;
 	return fill_team_info(team, info, size);
 }
 
