@@ -947,3 +947,162 @@ The function looks up `moduleImage`, unlocks `sModulesLock`, and then calls `put
 
 ### Consequence
 Use-after-free, potential kernel crash or corruption.
+
+## 48. Race Condition / Use-After-Free in `swap_file_delete`
+
+**Severity:** Critical
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `swap_file_delete` / `VMAnonymousCache::Read`
+
+### Description
+`swap_file_delete` removes a swap file from `sSwapFileList` and destroys it. `VMAnonymousCache::Read` (and other functions) calls `find_swap_file`, which iterates `sSwapFileList` **without locking**. If `swap_file_delete` runs concurrently with a swap read operation, `find_swap_file` may access invalid memory or `swap_file_delete` may destroy the swap file structure while `Read` is using it.
+
+### Consequence
+Kernel crash or memory corruption during swap operations.
+
+## 49. Infinite Loop / DoS in `vfs_bind_mount_directory`
+
+**Severity:** Critical
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `vfs_bind_mount_directory`
+
+### Description
+The function allows creating arbitrary bind mounts by setting `covers` and `covered_by` pointers. It does not check for cycles. If a cycle is created (e.g., A covers B, B covers A), functions like `get_covering_vnode_locked` (which loop `while (coveringNode->covered_by != NULL)`) will enter an infinite loop.
+
+### Consequence
+Denial of Service (kernel hang) triggered by malicious or accidental bind mount configuration.
+
+## 50. Locking Violation / Race in `ThreadTimeUserTimer::Stop`
+
+**Severity:** Critical
+**File:** `src/system/kernel/UserTimer.cpp`
+**Function:** `ThreadTimeUserTimer::Stop`
+
+### Description
+The `Stop` function modifies the shared `fScheduled` flag and calls `CancelTimer`. It requires `sUserTimerLock` to be held (as per comments and `Schedule` usage), but it is called from `user_timer_stop_cpu_timers` (via `scheduler_reschedule`) **without** holding the lock. This creates a race condition with `Schedule` running on another CPU, potentially leaving `fScheduled` state inconsistent with the actual kernel timer state.
+
+### Consequence
+Timer state corruption, potentially leading to timers never firing or firing after being cancelled (double free risk in hooks).
+
+## 51. Uninterruptible Wait in `vfs_read_pages`
+
+**Severity:** Medium
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `vfs_read_pages`
+
+### Description
+The function uses an `IORequest` on the stack and calls `request.Wait()`. `IORequest::Wait` waits with `B_INFINITE_TIMEOUT` and no interruption flags (by default). If the underlying file system or driver hangs (e.g., network timeout, USB stall), the calling thread enters an uninterruptible sleep (D state) and cannot be killed.
+
+### Consequence
+Unresponsive system/processes when I/O devices hang.
+
+## 52. Logic Error / Data Miss in `RingBuffer::Read`
+
+**Severity:** Medium
+**File:** `src/system/kernel/fs/fifo.cpp`
+**Function:** `RingBuffer::Read`
+
+### Description
+There is a race condition between `fWriteHead` update and `fWriteAvailable` update in `Write`. The `Read` function checks `fWriteAvailable == 0` to determine if the buffer is empty when `readEnd == readHead`. If `Write` updates `fWriteHead` (wrapping it to match `readHead`) but hasn't yet decremented `fWriteAvailable`, `Read` sees `readEnd == readHead` and `fWriteAvailable > 0`. It interprets this as "empty" (or fails to read) even though data is present.
+
+### Consequence
+Reader misses available data, potentially causing stalls or higher latency in pipes/FIFOs.
+
+## 53. Busy Wait in `VMAnonymousCache::_SwapBlockBuild`
+
+**Severity:** Medium
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `_SwapBlockBuild`
+
+### Description
+The function implements a busy-wait loop to allocate memory.
+```cpp
+			if (swap == NULL) {
+				locker.Unlock();
+				snooze(10000);
+				locker.Lock();
+                // ... continue loop
+```
+It releases the lock, snoozes, and retries. This can lead to excessive CPU usage or livelocks under memory pressure, and holding `sSwapHashLock` (write lock) aggressively blocks other swap operations.
+
+### Consequence
+Performance degradation or livelock under high load/OOM.
+
+## 54. Swap Space Leak in `VMAnonymousCache::_FreeSwapPageRange`
+
+**Severity:** Medium
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `_FreeSwapPageRange`
+
+### Description
+The function explicitly skips freeing swap space for "busy" pages to avoid deadlocks.
+```cpp
+			if (page != NULL && page->busy) {
+				// We skip (i.e. leak) swap space of busy pages
+				continue;
+			}
+```
+This permanently leaks the allocated swap slots in the `radix_bitmap`.
+
+### Consequence
+Gradual exhaustion of swap space availability over time.
+
+## 55. Integer Overflow in `swap_file_add`
+
+**Severity:** Low
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `swap_file_add`
+
+### Description
+The calculation `(off_t)pageCount * B_PAGE_SIZE` can overflow `off_t` if the swap file size exceeds `LLONG_MAX`. While unlikely (requires exabytes), `pageCount` is `uint32`, so it wraps at 16TB (`4096 * 2^32`). If a user adds a swap file > 16TB, `pageCount` wraps, and `sAvailSwapSpace` is updated incorrectly.
+
+### Consequence
+Incorrect swap space accounting for extremely large swap files.
+
+## 56. `UserNodeListener` RTTI Usage in Kernel
+
+**Severity:** Low
+**File:** `src/system/kernel/fs/node_monitor.cpp`
+**Function:** `_RemoveListener`
+
+### Description
+The code uses `dynamic_cast<UserNodeListener*>` to identify listener types. `dynamic_cast` relies on RTTI. If the kernel is compiled with `-fno-rtti` (common for kernels), this code is invalid or will fail to link/run correctly. If enabled, it adds unnecessary overhead.
+
+### Consequence
+Potential build failure or undefined behavior depending on compiler flags.
+
+## 57. Signal to Kernel Thread in `FIFOInode::Write`
+
+**Severity:** Low
+**File:** `src/system/kernel/fs/fifo.cpp`
+**Function:** `FIFOInode::Write`
+
+### Description
+If a writer attempts to write to a closed pipe, `send_signal(find_thread(NULL), SIGPIPE)` is called. If the writer is a kernel thread (e.g., a kernel service using internal pipes), sending a signal might be unexpected or ignored, or cause termination if not handled.
+
+### Consequence
+Potential stability issue for kernel services using FIFOs.
+
+## 58. Bind Mount Renaming Limitation in `common_rename`
+
+**Severity:** Low
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `common_rename`
+
+### Description
+The function checks `if (fromVnode->device != toVnode->device) return B_CROSS_DEVICE_LINK;`. Bind mounts assign new device IDs. Thus, renaming a file within the *same* physical volume but across different bind mount points (or between a bind mount and the original mount) fails, even though it is physically possible.
+
+### Consequence
+Unexpected failure of `rename()` in bind-mount scenarios.
+
+## 59. `common_ioctl` Buffer Safety Design Flaw
+
+**Severity:** Medium
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `common_ioctl`
+
+### Description
+The `common_ioctl` function passes the user-provided `buffer` pointer directly to the file system's `ioctl` hook without validating that it is a valid user address (e.g. using `is_user_address`). While drivers are *supposed* to check this, a central check or `user_memcpy` enforcement would prevent a class of privilege escalation bugs in individual drivers.
+
+### Consequence
+Increased attack surface for privilege escalation via buggy drivers.
