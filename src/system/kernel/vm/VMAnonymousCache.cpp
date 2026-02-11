@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -94,6 +95,7 @@ struct swap_file : DoublyLinkedListLinkImpl<swap_file> {
 	swap_addr_t		first_slot;
 	swap_addr_t		last_slot;
 	radix_bitmap*	bmp;
+	int32			ref_count;
 };
 
 struct swap_hash_key {
@@ -260,6 +262,25 @@ dump_swap_info(int argc, char** argv)
 }
 
 
+static void
+swap_file_acquire(swap_file* swapFile)
+{
+	atomic_add(&swapFile->ref_count, 1);
+}
+
+
+static void
+swap_file_release(swap_file* swapFile)
+{
+	if (atomic_add(&swapFile->ref_count, -1) == 1) {
+		ftruncate(swapFile->fd, 0);
+		close(swapFile->fd);
+		radix_bitmap_destroy(swapFile->bmp);
+		delete swapFile;
+	}
+}
+
+
 static swap_addr_t
 swap_slot_alloc(uint32 count)
 {
@@ -320,6 +341,7 @@ find_swap_file(swap_addr_t slotIndex)
 		swap_file* swapFile = it.Next();) {
 		if (slotIndex >= swapFile->first_slot
 			&& slotIndex < swapFile->last_slot) {
+			swap_file_acquire(swapFile);
 			return swapFile;
 		}
 	}
@@ -402,8 +424,15 @@ public:
 	WriteCallback(VMAnonymousCache* cache, AsyncIOCallback* callback)
 		:
 		StackableAsyncIOCallback(callback),
-		fCache(cache)
+		fCache(cache),
+		fSwapFile(NULL)
 	{
+	}
+
+	virtual ~WriteCallback()
+	{
+		if (fSwapFile != NULL)
+			swap_file_release(fSwapFile);
 	}
 
 	void SetTo(page_num_t pageIndex, swap_addr_t slotIndex, bool newSlot)
@@ -411,6 +440,11 @@ public:
 		fPageIndex = pageIndex;
 		fSlotIndex = slotIndex;
 		fNewSlot = newSlot;
+	}
+
+	void SetSwapFile(swap_file* swapFile)
+	{
+		fSwapFile = swapFile;
 	}
 
 	virtual void IOFinished(status_t status, bool partialTransfer,
@@ -437,6 +471,7 @@ private:
 	page_num_t			fPageIndex;
 	swap_addr_t			fSlotIndex;
 	bool				fNewSlot;
+	swap_file*			fSwapFile;
 };
 
 
@@ -830,6 +865,9 @@ VMAnonymousCache::Read(off_t offset, const generic_io_vec* vecs, size_t count,
 
 		status_t status = vfs_read_pages(swapFile->vnode, swapFile->cookie, pos,
 			vecs + i, j - i, flags, _numBytes);
+
+		swap_file_release(swapFile);
+
 		if (status != B_OK)
 			return status;
 	}
@@ -905,8 +943,11 @@ VMAnonymousCache::Write(off_t offset, const generic_io_vec* vecs, size_t count,
 				locker.Unlock();
 
 				swap_slot_dealloc(slotIndex, n);
+				swap_file_release(swapFile);
 				return status;
 			}
+
+			swap_file_release(swapFile);
 
 			_SwapBlockBuild(pageIndex + totalPages, slotIndex, n);
 			pagesLeft -= n;
@@ -977,10 +1018,16 @@ VMAnonymousCache::WriteAsync(off_t offset, const generic_io_vec* vecs,
 
 	// write the page asynchrounously
 	swap_file* swapFile = find_swap_file(slotIndex);
+	callback->SetSwapFile(swapFile);
+
 	off_t pos = (off_t)(slotIndex - swapFile->first_slot) * B_PAGE_SIZE;
 
-	return vfs_asynchronous_write_pages(swapFile->vnode, swapFile->cookie, pos,
-		vecs, 1, numBytes, flags, callback);
+	status_t status = vfs_asynchronous_write_pages(swapFile->vnode,
+		swapFile->cookie, pos, vecs, 1, numBytes, flags, callback);
+	if (status != B_OK)
+		delete callback;
+
+	return status;
 }
 
 
@@ -1483,6 +1530,11 @@ swap_file_add(const char* path)
 		return B_BAD_VALUE;
 	}
 
+	if ((st.st_size >> PAGE_SHIFT) > UINT_MAX) {
+		close(fd);
+		return B_BAD_VALUE;
+	}
+
 	// get file descriptor, vnode, and cookie
 	file_descriptor* descriptor = get_fd(get_current_io_context(true), fd);
 	put_fd(descriptor);
@@ -1500,6 +1552,7 @@ swap_file_add(const char* path)
 		return B_NO_MEMORY;
 	}
 
+	swap->ref_count = 1;
 	swap->fd = fd;
 	swap->vnode = node;
 	swap->cookie = descriptor->cookie;
@@ -1583,10 +1636,7 @@ swap_file_delete(const char* path)
 		* B_PAGE_SIZE;
 	mutex_unlock(&sAvailSwapSpaceLock);
 
-	truncate(path, 0);
-	close(swapFile->fd);
-	radix_bitmap_destroy(swapFile->bmp);
-	delete swapFile;
+	swap_file_release(swapFile);
 
 	return B_OK;
 }
