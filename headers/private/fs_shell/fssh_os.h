@@ -3,8 +3,8 @@
  * Copyright 2004-2006, Haiku Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
-#ifndef _FSSH_SEM_H
-#define _FSSH_SEM_H
+#ifndef _FSSH_OS_H
+#define _FSSH_OS_H
 
 #include "fssh_types.h"
 
@@ -207,4 +207,4 @@ extern fssh_bigtime_t	fssh_system_time(void);     /* time since booting in micro
 #endif
 
 
-#endif	// _FSSH_TYPES_H
+#endif	// _FSSH_OS_H
