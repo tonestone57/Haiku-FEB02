@@ -804,7 +804,6 @@ _rw_lock_write_unlock(rw_lock* lock)
 		// This thread has downgraded its lock and no one else is waiting.
 		// We need to set the reader count properly.
 		lock->active_readers = readerCount;
-		atomic_add(&lock->count, readerCount);
 	}
 }
 

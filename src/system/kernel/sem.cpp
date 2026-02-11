@@ -851,11 +851,6 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		KTRACE("switch_sem_etc() done: 0x%lx", acquireStatus);
 		return acquireStatus;
 	} else {
-		if (semToBeReleased >= 0) {
-			release_sem_etc(semToBeReleased, 1, B_DO_NOT_RESCHEDULE);
-			semToBeReleased = -1;
-		}
-
 		sSems[slot].u.used.net_count -= count;
 		sSems[slot].u.used.last_acquirer = thread_get_current_thread_id();
 #if DEBUG_SEM_LAST_ACQUIRER

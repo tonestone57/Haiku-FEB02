@@ -315,6 +315,7 @@ swap_slot_alloc(uint32 count)
 static swap_file*
 find_swap_file(swap_addr_t slotIndex)
 {
+	MutexLocker locker(sSwapFileListLock);
 	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
 		swap_file* swapFile = it.Next();) {
 		if (slotIndex >= swapFile->first_slot
