@@ -203,9 +203,9 @@ radix_bitmap_destroy(radix_bitmap *bmp)
 
 
 static radix_slot_t
-radix_leaf_alloc(radix_node *leaf, radix_slot_t slotIndex, int32 count)
+radix_leaf_alloc(radix_node *leaf, radix_slot_t slotIndex, uint32 count)
 {
-	if (count <= (int32)BITMAP_RADIX) {
+	if (count <= BITMAP_RADIX) {
 		bitmap_t bitmap = ~leaf->u.bitmap;
 		uint32 n = BITMAP_RADIX - count;
 		bitmap_t mask = (bitmap_t)-1 >> n;
@@ -226,7 +226,7 @@ radix_leaf_alloc(radix_node *leaf, radix_slot_t slotIndex, int32 count)
 
 
 static radix_slot_t
-radix_node_alloc(radix_node *node, radix_slot_t slotIndex, int32 count,
+radix_node_alloc(radix_node *node, radix_slot_t slotIndex, uint32 count,
 		uint32 radix, uint32 skip)
 {
 	uint32 next_skip = skip / NODE_RADIX;

@@ -2975,7 +2975,7 @@ team_get_death_entry(Team* team, thread_id child, bool* _deleteEntry)
 		child);
 	if (entry) {
 		// remove the entry only, if the caller is the parent of the found team
-		if (team_get_current_team_id() == entry->thread) {
+		if (team_get_current_team_id() == team->id) {
 			team->dead_children.entries.Remove(entry);
 			team->dead_children.count--;
 			*_deleteEntry = true;

@@ -433,6 +433,9 @@ _user_register_image(extended_image_info *userInfo, size_t size)
 		|| user_memcpy(&info, userInfo, size) < B_OK)
 		return B_BAD_ADDRESS;
 
+	// ensure null termination
+	info.basic_info.name[B_OS_NAME_LENGTH - 1] = '\0';
+
 	return register_image(thread_get_current_thread()->team, &info, size);
 }
 

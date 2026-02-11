@@ -638,6 +638,9 @@ MemoryManager::AllocateRaw(size_t size, uint32 flags, void*& _pages)
 #endif
 #endif
 
+	if (size > SIZE_MAX - SLAB_CHUNK_SIZE_SMALL + 1)
+		return B_NO_MEMORY;
+
 	size = ROUNDUP(size, SLAB_CHUNK_SIZE_SMALL);
 
 	TRACE("MemoryManager::AllocateRaw(%" B_PRIuSIZE ", %#" B_PRIx32 ")\n", size,

@@ -357,7 +357,7 @@ public:
 				// Update its undo value
 				MutexLocker _(team->xsi_sem_context->lock);
 				int newValue = current->undo_values[semaphoreNumber] + value;
-				if (newValue > USHRT_MAX || newValue < -USHRT_MAX) {
+				if (newValue > SHRT_MAX || newValue < SHRT_MIN) {
 					TRACE_ERROR(("XsiSemaphoreSet::RecordUndo: newValue %d "
 						"out of range\n", newValue));
 					return ERANGE;
