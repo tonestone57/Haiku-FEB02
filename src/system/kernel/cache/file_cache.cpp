@@ -562,6 +562,7 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	generic_size_t numBytes = PAGE_ALIGN(pageOffset + bufferSize);
 	int32 pageIndex = 0;
 	status_t status = B_OK;
+	size_t lastPageOffset;
 
 	// ToDo: this should be settable somewhere
 	bool writeThrough = false;
@@ -638,7 +639,7 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 		}
 	}
 
-	size_t lastPageOffset = (pageOffset + bufferSize) % B_PAGE_SIZE;
+	lastPageOffset = (pageOffset + bufferSize) % B_PAGE_SIZE;
 	if (lastPageOffset != 0) {
 		// get the last page in the I/O vectors
 		generic_addr_t last = vecs[vecCount - 1].base

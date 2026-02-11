@@ -219,7 +219,7 @@ radix_leaf_alloc(radix_node *leaf, radix_slot_t slotIndex, uint32 count)
 	}
 
 	// we could not allocate count here, update big_hint
-	if (leaf->big_hint >= count)
+	if ((uint32)leaf->big_hint >= count)
 		leaf->big_hint = count - 1;
 	return RADIX_SLOT_NONE;
 }
@@ -236,7 +236,7 @@ radix_node_alloc(radix_node *node, radix_slot_t slotIndex, uint32 count,
 		if (node[i].big_hint == TERMINATOR)  // TERMINATOR
 			break;
 
-		if (count <= node[i].big_hint) {
+		if (count <= (uint32)node[i].big_hint) {
 			radix_slot_t addr = RADIX_SLOT_NONE;
 			if (next_skip == 1)
 				addr = radix_leaf_alloc(&node[i], slotIndex, count);
@@ -255,7 +255,7 @@ radix_node_alloc(radix_node *node, radix_slot_t slotIndex, uint32 count,
 	}
 
 	// we could not allocate count in the subtree, update big_hint
-	if (node->big_hint >= count)
+	if ((uint32)node->big_hint >= count)
 		node->big_hint = count - 1;
 	return RADIX_SLOT_NONE;
 }

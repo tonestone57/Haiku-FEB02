@@ -2323,7 +2323,7 @@ load_kernel_add_on(const char *path)
 
 		size_t segmentSize = ROUNDUP(programHeaders[i].p_memsz
 			+ (programHeaders[i].p_vaddr % B_PAGE_SIZE), B_PAGE_SIZE);
-		if (segmentSize < programHeaders[i].p_memsz || length + segmentSize < length) {
+		if (segmentSize < programHeaders[i].p_memsz || (size_t)length + segmentSize < (size_t)length) {
 			status = B_BAD_DATA;
 			goto error3;
 		}

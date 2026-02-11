@@ -1283,7 +1283,7 @@ syslog_write(const char* text, int32 length, bool notify)
 	if (sSyslogBuffer == NULL)
 		return;
 
-	if (length > sSyslogBuffer->size) {
+	if ((size_t)length > sSyslogBuffer->size) {
 		syslog_write("<TRUNC>", 7, false);
 
 		text += length - (sSyslogBuffer->size - 7);
