@@ -1469,7 +1469,7 @@ file_cache_read(void* _cacheRef, void* cookie, off_t offset, void* buffer,
 		*_size = 0;
 		return B_OK;
 	}
-	if ((off_t)*_size > fileSize - offset)
+	if ((uint64)*_size > (uint64)(fileSize - offset))
 		*_size = fileSize - offset;
 
 	if (ref->disabled_count > 0) {
