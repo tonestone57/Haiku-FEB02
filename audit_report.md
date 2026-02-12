@@ -1467,7 +1467,7 @@ The function `HasReadPermission` calls `HasPermission()`, which checks for **wri
 **File:** `src/system/kernel/posix/xsi_message_queue.cpp`
 **Function:** `_user_xsi_msgrcv`
 **Description:**
-The function calls `messageQueue->HasPermission()` to verify access. As noted in Bug 80, `HasPermission` checks write bits. `msgrcv` (receiving) should require read permission. This allows a user with write-only access to read messages from the queue.
+The function calls `messageQueue->HasPermission()` to verify access. As noted in Bug 80, `HasPermission` checks write permissions. `msgrcv` (receiving) should require read permission. This allows a user with write-only access to read messages from the queue.
 **Consequence:** Information disclosure (unauthorized reading of message queues).
 
 ### 82. Incorrect Permission Check in `IPC_STAT`
@@ -1802,3 +1802,66 @@ Unbounded recursion in scanning directories.
 **Description:**
 Symlink cycles or directory cycles might cause infinite loop.
 **Consequence:** Hang.
+
+### 122. Unchecked `mutex_lock` in `recursive_lock_lock`
+**Severity:** Medium
+**Status:** Fixed.
+**File:** `src/system/kernel/locks/lock.cpp`
+**Function:** `recursive_lock_lock`
+**Description:**
+The return value of `mutex_lock` was not checked.
+**Consequence:** Potential undefined behavior if locking fails.
+
+### 123. Missing NULL check in `select_thread`
+**Severity:** Medium
+**Status:** Fixed.
+**File:** `src/system/kernel/thread.cpp`
+**Function:** `select_thread`
+**Description:**
+`info` pointer was dereferenced without NULL check.
+**Consequence:** Kernel panic (null pointer dereference).
+
+### 124. Unchecked memory allocation size in `KMessage::ReceiveFrom`
+**Severity:** High
+**Status:** Fixed.
+**File:** `src/system/kernel/messaging/KMessage.cpp`
+**Function:** `ReceiveFrom`
+**Description:**
+`messageInfo->size` was used for allocation without a sanity check.
+**Consequence:** Heap overflow or DoS.
+
+### 125. Integer overflow in `elf_parse_dynamic_section`
+**Severity:** Medium
+**Status:** Fixed.
+**File:** `src/system/kernel/elf.cpp`
+**Function:** `elf_parse_dynamic_section`
+**Description:**
+Pointer arithmetic `d[i].d_un.d_ptr + image->text_region.delta` could overflow.
+**Consequence:** Invalid memory access.
+
+### 126. Missing `cuid`/`cgid` checks in `XsiMessageQueue` permissions
+**Severity:** Medium
+**Status:** Fixed.
+**File:** `src/system/kernel/posix/xsi_message_queue.cpp`
+**Function:** `HasReadPermission` / `HasWritePermission`
+**Description:**
+The permission check functions missed checks for creator UID/GID.
+**Consequence:** Incorrect access control.
+
+### 127. Integer overflows in `file_cache` functions
+**Severity:** Medium
+**Status:** Fixed.
+**File:** `src/system/kernel/cache/file_cache.cpp`
+**Function:** `cache_prefetch_vnode`, `file_cache_create`, `file_cache_set_size`, `file_cache_read`, `file_cache_write`
+**Description:**
+Missing integer overflow and bounds checks for size and offset parameters.
+**Consequence:** Logic errors or memory corruption.
+
+### 128. Zombie Child in `device_node::Register`
+**Severity:** Medium
+**Status:** Fixed.
+**File:** `src/system/kernel/device_manager/device_manager.cpp`
+**Function:** `device_node::Register`
+**Description:**
+Failure in `_RegisterFixed` or `_RegisterDynamic` did not remove the node from the parent's child list, leading to a zombie node reference in the parent.
+**Consequence:** Use-after-free or corruption.

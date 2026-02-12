@@ -1103,6 +1103,9 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 	if (size == 0)
 		return;
 
+	if (offset < 0)
+		return;
+
 	VMCache* cache;
 	if (vfs_get_vnode_cache(vnode, &cache, false) != B_OK)
 		return;
@@ -1114,7 +1117,12 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 	file_cache_ref* ref = ((VMVnodeCache*)cache)->FileCacheRef();
 	off_t fileSize = cache->virtual_end;
 
-	if ((off_t)(offset + size) > fileSize)
+	if (offset >= fileSize) {
+		cache->ReleaseRef();
+		return;
+	}
+
+	if ((off_t)size > fileSize - offset)
 		size = fileSize - offset;
 
 	// "offset" and "size" are always aligned to B_PAGE_SIZE,
@@ -1293,6 +1301,9 @@ file_cache_create(dev_t mountID, ino_t vnodeID, off_t size)
 	TRACE(("file_cache_create(mountID = %ld, vnodeID = %lld, size = %lld)\n",
 		mountID, vnodeID, size));
 
+	if (size < 0)
+		return NULL;
+
 	file_cache_ref* ref = new file_cache_ref;
 	if (ref == NULL)
 		return NULL;
@@ -1414,6 +1425,9 @@ file_cache_set_size(void* _cacheRef, off_t newSize)
 
 	TRACE(("file_cache_set_size(ref = %p, size = %lld)\n", ref, newSize));
 
+	if (newSize < 0)
+		return B_BAD_VALUE;
+
 	if (ref == NULL)
 		return B_OK;
 
@@ -1455,7 +1469,7 @@ file_cache_read(void* _cacheRef, void* cookie, off_t offset, void* buffer,
 		*_size = 0;
 		return B_OK;
 	}
-	if ((off_t)(offset + *_size) > fileSize)
+	if ((off_t)*_size > fileSize - offset)
 		*_size = fileSize - offset;
 
 	if (ref->disabled_count > 0) {
@@ -1482,6 +1496,11 @@ file_cache_write(void* _cacheRef, void* cookie, off_t offset,
 	// We don't do bounds checking here, as we are relying on the
 	// file system which called us to already have done that and made
 	// adjustments as necessary, unlike in read().
+
+	if (offset < 0)
+		return B_BAD_VALUE;
+	if (*_size > (size_t)(OFF_MAX - offset))
+		return B_BAD_VALUE;
 
 	if (ref->disabled_count > 0) {
 		// Caching is disabled -- write directly to the file.

@@ -2710,6 +2710,9 @@ wait_for_thread_etc(thread_id id, uint32 flags, bigtime_t timeout,
 status_t
 select_thread(int32 id, struct select_info* info, bool kernel)
 {
+	if (info == NULL)
+		return B_BAD_VALUE;
+
 	// get and lock the thread
 	Thread* thread = Thread::GetAndLock(id);
 	if (thread == NULL)

@@ -735,42 +735,64 @@ elf_parse_dynamic_section(struct elf_image_info *image)
 		return B_ERROR;
 
 	for (int32 i = 0; d[i].d_tag != DT_NULL; i++) {
+		addr_t address;
 		switch (d[i].d_tag) {
 			case DT_NEEDED:
-				neededOffset = d[i].d_un.d_ptr + image->text_region.delta;
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &neededOffset)) {
+					return B_BAD_DATA;
+				}
 				break;
 			case DT_HASH:
-				image->symhash = (uint32 *)(d[i].d_un.d_ptr
-					+ image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->symhash = (uint32 *)address;
 				break;
 			case DT_STRTAB:
-				image->strtab = (char *)(d[i].d_un.d_ptr
-					+ image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->strtab = (char *)address;
 				break;
 			case DT_STRSZ:
 				image->strtab_size = d[i].d_un.d_val;
 				break;
 			case DT_SYMTAB:
-				image->syms = (elf_sym *)(d[i].d_un.d_ptr
-					+ image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->syms = (elf_sym *)address;
 				break;
 			case DT_REL:
-				image->rel = (elf_rel *)(d[i].d_un.d_ptr
-					+ image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->rel = (elf_rel *)address;
 				break;
 			case DT_RELSZ:
 				image->rel_len = d[i].d_un.d_val;
 				break;
 			case DT_RELA:
-				image->rela = (elf_rela *)(d[i].d_un.d_ptr
-					+ image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->rela = (elf_rela *)address;
 				break;
 			case DT_RELASZ:
 				image->rela_len = d[i].d_un.d_val;
 				break;
 			case DT_JMPREL:
-				image->pltrel = (elf_rel *)(d[i].d_un.d_ptr
-					+ image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->pltrel = (elf_rel *)address;
 				break;
 			case DT_PLTRELSZ:
 				image->pltrel_len = d[i].d_un.d_val;
@@ -779,19 +801,28 @@ elf_parse_dynamic_section(struct elf_image_info *image)
 				image->pltrel_type = d[i].d_un.d_val;
 				break;
 			case DT_VERSYM:
-				image->symbol_versions = (elf_versym*)
-					(d[i].d_un.d_ptr + image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->symbol_versions = (elf_versym*)address;
 				break;
 			case DT_VERDEF:
-				image->version_definitions = (elf_verdef*)
-					(d[i].d_un.d_ptr + image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->version_definitions = (elf_verdef*)address;
 				break;
 			case DT_VERDEFNUM:
 				image->num_version_definitions = d[i].d_un.d_val;
 				break;
 			case DT_VERNEED:
-				image->needed_versions = (elf_verneed*)
-					(d[i].d_un.d_ptr + image->text_region.delta);
+				if (__builtin_add_overflow(d[i].d_un.d_ptr,
+						image->text_region.delta, &address)) {
+					return B_BAD_DATA;
+				}
+				image->needed_versions = (elf_verneed*)address;
 				break;
 			case DT_VERNEEDNUM:
 				image->num_needed_versions = d[i].d_un.d_val;

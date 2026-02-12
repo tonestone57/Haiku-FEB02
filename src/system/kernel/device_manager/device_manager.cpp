@@ -1460,8 +1460,13 @@ device_node::Register(device_node* parent)
 		sRootNode = this;
 
 	status_t status = InitDriver();
-	if (status != B_OK)
+	if (status != B_OK) {
+		if (parent != NULL)
+			parent->RemoveChild(this);
+		else
+			sRootNode = NULL;
 		return status;
+	}
 
 	if ((fFlags & B_KEEP_DRIVER_LOADED) != 0) {
 		// We keep this driver loaded by having it always initialized
@@ -1476,6 +1481,10 @@ device_node::Register(device_node* parent)
 	status = _RegisterFixed(registeredFixedCount);
 	if (status != B_OK) {
 		UninitUnusedDriver();
+		if (parent != NULL)
+			parent->RemoveChild(this);
+		else
+			sRootNode = NULL;
 		return status;
 	}
 
@@ -1485,6 +1494,10 @@ device_node::Register(device_node* parent)
 		status = DriverModule()->register_child_devices(DriverData());
 		if (status != B_OK) {
 			UninitUnusedDriver();
+			if (parent != NULL)
+				parent->RemoveChild(this);
+			else
+				sRootNode = NULL;
 			return status;
 		}
 
@@ -1506,8 +1519,13 @@ device_node::Register(device_node* parent)
 	status = _RegisterDynamic();
 	if (status == B_OK)
 		fRegistered = true;
-	else
+	else {
 		UninitUnusedDriver();
+		if (parent != NULL)
+			parent->RemoveChild(this);
+		else
+			sRootNode = NULL;
+	}
 
 	return status;
 }
