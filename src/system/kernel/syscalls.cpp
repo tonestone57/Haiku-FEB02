@@ -282,14 +282,15 @@ register_generic_syscall(const char* subsystem, syscall_hook hook,
 status_t
 unregister_generic_syscall(const char* subsystem, uint32 version)
 {
-	// TODO: we should only remove the syscall with the matching version
-
 	while (true) {
 		MutexLocker locker(sGenericSyscallLock);
 
 		generic_syscall* syscall = find_generic_syscall(subsystem);
 		if (syscall == NULL)
 			return B_NAME_NOT_FOUND;
+
+		if (syscall->version != version)
+			return B_BAD_VALUE;
 
 		syscall->valid = false;
 

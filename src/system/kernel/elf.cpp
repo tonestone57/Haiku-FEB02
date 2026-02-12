@@ -1621,34 +1621,26 @@ get_image_symbol(image_id id, const char *name, int32 symbolClass,
 {
 	struct elf_image_info *image;
 	elf_sym *symbol;
-	status_t status = B_OK;
 
 	TRACE(("get_image_symbol(%s)\n", name));
 
-	mutex_lock(&sImageMutex);
+	MutexLocker _(sImageMutex);
 
 	image = find_image(id);
-	if (image == NULL) {
-		status = B_BAD_IMAGE_ID;
-		goto done;
-	}
+	if (image == NULL)
+		return B_BAD_IMAGE_ID;
 
 	symbol = elf_find_symbol(image, name, NULL, true);
-	if (symbol == NULL || symbol->st_shndx == SHN_UNDEF) {
-		status = B_ENTRY_NOT_FOUND;
-		goto done;
-	}
+	if (symbol == NULL || symbol->st_shndx == SHN_UNDEF)
+		return B_ENTRY_NOT_FOUND;
 
 	if (symbolClass == B_SYMBOL_TYPE_TEXT && symbol->Type() != STT_FUNC
 		&& symbol->Type() != STT_GNU_IFUNC) {
-		status = B_ENTRY_NOT_FOUND;
-		goto done;
+		return B_ENTRY_NOT_FOUND;
 	}
 
-	if (symbolClass == B_SYMBOL_TYPE_DATA && symbol->Type() != STT_OBJECT) {
-		status = B_ENTRY_NOT_FOUND;
-		goto done;
-	}
+	if (symbolClass == B_SYMBOL_TYPE_DATA && symbol->Type() != STT_OBJECT)
+		return B_ENTRY_NOT_FOUND;
 
 	TRACE(("found: %lx (%lx + %lx)\n",
 		symbol->st_value + image->text_region.delta,
@@ -1656,9 +1648,7 @@ get_image_symbol(image_id id, const char *name, int32 symbolClass,
 
 	*_symbol = (void *)(symbol->st_value + image->text_region.delta);
 
-done:
-	mutex_unlock(&sImageMutex);
-	return status;
+	return B_OK;
 }
 
 
@@ -2675,10 +2665,13 @@ elf_create_memory_image(const char* imageName, addr_t text, size_t textSize,
 	image->data_region.size = dataSize;
 	image->data_region.delta = 0;
 
-	mutex_lock(&sImageMutex);
-	status_t status = register_elf_image(image);
-	image_id imageID = image->id;
-	mutex_unlock(&sImageMutex);
+	status_t status;
+	image_id imageID;
+	{
+		MutexLocker _(sImageMutex);
+		status = register_elf_image(image);
+		imageID = image->id;
+	}
 
 	if (status == B_OK) {
 		// keep the allocated memory

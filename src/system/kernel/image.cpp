@@ -134,17 +134,18 @@ status_t
 unregister_image(Team *team, image_id id)
 {
 	status_t status = B_ENTRY_NOT_FOUND;
+	struct image *image;
 
-	mutex_lock(&sImageMutex);
+	{
+		MutexLocker _(sImageMutex);
 
-	struct image *image = sImageTable->Lookup(id);
-	if (image != NULL && image->team == team->id) {
-		team->image_list.Remove(image);
-		sImageTable->Remove(image);
-		status = B_OK;
+		image = sImageTable->Lookup(id);
+		if (image != NULL && image->team == team->id) {
+			team->image_list.Remove(image);
+			sImageTable->Remove(image);
+			status = B_OK;
+		}
 	}
-
-	mutex_unlock(&sImageMutex);
 
 	if (status == B_OK) {
 		// notify the debugger
@@ -209,17 +210,18 @@ remove_images(Team *team)
 {
 	ASSERT(team != NULL);
 
-	mutex_lock(&sImageMutex);
-
 	DoublyLinkedList<struct image> images;
-	images.TakeFrom(&team->image_list);
 
-	for (struct image* image = images.First();
-			image != NULL; image = images.GetNext(image)) {
-		sImageTable->Remove(image);
+	{
+		MutexLocker _(sImageMutex);
+
+		images.TakeFrom(&team->image_list);
+
+		for (struct image* image = images.First();
+				image != NULL; image = images.GetNext(image)) {
+			sImageTable->Remove(image);
+		}
 	}
-
-	mutex_unlock(&sImageMutex);
 
 	while (struct image* image = images.RemoveHead())
 		free(image);
@@ -234,19 +236,15 @@ _get_image_info(image_id id, image_info *info, size_t size)
 	if (size > sizeof(image_info))
 		return B_BAD_VALUE;
 
-	status_t status = B_ENTRY_NOT_FOUND;
-
-	mutex_lock(&sImageMutex);
+	MutexLocker _(sImageMutex);
 
 	struct image *image = sImageTable->Lookup(id);
 	if (image != NULL) {
 		memcpy(info, &image->info.basic_info, size);
-		status = B_OK;
+		return B_OK;
 	}
 
-	mutex_unlock(&sImageMutex);
-
-	return status;
+	return B_ENTRY_NOT_FOUND;
 }
 
 

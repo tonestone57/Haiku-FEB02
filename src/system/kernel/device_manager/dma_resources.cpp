@@ -453,9 +453,8 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 		// virtual addresses to physical addresses, so we can check the DMA
 		// restrictions.
 		TRACE("  buffer is virtual %s\n", buffer->IsUser() ? "user" : "kernel");
-		// TODO: !partialOperation || totalLength >= fBlockSize
 		// TODO: Maybe enforce fBounceBufferSize >= 2 * fBlockSize.
-		if (true) {
+		if (partialBegin == 0 || totalLength >= fBlockSize) {
 			generic_size_t transferLeft = totalLength;
 			vecs = fScratchVecs;
 

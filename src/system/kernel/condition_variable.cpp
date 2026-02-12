@@ -151,13 +151,14 @@ ConditionVariableEntry::_RemoveFromVariable()
 		cpu_pause();
 	}
 
+	SpinLocker locker(variable->fLock, true);
+
 	// We now hold the variable's lock. Remove ourselves.
 	if (fVariable->fEntries.Contains(this))
 		fVariable->fEntries.Remove(this);
 
 	atomic_pointer_set(&fVariable, (ConditionVariable*)NULL);
 	atomic_add(&variable->fEntriesCount, -1);
-	release_spinlock(&variable->fLock);
 }
 
 

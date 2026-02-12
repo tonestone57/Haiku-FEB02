@@ -1061,40 +1061,23 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 		return B_BAD_TEAM_ID;
 	BReference<Team> teamReference(team, true);
 
-	InterruptsSpinLocker semListLocker(sSemsSpinlock);
+	int32 slot = *_cookie;
+	if (slot < 0)
+		slot = 0;
 
-	// TODO: find a way to iterate the list that is more reliable
-	sem_entry* sem = (sem_entry*)list_get_first_item(&team->sem_list);
-	int32 newIndex = *_cookie;
-	int32 index = 0;
-	bool found = false;
+	for (; slot < sMaxSems; slot++) {
+		struct sem_entry* sem = &sSems[slot];
+		SpinLocker semLocker(sem->lock);
 
-	while (!found) {
-		// find the next entry to be returned
-		while (sem != NULL && index < newIndex) {
-			sem = (sem_entry*)list_get_next_item(&team->sem_list, sem);
-			index++;
-		}
-
-		if (sem == NULL)
-			return B_BAD_VALUE;
-
-		SpinLocker _(sem->lock);
-
-		if (sem->id != -1 && sem->u.used.owner == team->id) {
+		if (sem->id != -1 && sem->u.used.owner == teamID) {
 			// found one!
 			fill_sem_info(sem, info, size);
-			newIndex = index + 1;
-			found = true;
-		} else
-			newIndex++;
+			*_cookie = slot + 1;
+			return B_OK;
+		}
 	}
 
-	if (!found)
-		return B_BAD_VALUE;
-
-	*_cookie = newIndex;
-	return B_OK;
+	return B_BAD_VALUE;
 }
 
 

@@ -710,8 +710,8 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 
 			atomic_add(&sWaitingForSpace, 1);
 
-			// TODO: right here the condition could be notified and we'd
-			//       miss it.
+			if (atomic_get(&sTotalSpaceCommited) + size <= kTotalSpaceLimit)
+				sNoSpaceCondition.NotifyAll();
 
 			status_t status = entry.Wait(flags, timeout);
 

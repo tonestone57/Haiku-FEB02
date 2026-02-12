@@ -2516,7 +2516,8 @@ thread_reset_for_exec(void)
 	thread->DeleteUserTimers(true);
 
 	// cancel pre-defined timer
-	if (UserTimer* timer = thread->UserTimerFor(USER_TIMER_REAL_TIME_ID))
+	UserTimer* timer = thread->UserTimerFor(USER_TIMER_REAL_TIME_ID);
+	if (timer != NULL)
 		timer->Cancel();
 
 	// reset user_thread and user stack

@@ -2177,7 +2177,7 @@ lookup_dir_entry(struct vnode* dir, const char* name, struct vnode** _vnode)
 	rw_lock_read_unlock(&sVnodeLock);
 
 	if (*_vnode == NULL) {
-		panic("lookup_dir_entry(): could not lookup vnode (mountid 0x%" B_PRIx32
+		dprintf("lookup_dir_entry(): could not lookup vnode (mountid 0x%" B_PRIx32
 			" vnid 0x%" B_PRIx64 ")\n", dir->device, id);
 		return B_ENTRY_NOT_FOUND;
 	}
@@ -6430,7 +6430,10 @@ common_fcntl(int fd, int op, size_t argument, bool kernel)
 		case F_GETFD:
 		{
 			// Get file descriptor flags
-			rw_lock_read_lock(&context->lock);
+			status = rw_lock_read_lock(&context->lock);
+			if (status != B_OK)
+				break;
+
 			status = fd_close_on_exec(context, fd) ? FD_CLOEXEC : 0;
 			status |= fd_close_on_fork(context, fd) ? FD_CLOFORK : 0;
 			rw_lock_read_unlock(&context->lock);
@@ -8015,6 +8018,7 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 	WriteLocker vnodesWriteLocker(&sVnodeLock);
 
 	bool disconnectedDescriptors = false;
+	int32 tries = 0;
 
 	while (true) {
 		bool busy = false;
@@ -8060,6 +8064,11 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 			snooze(100000);
 			// TODO: if there is some kind of bug that prevents the ref counts
 			// from getting back to zero, this will fall into an endless loop...
+			if (++tries > 50) {
+				dprintf("fs_unmount: gave up waiting for vnodes to become unused\n");
+				vnodesWriteLocker.Lock();
+				break;
+			}
 			vnodesWriteLocker.Lock();
 			continue;
 		}

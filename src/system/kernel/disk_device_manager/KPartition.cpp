@@ -930,6 +930,10 @@ KPartition::CreateChild(partition_id id, int32 index, off_t offset, off_t size,
 	KPartition* child = new(std::nothrow) KPartition(id);
 	if (child == NULL)
 		return B_NO_MEMORY;
+	if (child->ID() < 0) {
+		delete child;
+		return B_NO_MEMORY;
+	}
 
 	child->SetOffset(offset);
 	child->SetSize(size);

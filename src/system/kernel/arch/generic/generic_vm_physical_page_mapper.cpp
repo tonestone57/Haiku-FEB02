@@ -108,7 +108,13 @@ restart:
 			sChunkAvailableWaitingCounter++;
 
 			mutex_unlock(&sMutex);
-			acquire_sem(sChunkAvailableSem);
+			status_t status = acquire_sem(sChunkAvailableSem);
+			if (status != B_OK) {
+				mutex_lock(&sMutex);
+				sChunkAvailableWaitingCounter--;
+				mutex_unlock(&sMutex);
+				return status;
+			}
 			goto restart;
 		}
 	}

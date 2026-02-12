@@ -3712,11 +3712,13 @@ block_cache_delete(void* _cache, bool allowWrites)
 	if (allowWrites)
 		block_cache_sync(cache);
 
-	mutex_lock(&sCachesLock);
+	if (mutex_lock(&sCachesLock) != B_OK)
+		panic("block_cache_delete(): could not lock sCachesLock!");
 	sCaches.Remove(cache);
 	mutex_unlock(&sCachesLock);
 
-	rw_lock_write_lock(&cache->lock);
+	if (rw_lock_write_lock(&cache->lock) != B_OK)
+		panic("block_cache_delete(): could not write lock cache %p!", cache);
 
 	// wait for all blocks to become unbusy
 	wait_for_busy_reading_blocks(cache);
