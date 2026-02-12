@@ -174,6 +174,9 @@ create_ring_buffer(size_t size)
 struct ring_buffer*
 create_ring_buffer_etc(void* memory, size_t size, uint32 flags)
 {
+	if (size > SSIZE_MAX)
+		return NULL;
+
 	if (memory == NULL) {
 		ring_buffer* buffer = (ring_buffer*)malloc(sizeof(ring_buffer) + size);
 		if (buffer == NULL)

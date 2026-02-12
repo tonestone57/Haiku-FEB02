@@ -91,6 +91,7 @@ This report details bugs found during a static analysis audit of the Haiku kerne
 ## 1. `rw_lock` Downgrade Failure
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/locks/lock.cpp`
 **Function:** `_rw_lock_write_unlock`
 
@@ -116,6 +117,7 @@ When the thread subsequently calls `rw_lock_read_unlock`, it will attempt to unl
 ## 2. Integer Overflow in File Descriptor Position Update
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/fd.cpp`
 **Functions:** `common_user_io`, `common_vector_io`
 
@@ -182,6 +184,7 @@ This allows shared mappings to extend beyond the file size (or cache size), pote
 ## 5. `ring_buffer` Size Mismatch / Integer Overflow
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/util/ring_buffer.cpp`
 **Function:** `space_left_in_buffer`
 
@@ -304,6 +307,7 @@ The address range remains reserved, but the caller assumes it has been unreserve
 ## 11. Integer Overflow in `dir_vnode_to_path`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `dir_vnode_to_path`
 
@@ -1044,7 +1048,7 @@ Reader misses available data, potentially causing stalls or higher latency in pi
 ## 53. Busy Wait in `VMAnonymousCache::_SwapBlockBuild`
 
 **Severity:** Medium
-**Status:** Unfixed. Busy wait loop still present.
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
 **Function:** `_SwapBlockBuild`
 
@@ -1398,6 +1402,7 @@ The function calls `malloc(length)` and immediately calls `strlcpy(result, ...)`
 
 ### 74. Unchecked `malloc` in `KPath::DetachBuffer`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/KPath.cpp`
 **Function:** `KPath::DetachBuffer`
 **Description:**
@@ -1406,6 +1411,7 @@ The function calls `malloc(fBufferSize)` and immediately calls `memcpy(buffer, f
 
 ### 75. Unchecked `new[]` in `EntryCache::Init`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/EntryCache.cpp`
 **Function:** `EntryCache::Init`
 **Description:**
@@ -1414,6 +1420,7 @@ The function allocates an array `fGenerations = new(std::nothrow) EntryCacheGene
 
 ### 76. Unchecked `new[]` in `IOSchedulerSimple::Init`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/IOSchedulerSimple.cpp`
 **Function:** `IOSchedulerSimple::Init`
 **Description:**

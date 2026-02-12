@@ -1162,21 +1162,24 @@ VMAnonymousCache::_SwapBlockBuild(off_t startPageIndex,
 		swap_hash_key key = { this, pageIndex };
 
 		swap_block* swap = sSwapHashTable.Lookup(key);
-		int32 retries = 0;
 		while (swap == NULL) {
 			swap = (swap_block*)object_cache_alloc(sSwapBlockCache,
 				CACHE_DONT_WAIT_FOR_MEMORY | CACHE_DONT_LOCK_KERNEL_SPACE);
 			if (swap == NULL) {
-				if (++retries > 10) {
-					locker.Unlock();
-					return B_NO_MEMORY;
-				}
-				// Wait a short time until memory is available again.
+				// Wait until memory is available again.
 				locker.Unlock();
-				snooze(10000);
+				swap = (swap_block*)object_cache_alloc(sSwapBlockCache, 0);
 				locker.Lock();
-				swap = sSwapHashTable.Lookup(key);
-				continue;
+
+				if (swap == NULL)
+					return B_NO_MEMORY;
+
+				swap_block* existing = sSwapHashTable.Lookup(key);
+				if (existing != NULL) {
+					object_cache_free(sSwapBlockCache, swap, 0);
+					swap = existing;
+					break;
+				}
 			}
 
 			swap->key.cache = this;
