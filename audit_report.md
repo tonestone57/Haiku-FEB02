@@ -523,6 +523,7 @@ List corruption, double-free, or crash during device node teardown.
 ## 22. Panic on User Memory Mapping Failure in `IORequest::_CopyUser`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/IORequest.cpp`
 **Function:** `IORequest::_CopyUser`
 
@@ -586,6 +587,7 @@ Premature timeout for semaphore acquisition when using very large timeout values
 ## 25. Logic Error in `switch_sem_etc` Missing Semaphore Release
 
 **Severity:** Critical
+**Status:** Fixed.
 **File:** `src/system/kernel/sem.cpp`
 **Function:** `switch_sem_etc`
 
@@ -709,6 +711,7 @@ System monitoring tools might fail to list all teams after ID wraparound.
 ## 31. Information Leak in `writev_port_etc`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/port.cpp`
 **Function:** `writev_port_etc`
 
@@ -867,6 +870,7 @@ Information disclosure (OOB read).
 ## 41. Unsafe User Buffer Access in `_user_get_next_loaded_module_name`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/module.cpp`
 **Function:** `_user_get_next_loaded_module_name`
 
@@ -939,6 +943,7 @@ Process crash or potential kernel memory disclosure.
 ## 47. Use-After-Free in `unload_module`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/module.cpp`
 **Function:** `unload_module`
 
@@ -951,6 +956,7 @@ Use-after-free, potential kernel crash or corruption.
 ## 48. Race Condition / Use-After-Free in `swap_file_delete`
 
 **Severity:** Critical
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
 **Function:** `swap_file_delete` / `VMAnonymousCache::Read`
 
@@ -960,9 +966,12 @@ Use-after-free, potential kernel crash or corruption.
 ### Consequence
 Kernel crash or memory corruption during swap operations.
 
+
+**Note:** A regression (Double Lock) introduced by the initial fix for this bug was identified and fixed in `find_swap_file_locked`.
 ## 49. Infinite Loop / DoS in `vfs_bind_mount_directory`
 
 **Severity:** Critical
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `vfs_bind_mount_directory`
 
@@ -975,6 +984,7 @@ Denial of Service (kernel hang) triggered by malicious or accidental bind mount 
 ## 50. Locking Violation / Race in `ThreadTimeUserTimer::Stop`
 
 **Severity:** Critical
+**Status:** Fixed.
 **File:** `src/system/kernel/UserTimer.cpp`
 **Function:** `ThreadTimeUserTimer::Stop`
 
@@ -987,6 +997,7 @@ Timer state corruption, potentially leading to timers never firing or firing aft
 ## 51. Uninterruptible Wait in `vfs_read_pages`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `vfs_read_pages`
 
@@ -1011,6 +1022,7 @@ Reader misses available data, potentially causing stalls or higher latency in pi
 ## 53. Busy Wait in `VMAnonymousCache::_SwapBlockBuild`
 
 **Severity:** Medium
+**Status:** Unfixed. Busy wait loop still present.
 **File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
 **Function:** `_SwapBlockBuild`
 
@@ -1031,6 +1043,7 @@ Performance degradation or livelock under high load/OOM.
 ## 54. Swap Space Leak in `VMAnonymousCache::_FreeSwapPageRange`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
 **Function:** `_FreeSwapPageRange`
 
@@ -1050,6 +1063,7 @@ Gradual exhaustion of swap space availability over time.
 ## 55. Integer Overflow in `swap_file_add`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
 **Function:** `swap_file_add`
 
@@ -1110,6 +1124,7 @@ Increased attack surface for privilege escalation via buggy drivers.
 ## 60. Missing Status Update in `do_iterative_fd_io` Error Path
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs_request_io.cpp`
 **Function:** `do_iterative_fd_io`
 
@@ -1342,6 +1357,7 @@ Potential invalid memory access if size is unchecked.
 
 ### 72. Logic Error in `ASSERT(user_memcpy)`
 **Severity:** Critical
+**Status:** Fixed.
 **File:** `src/system/kernel/arch/riscv64/arch_thread.cpp`, `src/system/kernel/arch/arm/arch_thread.cpp`
 **Function:** `arch_thread_enter_userspace`, `arch_setup_signal_frame`
 **Description:**
@@ -1695,6 +1711,7 @@ Panics if user memory cannot be locked.
 
 ### 116. Logic Error in `switch_sem_etc`
 **Severity:** Critical
+**Status:** Fixed.
 **File:** `src/system/kernel/sem.cpp`
 **Function:** `switch_sem_etc`
 **Description:**
@@ -1727,6 +1744,7 @@ Buffer for stack trace string might be too small.
 
 ### 120. Recursion Limit in `_Scan`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KDiskDeviceManager.cpp`
 **Function:** `_Scan`
 **Description:**
