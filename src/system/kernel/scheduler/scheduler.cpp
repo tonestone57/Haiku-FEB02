@@ -540,12 +540,14 @@ scheduler_on_thread_destroy(Thread* thread)
 void
 scheduler_start()
 {
-	InterruptsSpinLocker _(thread_get_current_thread()->scheduler_lock);
+	InterruptsSpinLocker schedulerLocker(
+		thread_get_current_thread()->scheduler_lock);
 	SCHEDULER_ENTER_FUNCTION();
 
 	reschedule(B_THREAD_READY);
 
-	_.Detach();
+	// reschedule() has already released the scheduler lock.
+	schedulerLocker.Detach();
 }
 
 

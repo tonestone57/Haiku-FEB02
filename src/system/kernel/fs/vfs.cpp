@@ -2659,7 +2659,7 @@ dir_vnode_to_path(struct vnode* vnode, char* buffer, size_t bufferSize,
 	char* path = buffer;
 	ssize_t insert = (ssize_t)bufferSize;
 	int32 maxLevel = 256;
-	int32 length;
+	size_t length;
 	status_t status = B_OK;
 	struct io_context* ioContext = get_current_io_context(kernel);
 
