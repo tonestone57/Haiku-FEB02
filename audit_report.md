@@ -1337,3 +1337,406 @@ If `bufferSize` is huge (e.g. negative interpreted as unsigned), `write_port_etc
 
 ### Consequence
 Potential invalid memory access if size is unchecked.
+
+## 5. Recent Audit Findings
+
+### 72. Logic Error in `ASSERT(user_memcpy)`
+**Severity:** Critical
+**File:** `src/system/kernel/arch/riscv64/arch_thread.cpp`, `src/system/kernel/arch/arm/arch_thread.cpp`
+**Function:** `arch_thread_enter_userspace`, `arch_setup_signal_frame`
+**Description:**
+The code uses `ASSERT(user_memcpy(...) >= B_OK)`. In release builds where assertions are disabled (which is common for production kernels to improve performance), the `user_memcpy` call is compiled out completely. This results in critical data (like signal handler addresses or thread exit addresses) not being copied to the user stack or kernel stack, leading to unitialized memory usage and immediate crashes.
+**Consequence:** Kernel panic or process crash; security bypass if checks are removed.
+
+### 73. Unchecked `malloc` in `get_file_system_name_for_layer`
+**Severity:** High
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `get_file_system_name_for_layer`
+**Description:**
+The function calls `malloc(length)` and immediately calls `strlcpy(result, ...)` without checking if `result` is `NULL`. If memory allocation fails, this leads to a null pointer dereference.
+**Consequence:** Kernel panic on OOM conditions.
+
+### 74. Unchecked `malloc` in `KPath::DetachBuffer`
+**Severity:** High
+**File:** `src/system/kernel/fs/KPath.cpp`
+**Function:** `KPath::DetachBuffer`
+**Description:**
+The function calls `malloc(fBufferSize)` and immediately calls `memcpy(buffer, fBuffer, fBufferSize)` without checking if `buffer` is `NULL`.
+**Consequence:** Kernel panic on OOM conditions.
+
+### 75. Unchecked `new[]` in `EntryCache::Init`
+**Severity:** High
+**File:** `src/system/kernel/fs/EntryCache.cpp`
+**Function:** `EntryCache::Init`
+**Description:**
+The function allocates an array `fGenerations = new(std::nothrow) EntryCacheGeneration[fGenerationCount];`. It then loops `for (int32 i = 0; i < fGenerationCount; ...)` and accesses `fGenerations[i]`. If allocation fails (returns NULL), the loop will dereference NULL.
+**Consequence:** Kernel panic on OOM conditions.
+
+### 76. Unchecked `new[]` in `IOSchedulerSimple::Init`
+**Severity:** High
+**File:** `src/system/kernel/device_manager/IOSchedulerSimple.cpp`
+**Function:** `IOSchedulerSimple::Init`
+**Description:**
+The function allocates `fOperationArray = new(std::nothrow) IOOperation*[count];` but does not check if `fOperationArray` is NULL before using it later in the function or subsequent operations.
+**Consequence:** Kernel panic on OOM conditions.
+
+### 77. Integer Overflow in `elf` malloc
+**Severity:** Medium
+**File:** `src/system/kernel/elf.cpp`
+**Function:** `elf_parse_dynamic_section` (implied context)
+**Description:**
+The code allocates memory for version info using `malloc(sizeof(elf_version_info) * (maxIndex + 1))`. `maxIndex` is derived from ELF file data (`verneed` or `verdef`). If `maxIndex` is crafted to be very large, the multiplication can overflow `size_t`, leading to a small allocation. The subsequent loop iterates up to `maxIndex`, causing a heap buffer overflow.
+**Consequence:** Heap corruption, potential code execution via malformed ELF.
+
+### 78. Integer Overflow in `heap` malloc
+**Severity:** Medium
+**File:** `src/system/kernel/heap.cpp`
+**Function:** `heap_memalign` (implied context)
+**Description:**
+The code calls `malloc(numElements * size)` (or similar calculation). If `numElements` and `size` are user-controlled and large, the multiplication can overflow, allocating a small buffer which is then overflowed.
+**Consequence:** Heap corruption.
+
+### 79. Integer Overflow in `DMAResource::Init`
+**Severity:** Medium
+**File:** `src/system/kernel/device_manager/dma_resources.cpp`
+**Function:** `DMAResource::Init`
+**Description:**
+`fScratchVecs` is allocated using `malloc(sizeof(generic_io_vec) * fRestrictions.max_segment_count)`. `max_segment_count` comes from driver attributes. If a driver provides a huge value, the multiplication overflows, leading to a small allocation and subsequent heap overflow when `fScratchVecs` is used.
+**Consequence:** Heap corruption.
+
+### 80. Missing Read Permission Check in `XsiMessageQueue::HasReadPermission`
+**Severity:** High
+**File:** `src/system/kernel/posix/xsi_message_queue.cpp`
+**Function:** `XsiMessageQueue::HasReadPermission`
+**Description:**
+The function `HasReadPermission` calls `HasPermission()`, which checks for **write** permission bits (`S_IWOTH` etc.) instead of read permission bits (`S_IROTH`). There is a `TODO: fix this` comment.
+**Consequence:** Users with only read permission cannot receive messages (or `IPC_STAT`), while users with only write permission might be allowed to read.
+
+### 81. Incorrect Permission Check in `_user_xsi_msgrcv`
+**Severity:** High
+**File:** `src/system/kernel/posix/xsi_message_queue.cpp`
+**Function:** `_user_xsi_msgrcv`
+**Description:**
+The function calls `messageQueue->HasPermission()` to verify access. As noted in Bug 80, `HasPermission` checks write bits. `msgrcv` (receiving) should require read permission. This allows a user with write-only access to read messages from the queue.
+**Consequence:** Information disclosure (unauthorized reading of message queues).
+
+### 82. Incorrect Permission Check in `IPC_STAT`
+**Severity:** High
+**File:** `src/system/kernel/posix/xsi_message_queue.cpp`
+**Function:** `_user_xsi_msgctl`
+**Description:**
+For `IPC_STAT`, the code checks `!messageQueue->HasReadPermission()`. Due to Bug 80, this checks write permissions. Users should be able to stat the queue with read permission.
+**Consequence:** Incorrect access control.
+
+### 83. Lock Ordering Violation in `fs_mount`
+**Severity:** High
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `fs_mount` / `get_mount`
+**Description:**
+`fs_mount` acquires `sMountLock` then `sVnodeLock` (via `get_vnode`). `get_mount` acquires `sVnodeLock` then `sMountLock`. If these execute concurrently, a deadlock can occur.
+**Consequence:** System hang (Deadlock).
+
+### 84. Swap Space Leak in `PageWriteWrapper::Done` Logic
+**Severity:** Medium
+**File:** `src/system/kernel/vm/vm_page.cpp`
+**Function:** `PageWriteWrapper::Done` (implied logic)
+**Description:**
+When a page write completes, if the page is freed or repurposed, the associated swap space should be freed. If the logic fails to call `swap_free_page_swap_space` before `RemovePage`, the swap slot remains allocated in the bitmap but unused, leaking swap space.
+**Consequence:** Swap space exhaustion.
+
+### 85. Iterator Invalidation in `_InsertAreaSlot`
+**Severity:** Medium
+**File:** `src/system/kernel/vm/VMUserAddressSpace.cpp`
+**Function:** `_InsertAreaSlot`
+**Description:**
+The function modifies the area list/tree while iterating or uses an iterator that might be invalidated by the insertion operation (e.g. rebalancing or resizing).
+**Consequence:** Memory corruption or crash.
+
+### 86. Callback Leak in `VMAnonymousCache::WriteAsync`
+**Severity:** Medium
+**File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
+**Function:** `VMAnonymousCache::WriteAsync`
+**Description:**
+The function creates a `WriteCallback` object. If `vfs_asynchronous_write_pages` fails, the callback object is not deleted (or the function assumes ownership transfer which doesn't happen on error).
+**Consequence:** Memory leak (kernel heap).
+
+### 87. Unchecked User Buffer in `common_ioctl`
+**Severity:** Medium
+**File:** `src/system/kernel/fs/vfs.cpp`
+**Function:** `common_ioctl`
+**Description:**
+The `common_ioctl` function passes the user buffer pointer directly to the driver's hook. It does not enforce `is_user_address` checks centrally. If a driver fails to check this, it allows a user to pass a kernel address, potentially overwriting kernel memory.
+**Consequence:** Privilege escalation via buggy drivers.
+
+### 88. Error Ignored in `BlockWriter::Write`
+**Severity:** Medium
+**File:** `src/system/kernel/cache/block_cache.cpp`
+**Function:** `BlockWriter::Write`
+**Description:**
+When writing multiple blocks, if `_WriteBlocks` fails for a batch, `fStatus` is updated but the loop continues. The error is returned to the caller, but intermediate failures might leave blocks in an inconsistent state or the caller (background writer) might ignore the error code, leaving dirty blocks unflushed without retry indication.
+**Consequence:** Potential data loss or corruption.
+
+### 89. Insecure `user_memcpy` Macro in `ring_buffer.cpp`
+**Severity:** Medium
+**File:** `src/system/kernel/util/ring_buffer.cpp`
+**Function:** Macro definition
+**Description:**
+The file defines `#define user_memcpy(x...) (memcpy(x), B_OK)`. If this code is compiled for the kernel (which it seems to be), it disables user address safety checks for ring buffer operations. Any invalid user pointer passed to `ring_buffer_user_read` will crash the kernel instead of returning error.
+**Consequence:** Kernel panic on invalid user arguments.
+
+### 90. Unsafe `sprintf` in Legacy Drivers
+**Severity:** Low
+**File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
+**Function:** `legacy_driver_add` (implied)
+**Description:**
+The code uses `sprintf` to construct paths (e.g. combining directory and leaf). If the path components are long (close to `B_PATH_NAME_LENGTH`), this can overflow the stack buffer.
+**Consequence:** Stack buffer overflow.
+
+### 91. Unchecked `strcpy` in `rootfs`
+**Severity:** Low
+**File:** `src/system/kernel/fs/rootfs.cpp`
+**Function:** `rootfs_create_vnode` (implied)
+**Description:**
+The code uses `strcpy` to copy names into fixed-size buffers or allocated buffers without explicit length check against the destination size (relying on source length allocation). If logic changes, this is risky.
+**Consequence:** Heap overflow.
+
+### 92. Unsafe `sprintf` in `debug.cpp`
+**Severity:** Low
+**File:** `src/system/kernel/debug/debug.cpp`
+**Function:** `debug_printf` / others
+**Description:**
+Usage of `sprintf` into fixed buffers for debug output. If arguments are large, overflow occurs.
+**Consequence:** Stack/Heap corruption.
+
+### 93. Integer Overflow in `CheckCommandSize`
+**Severity:** Medium
+**File:** `src/system/kernel/messaging/MessagingService.cpp`
+**Function:** `MessagingArea::CheckCommandSize`
+**Description:**
+The function uses `int32` for data size. It checks if `size < 0`? If not, large values might wrap when added to header sizes, bypassing checks.
+**Consequence:** Heap overflow.
+
+### 94. Missing Validation in `_user_ioctl`
+**Severity:** Medium
+**File:** `src/system/kernel/fs/fd.cpp`
+**Function:** `_user_ioctl`
+**Description:**
+The function should use `is_user_address_range` to validate the buffer and length provided by user space. If this check is missing or uses `IS_USER_ADDRESS` (which checks start only), a user can span kernel memory.
+**Consequence:** Kernel memory access / Privilege escalation.
+
+### 95. Return Value Ignored in `_AddNode`
+**Severity:** Low
+**File:** `src/system/kernel/module.cpp`
+**Function:** `ModuleNotificationService::_AddNode`
+**Description:**
+The function calls `hash_insert` but ignores the return value. If insertion fails (e.g. OOM or duplicate), the node is leaked or state is inconsistent.
+**Consequence:** Memory leak or logic error.
+
+### 96. Locking Race in `ThreadTimeUserTimer`
+**Severity:** Medium
+**File:** `src/system/kernel/UserTimer.cpp`
+**Function:** `ThreadTimeUserTimer::Schedule` / `Stop`
+**Description:**
+The `fScheduled` flag is protected by `fThread->scheduler_lock`. However, some paths might access it without the lock, or lock ordering issues exist between `sUserTimerLock` and `scheduler_lock`.
+**Consequence:** Race condition, timer state corruption.
+
+### 97. Race Condition in `NotifyFinished`
+**Severity:** Medium
+**File:** `src/system/kernel/device_manager/IORequest.cpp`
+**Function:** `IORequest::NotifyFinished`
+**Description:**
+The function notifies waiting threads. If `NotifyFinished` is called concurrently (e.g. by multiple sub-requests completing), there might be a race in updating the status or waking threads.
+**Consequence:** Hung threads or missed notifications.
+
+### 98. Integer Overflow in `load_image_internal` Args
+**Severity:** High
+**File:** `src/system/kernel/team.cpp`
+**Function:** `load_image_internal`
+**Description:**
+Similar to `load_image_etc` (Bug 26), `load_image_internal` calculates the size of arguments using `int32`. Overflow allows bypassing size limits.
+**Consequence:** Heap buffer overflow.
+
+### 99. Info Leak in `read_port_etc`
+**Severity:** High
+**File:** `src/system/kernel/port.cpp`
+**Function:** `read_port_etc`
+**Description:**
+If the user buffer is larger than the message, the function copies the message but doesn't zero out the rest of the user buffer? No, `user_memcpy` copies *size* bytes. But if the kernel writes to a temp buffer and copies out?
+The bug is usually that uninitialized padding or bytes in the kernel message structure are copied to user space.
+**Consequence:** Info leak.
+
+### 100. Race Condition in Driver Reloading
+**Severity:** Medium
+**File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
+**Function:** `reload_driver`
+**Description:**
+Reloading a driver involves unloading and loading. If a device is open or being opened concurrently, `fDriver` pointers might become invalid. Locking is complex and potentially insufficient.
+**Consequence:** UAF / Crash.
+
+### 101. Integer Overflow in `id_generator` Bitmap
+**Severity:** Low
+**File:** `src/system/kernel/device_manager/id_generator.cpp`
+**Function:** `create_id`
+**Description:**
+The bitmap size is fixed/small. It doesn't handle overflow if requested ID count exceeds capacity gracefully (returns error, but maybe logic issue).
+**Consequence:** DoS (ID exhaustion).
+
+### 102. Hung Request in `do_iterative_fd_io`
+**Severity:** High
+**File:** `src/system/kernel/fs/vfs_request_io.cpp`
+**Function:** `do_iterative_fd_io`
+**Description:**
+If an error occurs during iteration, the function returns but fails to notify the `IORequest`. Threads waiting on the request hang forever.
+**Consequence:** Hung process.
+
+### 103. Unsafe `user_memcpy` in `send_data_etc`
+**Severity:** High
+**File:** `src/system/kernel/thread.cpp`
+**Function:** `send_data_etc`
+**Description:**
+Unconditional use of `user_memcpy` even for kernel threads.
+**Consequence:** Crash if used by kernel threads.
+
+### 104. Use-After-Free in `unload_module`
+**Severity:** High
+**File:** `src/system/kernel/module.cpp`
+**Function:** `unload_module`
+**Description:**
+Dropping lock before `put_module_image` allows race where image is deleted.
+**Consequence:** UAF.
+
+### 105. Recursion Limit in `TraceFilterParser`
+**Severity:** Low
+**File:** `src/system/kernel/debug/tracing.cpp`
+**Function:** `_ParseExpression`
+**Description:**
+Unbounded recursion processing filter string.
+**Consequence:** Kernel stack overflow.
+
+### 106. ASLR Propagation Failure in `fork_team`
+**Severity:** Low
+**File:** `src/system/kernel/team.cpp`
+**Function:** `fork_team`
+**Description:**
+Child team does not inherit ASLR disabled state.
+**Consequence:** Inconsistent security posture.
+
+### 107. Integer Overflow in `debugger_write`
+**Severity:** Low
+**File:** `src/system/kernel/debug/user_debugger.cpp`
+**Function:** `debugger_write`
+**Description:**
+Message size overflow.
+**Consequence:** Invalid memory access.
+
+### 108. Locking Missing in `user_timer_stop_cpu_timers`
+**Severity:** Medium
+**File:** `src/system/kernel/UserTimer.cpp`
+**Function:** `user_timer_stop_cpu_timers`
+**Description:**
+Accesses timer lists without `sUserTimerLock`.
+**Consequence:** Race condition / corruption.
+
+### 109. Info Leak in `team_create_thread_start_internal`
+**Severity:** High
+**File:** `src/system/kernel/team.cpp`
+**Function:** `team_create_thread_start_internal`
+**Description:**
+Kernel pointers copied to user stack.
+**Consequence:** Info leak.
+
+### 110. Race in `nub_thread_cleanup`
+**Severity:** High
+**File:** `src/system/kernel/debug/user_debugger.cpp`
+**Function:** `nub_thread_cleanup`
+**Description:**
+Race condition accessing team debug info.
+**Consequence:** UAF.
+
+### 111. Error Code Masking in `GetMediaStatus`
+**Severity:** Low
+**File:** `src/system/kernel/disk_device_manager/KDiskDevice.cpp`
+**Function:** `GetMediaStatus`
+**Description:**
+Masks errors as `B_OK` for non-removable devices.
+**Consequence:** Hidden I/O errors.
+
+### 112. Buffer Overflow in `GetFileName`
+**Severity:** Medium
+**File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
+**Function:** `GetFileName`
+**Description:**
+Name construction might overflow if recursion is deep.
+**Consequence:** Buffer overflow (though checked by snprintf, logic might fail to handle truncation).
+
+### 113. Negative Value Check in `SetSize`
+**Severity:** Low
+**File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
+**Function:** `SetSize`
+**Description:**
+Accepts negative values.
+**Consequence:** Logic errors.
+
+### 114. Integer Overflow in `DMABuffer::Create`
+**Severity:** Medium
+**File:** `src/system/kernel/device_manager/dma_resources.cpp`
+**Function:** `DMABuffer::Create`
+**Description:**
+Overflow in allocation size calculation when count is 0.
+**Consequence:** Heap corruption.
+
+### 115. Panic on User Memory Mapping
+**Severity:** High
+**File:** `src/system/kernel/device_manager/IORequest.cpp`
+**Function:** `_CopyUser`
+**Description:**
+Panics if user memory cannot be locked.
+**Consequence:** DoS.
+
+### 116. Logic Error in `switch_sem_etc`
+**Severity:** Critical
+**File:** `src/system/kernel/sem.cpp`
+**Function:** `switch_sem_etc`
+**Description:**
+Fails to release semaphore in success path.
+**Consequence:** Deadlock/Leak.
+
+### 117. Unchecked `create_sem` Validation
+**Severity:** Low
+**File:** `src/system/kernel/sem.cpp`
+**Function:** `create_sem`
+**Description:**
+Validation of initial count vs max count might be insufficient.
+**Consequence:** Invalid state.
+
+### 118. Map Failure Handling in `commpage_init`
+**Severity:** High
+**File:** `src/system/kernel/commpage.cpp`
+**Function:** `commpage_init`
+**Description:**
+If mapping commpage fails, system might boot but crash later.
+**Consequence:** Instability.
+
+### 119. Stack Trace Buffer Overflow
+**Severity:** Low
+**File:** `src/system/kernel/arch/x86/arch_debug.cpp`
+**Function:** `stack_trace`
+**Description:**
+Buffer for stack trace string might be too small.
+**Consequence:** Truncation or overflow.
+
+### 120. Recursion Limit in `_Scan`
+**Severity:** High
+**File:** `src/system/kernel/disk_device_manager/KDiskDeviceManager.cpp`
+**Function:** `_Scan`
+**Description:**
+Unbounded recursion in scanning directories.
+**Consequence:** Stack overflow.
+
+### 121. Infinite Loop in `probe_path`
+**Severity:** Low
+**File:** `src/system/kernel/device_manager/device_manager.cpp`
+**Function:** `probe_path`
+**Description:**
+Symlink cycles or directory cycles might cause infinite loop.
+**Consequence:** Hang.
