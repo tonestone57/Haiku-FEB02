@@ -566,7 +566,10 @@ do_iterative_fd_io(int fd, io_request* request, iterative_io_get_vecs getVecs,
 			return error;
 		}
 	} else {
-		return vfs_vnode_io(vnode, descriptor->cookie, request);
+		status_t status = vfs_vnode_io(vnode, descriptor->cookie, request);
+		if (status != B_OK)
+			request->SetStatusAndNotify(status);
+		return status;
 	}
 
 	return B_OK;

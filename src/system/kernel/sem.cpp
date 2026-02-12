@@ -1061,20 +1061,29 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 		return B_BAD_TEAM_ID;
 	BReference<Team> teamReference(team, true);
 
-	int32 slot = *_cookie;
-	if (slot < 0)
-		slot = 0;
+	InterruptsSpinLocker semListLocker(sSemsSpinlock);
 
-	for (; slot < sMaxSems; slot++) {
-		struct sem_entry* sem = &sSems[slot];
-		SpinLocker semLocker(sem->lock);
+	int32 lastID = *_cookie;
+	struct sem_entry* nextSem = NULL;
+	sem_id minID = -1;
 
-		if (sem->id != -1 && sem->u.used.owner == teamID) {
-			// found one!
-			fill_sem_info(sem, info, size);
-			*_cookie = slot + 1;
-			return B_OK;
+	// Iterate the team's semaphore list to find the next semaphore with ID >= lastID
+	struct sem_entry* entry = (struct sem_entry*)list_get_first_item(&team->sem_list);
+	while (entry != NULL) {
+		if (entry->id >= lastID) {
+			if (minID == -1 || entry->id < minID) {
+				minID = entry->id;
+				nextSem = entry;
+			}
 		}
+		entry = (struct sem_entry*)list_get_next_item(&team->sem_list, entry);
+	}
+
+	if (nextSem != NULL) {
+		SpinLocker semLocker(nextSem->lock);
+		fill_sem_info(nextSem, info, size);
+		*_cookie = nextSem->id + 1;
+		return B_OK;
 	}
 
 	return B_BAD_VALUE;

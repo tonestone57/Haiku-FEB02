@@ -367,7 +367,8 @@ class TransactionLocking {
 public:
 	inline bool Lock(block_cache* cache)
 	{
-		rw_lock_write_lock(&cache->lock);
+		if (rw_lock_write_lock(&cache->lock) != B_OK)
+			return false;
 
 		while (cache->busy_writing_count != 0) {
 			// wait for all blocks to be written
@@ -379,7 +380,8 @@ public:
 
 			entry.Wait();
 
-			rw_lock_write_lock(&cache->lock);
+			if (rw_lock_write_lock(&cache->lock) != B_OK)
+				return false;
 		}
 
 		return true;
@@ -1994,7 +1996,7 @@ mark_block_unbusy_reading(block_cache* cache, cached_block* block)
 
 /*!	Cache must be locked.
 */
-static void
+static status_t
 wait_for_busy_reading_block(block_cache* cache, cached_block* block)
 {
 	while (block->busy_reading) {
@@ -2005,14 +2007,18 @@ wait_for_busy_reading_block(block_cache* cache, cached_block* block)
 
 		rw_lock_write_unlock(&cache->lock);
 		entry.Wait();
-		rw_lock_write_lock(&cache->lock);
+		status_t status = rw_lock_write_lock(&cache->lock);
+		if (status != B_OK)
+			return status;
 	}
+
+	return B_OK;
 }
 
 
 /*!	Cache must be locked.
 */
-static void
+static status_t
 wait_for_busy_reading_blocks(block_cache* cache)
 {
 	while (cache->busy_reading_count != 0) {
@@ -2023,14 +2029,18 @@ wait_for_busy_reading_blocks(block_cache* cache)
 
 		rw_lock_write_unlock(&cache->lock);
 		entry.Wait();
-		rw_lock_write_lock(&cache->lock);
+		status_t status = rw_lock_write_lock(&cache->lock);
+		if (status != B_OK)
+			return status;
 	}
+
+	return B_OK;
 }
 
 
 /*!	Cache must be locked.
 */
-static void
+static status_t
 wait_for_busy_writing_block(block_cache* cache, cached_block* block)
 {
 	while (block->busy_writing) {
@@ -2041,14 +2051,18 @@ wait_for_busy_writing_block(block_cache* cache, cached_block* block)
 
 		rw_lock_write_unlock(&cache->lock);
 		entry.Wait();
-		rw_lock_write_lock(&cache->lock);
+		status_t status = rw_lock_write_lock(&cache->lock);
+		if (status != B_OK)
+			return status;
 	}
+
+	return B_OK;
 }
 
 
 /*!	Cache must be locked.
 */
-static void
+static status_t
 wait_for_busy_writing_blocks(block_cache* cache)
 {
 	while (cache->busy_writing_count != 0) {
@@ -2059,8 +2073,12 @@ wait_for_busy_writing_blocks(block_cache* cache)
 
 		rw_lock_write_unlock(&cache->lock);
 		entry.Wait();
-		rw_lock_write_lock(&cache->lock);
+		status_t status = rw_lock_write_lock(&cache->lock);
+		if (status != B_OK)
+			return status;
 	}
+
+	return B_OK;
 }
 
 
@@ -2195,7 +2213,9 @@ retry:
 		*_allocated = true;
 	} else if (block->busy_reading) {
 		// The block is currently busy_reading - wait and try again later
-		wait_for_busy_reading_block(cache, block);
+		status_t status = wait_for_busy_reading_block(cache, block);
+		if (status != B_OK)
+			return status;
 
 		// The block may have been deleted or replaced in the meantime,
 		// so we must look it up in the hash again after waiting.
@@ -2271,8 +2291,11 @@ get_writable_cached_block(block_cache* cache, off_t blockNumber,
 	if (status != B_OK)
 		return status;
 
-	if (block->busy_writing)
-		wait_for_busy_writing_block(cache, block);
+	if (block->busy_writing) {
+		status = wait_for_busy_writing_block(cache, block);
+		if (status != B_OK)
+			return status;
+	}
 
 	block->discard = false;
 
@@ -3721,8 +3744,10 @@ block_cache_delete(void* _cache, bool allowWrites)
 		panic("block_cache_delete(): could not write lock cache %p!", cache);
 
 	// wait for all blocks to become unbusy
-	wait_for_busy_reading_blocks(cache);
-	wait_for_busy_writing_blocks(cache);
+	if (wait_for_busy_reading_blocks(cache) != B_OK)
+		panic("block_cache_delete(): failed to wait for reading blocks");
+	if (wait_for_busy_writing_blocks(cache) != B_OK)
+		panic("block_cache_delete(): failed to wait for writing blocks");
 
 	// free all blocks
 

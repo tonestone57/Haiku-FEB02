@@ -60,7 +60,9 @@ generic_get_physical_page(phys_addr_t pa, addr_t *va, uint32 flags)
 	paddr_chunk_desc *replaced_pchunk;
 
 restart:
-	mutex_lock(&sMutex);
+	status_t error = mutex_lock(&sMutex);
+	if (error != B_OK)
+		return error;
 
 	// see if the page is already mapped
 	index = pa / sIOSpaceChunkSize;
@@ -146,7 +148,9 @@ generic_put_physical_page(addr_t va)
 		panic("someone called put_physical_page on an invalid va 0x%lx\n", va);
 	va -= sIOSpaceBase;
 
-	mutex_lock(&sMutex);
+	status_t error = mutex_lock(&sMutex);
+	if (error != B_OK)
+		return error;
 
 	desc = virtual_pmappings[va / sIOSpaceChunkSize];
 	if (desc == NULL) {

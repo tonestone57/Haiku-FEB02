@@ -720,14 +720,14 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 			sNoSpaceCondition.Add(&entry);
 
 			port_id portID = port.id;
+
+			atomic_add(&sWaitingForSpace, 1);
 			mutex_unlock(&port.lock);
 
 			if (team != NULL) {
 				team->ReleaseReference();
 				team = NULL;
 			}
-
-			atomic_add(&sWaitingForSpace, 1);
 
 			if (atomic_get(&sTotalSpaceCommited) + size <= kTotalSpaceLimit)
 				sNoSpaceCondition.NotifyAll();

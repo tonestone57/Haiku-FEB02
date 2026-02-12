@@ -8067,10 +8067,10 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 		if (disconnectedDescriptors) {
 			// wait a bit until the last access is finished, and then try again
 			vnodesWriteLocker.Unlock();
-			snooze(100000);
+			snooze(10000);
 			// TODO: if there is some kind of bug that prevents the ref counts
 			// from getting back to zero, this will fall into an endless loop...
-			if (++tries > 50) {
+			if (++tries > 500) {
 				dprintf("fs_unmount: gave up waiting for vnodes to become unused\n");
 				vnodesWriteLocker.Lock();
 				break;

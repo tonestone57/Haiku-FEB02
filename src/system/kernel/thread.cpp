@@ -1638,7 +1638,6 @@ make_thread_resumed(int argc, char **argv)
 static int
 drop_into_debugger(int argc, char **argv)
 {
-	status_t err;
 	int32 id;
 
 	if (argc > 2) {
@@ -1651,13 +1650,16 @@ drop_into_debugger(int argc, char **argv)
 	else
 		id = strtoul(argv[1], NULL, 0);
 
-	err = _user_debug_thread(id);
-		// TODO: This is a non-trivial syscall doing some locking, so this is
-		// really nasty and may go seriously wrong.
-	if (err)
-		kprintf("drop failed\n");
-	else
-		kprintf("thread %" B_PRId32 " dropped into user debugger\n", id);
+	Thread* thread = Thread::Get(id);
+	if (thread == NULL) {
+		kprintf("thread %" B_PRId32 " not found\n", id);
+		return 0;
+	}
+
+	atomic_or(&thread->debug_info.flags, B_THREAD_DEBUG_STOP);
+	thread->ReleaseReference();
+
+	kprintf("thread %" B_PRId32 " dropped into user debugger\n", id);
 
 	return 0;
 }
