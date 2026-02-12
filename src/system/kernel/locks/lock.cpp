@@ -102,7 +102,9 @@ recursive_lock_lock(recursive_lock *lock)
 	thread_id thread = thread_get_current_thread_id();
 
 	if (thread != RECURSIVE_LOCK_HOLDER(lock)) {
-		mutex_lock(&lock->lock);
+		status_t status = mutex_lock(&lock->lock);
+		if (status != B_OK)
+			return status;
 #if !KDEBUG
 		lock->holder = thread;
 #endif

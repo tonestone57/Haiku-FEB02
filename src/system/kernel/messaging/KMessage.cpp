@@ -621,6 +621,10 @@ KMessage::ReceiveFrom(port_id fromPort, bigtime_t timeout,
 	if (error != B_OK)
 		return error;
 
+	// sanity check
+	if (messageInfo->size > 1024 * 1024 * 1024)
+		return B_NO_MEMORY;
+
 	// allocate a buffer
 	uint8* buffer = (uint8*)MEMALIGN(kMessageBufferAlignment,
 		messageInfo->size);

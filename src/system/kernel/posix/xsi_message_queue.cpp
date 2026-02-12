@@ -155,12 +155,14 @@ public:
 			return true;
 
 		uid_t uid = geteuid();
-		if (uid == 0 || (uid == fMessageQueue.msg_perm.uid
+		if (uid == 0 || ((uid == fMessageQueue.msg_perm.uid
+				|| uid == fMessageQueue.msg_perm.cuid)
 			&& (fMessageQueue.msg_perm.mode & S_IWUSR) != 0))
 			return true;
 
 		gid_t gid = getegid();
-		if (gid == fMessageQueue.msg_perm.gid
+		if ((gid == fMessageQueue.msg_perm.gid
+				|| gid == fMessageQueue.msg_perm.cgid)
 			&& (fMessageQueue.msg_perm.mode & S_IWGRP) != 0)
 			return true;
 
@@ -183,12 +185,14 @@ public:
 			return true;
 
 		uid_t uid = geteuid();
-		if (uid == 0 || (uid == fMessageQueue.msg_perm.uid
+		if (uid == 0 || ((uid == fMessageQueue.msg_perm.uid
+				|| uid == fMessageQueue.msg_perm.cuid)
 			&& (fMessageQueue.msg_perm.mode & S_IRUSR) != 0))
 			return true;
 
 		gid_t gid = getegid();
-		if (gid == fMessageQueue.msg_perm.gid
+		if ((gid == fMessageQueue.msg_perm.gid
+				|| gid == fMessageQueue.msg_perm.cgid)
 			&& (fMessageQueue.msg_perm.mode & S_IRGRP) != 0)
 			return true;
 
