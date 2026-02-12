@@ -520,9 +520,7 @@ change_driver_watcher(dev_t device, ino_t node, bool add)
 static int32
 get_priority(const char* path)
 {
-	// TODO: would it be better to initialize a static structure here
-	// using find_directory()?
-	const directory_which whichPath[] = {
+	static const directory_which whichPath[] = {
 		B_SYSTEM_DIRECTORY,
 		B_SYSTEM_NONPACKAGED_DIRECTORY,
 		B_USER_DIRECTORY
@@ -592,15 +590,23 @@ add_driver(const char* path, image_id image)
 	legacy_driver* driver = sDriverHash->Lookup(get_leaf(path));
 	if (driver != NULL) {
 		// we know this driver
-		if (strcmp(driver->path, path) != 0 && priority >= driver->priority) {
+		bool sameNode = stat.st_dev == driver->device
+			&& stat.st_ino == driver->node;
+
+		if (strcmp(driver->path, path) != 0
+			&& (priority >= driver->priority || sameNode)) {
 			// TODO: do properly, but for now we just update the path if it
 			// isn't the same anymore so rescanning of drivers will work in
 			// case this driver was loaded so early that it has a boot module
 			// path and not a proper driver path
 			free((char*)driver->path);
 			driver->path = strdup(path);
-			driver->name = get_leaf(driver->path);
-			driver->binary_updated = true;
+			if (driver->path != NULL) {
+				driver->name = get_leaf(driver->path);
+				driver->binary_updated = true;
+				if (sameNode)
+					driver->priority = priority;
+			}
 		}
 
 		// TODO: check if this driver is a different one and has precedence
@@ -1073,9 +1079,9 @@ DirectoryWatcher::EventOccurred(NotificationService& service,
 			directory = from;
 			opcode = B_ENTRY_REMOVED;
 		} else {
-			// Move within, don't do anything for now
-			// TODO: adjust driver priority if necessary
-			return;
+			// Move within
+			directory = to;
+			opcode = B_ENTRY_CREATED;
 		}
 	}
 

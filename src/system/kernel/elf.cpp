@@ -669,17 +669,6 @@ elf_find_symbol(struct elf_image_info *image, const char *name,
 				return symbol;
 			}
 
-			// The versions don't match. We're still fine with the
-			// base version, if it is public and we're not looking for
-			// the default version.
-			if ((versionID & VER_NDX_FLAG_HIDDEN) == 0
-				&& versionIndex == VER_NDX_GLOBAL
-				&& !lookupDefault) {
-				// TODO: Revise the default version case! That's how
-				// FreeBSD implements it, but glibc doesn't handle it
-				// specially.
-				return symbol;
-			}
 		} else {
 			// No specific version requested, but the image has version
 			// information. This can happen in either of these cases:
@@ -2271,7 +2260,7 @@ load_kernel_add_on(const char *path)
 		fileName++;
 
 	// Prevent someone else from trying to load this image
-	mutex_lock(&sImageLoadMutex);
+	MutexLocker locker(sImageLoadMutex);
 
 	// make sure it's not loaded already. Search by vnode
 	image = find_image_by_vnode(vnode);
@@ -2540,7 +2529,6 @@ load_kernel_add_on(const char *path)
 
 done:
 	_kern_close(fd);
-	mutex_unlock(&sImageLoadMutex);
 
 	return image->id;
 
@@ -2556,7 +2544,6 @@ error2:
 error1:
 	free(elfHeader);
 error:
-	mutex_unlock(&sImageLoadMutex);
 error0:
 	dprintf("Could not load kernel add-on \"%s\": %s\n", path,
 		strerror(status));

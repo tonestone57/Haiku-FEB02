@@ -466,6 +466,7 @@ Team::Team(team_id id, bool kernel)
 	list_init(&sem_list);
 	list_init_etc(&port_list, port_team_link_offset());
 	num_ports = 0;
+	port_space_committed = 0;
 
 	user_data = 0;
 	user_data_area = -1;
@@ -762,8 +763,7 @@ Team::UnlockTeamAndProcessGroup()
 void
 Team::SetName(const char* name)
 {
-	const char* lastSlash = strrchr(name, '/');
-	if (lastSlash != NULL)
+	if (const char* lastSlash = strrchr(name, '/'))
 		name = lastSlash + 1;
 
 	strlcpy(fName, name, B_OS_NAME_LENGTH);
@@ -843,6 +843,141 @@ Team::AddUserTimer(UserTimer* timer)
 	fUserTimers.AddTimer(timer);
 
 	return B_OK;
+}
+
+
+static status_t
+common_getrlimit(int resource, struct rlimit * rlp)
+{
+	if (!rlp)
+		return B_BAD_ADDRESS;
+
+	switch (resource) {
+		case RLIMIT_AS:
+			rlp->rlim_cur = __HAIKU_ADDR_MAX;
+			rlp->rlim_max = __HAIKU_ADDR_MAX;
+			return B_OK;
+
+		case RLIMIT_CORE:
+			rlp->rlim_cur = 0;
+			rlp->rlim_max = 0;
+			return B_OK;
+
+		case RLIMIT_DATA:
+			rlp->rlim_cur = RLIM_INFINITY;
+			rlp->rlim_max = RLIM_INFINITY;
+			return B_OK;
+
+		case RLIMIT_NOFILE:
+		case RLIMIT_NOVMON:
+			return vfs_getrlimit(resource, rlp);
+
+		case RLIMIT_STACK:
+		{
+			rlp->rlim_cur = USER_MAIN_THREAD_STACK_SIZE;
+			rlp->rlim_max = USER_MAIN_THREAD_STACK_SIZE;
+			return B_OK;
+		}
+
+		default:
+			return EINVAL;
+	}
+
+	return B_OK;
+}
+
+
+static status_t
+common_setrlimit(int resource, const struct rlimit * rlp)
+{
+	if (!rlp)
+		return B_BAD_ADDRESS;
+
+	switch (resource) {
+		case RLIMIT_CORE:
+			// We don't support core file, so allow settings to 0/0 only.
+			if (rlp->rlim_cur != 0 || rlp->rlim_max != 0)
+				return EINVAL;
+			return B_OK;
+
+		case RLIMIT_NOFILE:
+		case RLIMIT_NOVMON:
+			return vfs_setrlimit(resource, rlp);
+
+		default:
+			return EINVAL;
+	}
+
+	return B_OK;
+}
+
+
+int
+getrlimit(int resource, struct rlimit * rlp)
+{
+	status_t error = common_getrlimit(resource, rlp);
+	if (error != B_OK) {
+		errno = error;
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
+setrlimit(int resource, const struct rlimit * rlp)
+{
+	status_t error = common_setrlimit(resource, rlp);
+	if (error != B_OK) {
+		errno = error;
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
+_user_getrlimit(int resource, struct rlimit *urlp)
+{
+	struct rlimit rl;
+	int ret;
+
+	if (urlp == NULL)
+		return EINVAL;
+
+	if (!IS_USER_ADDRESS(urlp))
+		return B_BAD_ADDRESS;
+
+	ret = common_getrlimit(resource, &rl);
+
+	if (ret == 0) {
+		ret = user_memcpy(urlp, &rl, sizeof(struct rlimit));
+		if (ret < 0)
+			return ret;
+
+		return 0;
+	}
+
+	return ret;
+}
+
+
+int
+_user_setrlimit(int resource, const struct rlimit *userResourceLimit)
+{
+	struct rlimit resourceLimit;
+
+	if (userResourceLimit == NULL)
+		return EINVAL;
+
+	if (!IS_USER_ADDRESS(userResourceLimit)
+		|| user_memcpy(&resourceLimit, userResourceLimit,
+			sizeof(struct rlimit)) < B_OK)
+		return B_BAD_ADDRESS;
+
+	return common_setrlimit(resource, &resourceLimit);
 }
 
 
@@ -2027,6 +2162,7 @@ exec_team(const char* path, char**& _flatArgs, size_t flatArgsSize,
 	// TODO: remove team resources if there are any left
 	// thread_atkernel_exit() might not be called at all
 
+	team->PrepareForDeletion();
 	thread_reset_for_exec();
 
 	user_debug_prepare_for_exec();

@@ -315,38 +315,6 @@ uint32
 update_disk_device_job_interrupt_properties(disk_job_id jobID,
 	uint32 interruptProperties)
 {
-#if 0
-	bool paused = false;
-	KDiskDeviceManager* manager = KDiskDeviceManager::Default();
-	do {
-		sem_id pauseSemaphore = -1;
-		if (ManagerLocker locker = manager) {
-			// get the job and the respective job queue
-			if (KDiskDeviceJob* job = manager->FindJob(jobID)) {
-				if (KDiskDeviceJobQueue* jobQueue = job->JobQueue()) {
-					// terminate if canceled.
-					if (jobQueue->IsCanceled()) {
-						if (jobQueue->ShallReverse())
-							return B_DISK_DEVICE_JOB_REVERSE;
-						return B_DISK_DEVICE_JOB_CANCEL;
-					}
-					// set the new interrupt properties only when not
-					// requested to pause
-					if (jobQueue->IsPauseRequested())
-						pauseSemaphore = jobQueue->ReadyToPause();
-					else
-						job->SetInterruptProperties(interruptProperties);
-				}
-			}
-		}
-		// pause, if requested; redo the loop then
-		paused = (pauseSemaphore >= 0);
-		if (paused) {
-			acquire_sem(pauseSemaphore);
-			pauseSemaphore = -1;
-		}
-	} while (paused);
-#endif
 	return B_DISK_DEVICE_JOB_CONTINUE;
 }
 

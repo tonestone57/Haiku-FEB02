@@ -1629,12 +1629,20 @@ KPartition::_UpdateChildIndices(int32 start, int32 end)
 int32
 KPartition::_NextID()
 {
-	int32 id = atomic_add(&sNextID, 1);
-	if (id < 0) {
-		// we are running out of IDs
-		// TODO: handle this gracefully
-		atomic_add(&sNextID, -1);
-		return -1;
+	KDiskDeviceManager* manager = KDiskDeviceManager::Default();
+
+	for (;;) {
+		int32 id = atomic_get(&sNextID);
+		int32 next = id + 1;
+		if (next < 0)
+			next = 0;
+
+		if (atomic_test_and_set(&sNextID, next, id) != id)
+			continue;
+
+		if (manager != NULL && manager->FindPartition(id) != NULL)
+			continue;
+
+		return id;
 	}
-	return id;
 }

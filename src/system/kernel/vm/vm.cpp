@@ -2964,12 +2964,23 @@ vm_copy_area(team_id team, const char* name, void** _address,
 	virtual_address_restrictions addressRestrictions = {};
 	addressRestrictions.address = *_address;
 	addressRestrictions.address_specification = addressSpec;
+	// We don't want to inherit the wiring of the source area, as that would
+	// mean we would have to wire all pages immediately.
+	// TODO: we might want to support B_CONTIGUOUS, though.
+	uint32 wiring = source->wiring;
+	bool fullLock = wiring == B_FULL_LOCK;
+	if (wiring == B_FULL_LOCK || wiring == B_CONTIGUOUS)
+		wiring = B_NO_LOCK;
+
 	status = map_backing_store(targetAddressSpace, cache, source->cache_offset,
-		name, source->Size(), source->wiring, source->protection,
+		name, source->Size(), wiring, source->protection,
 		source->protection_max,
 		sharedArea ? REGION_NO_PRIVATE_MAP : REGION_PRIVATE_MAP,
 		writableCopy ? 0 : CREATE_AREA_DONT_COMMIT_MEMORY,
 		&addressRestrictions, true, &target, _address);
+
+	if (status == B_OK && fullLock)
+		target->wiring = B_FULL_LOCK;
 	if (status < B_OK) {
 		free_etc(targetPageProtections, HEAP_DONT_LOCK_KERNEL_SPACE);
 		return status;

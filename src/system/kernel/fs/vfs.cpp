@@ -5634,7 +5634,10 @@ create_vnode(struct vnode* directory, const char* name, int openMode,
 
 	// the node has been created successfully
 
-	rw_lock_read_lock(&sVnodeLock);
+	status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
+
 	vnode.SetTo(lookup_vnode(directory->device, newID));
 	rw_lock_read_unlock(&sVnodeLock);
 
@@ -6418,7 +6421,10 @@ common_fcntl(int fd, int op, size_t argument, bool kernel)
 			// Set file descriptor flags
 
 			// O_CLOEXEC and O_CLOFORK are the only flags available at this time
-			rw_lock_write_lock(&context->lock);
+			status = rw_lock_write_lock(&context->lock);
+			if (status != B_OK)
+				break;
+
 			fd_set_close_on_exec(context, fd, (argument & FD_CLOEXEC) != 0);
 			fd_set_close_on_fork(context, fd, (argument & FD_CLOFORK) != 0);
 			rw_lock_write_unlock(&context->lock);

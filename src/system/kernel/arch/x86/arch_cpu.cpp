@@ -2062,3 +2062,9 @@ arch_cpu_sync_icache(void* address, size_t length)
 	// instruction cache is always consistent on x86
 }
 
+
+void
+arch_cpu_sync_dcache(void* address, size_t length)
+{
+	// data cache is always consistent on x86
+}

@@ -656,22 +656,6 @@ read_line(char* buffer, int32 maxLength,
 						break;
 				}
 				break;
-			case '$':
-			case '+':
-				if (!sBlueScreenOutput) {
-					/* HACK ALERT!!!
-					 *
-					 * If we get a $ at the beginning of the line
-					 * we assume we are talking with GDB
-					 */
-					if (position == 0) {
-						strlcpy(buffer, "gdb", maxLength);
-						position = 4;
-						done = true;
-						break;
-					}
-				}
-				/* supposed to fall through */
 			default:
 				if (isprint(c))
 					insert_char_into_line(buffer, position, length, c);

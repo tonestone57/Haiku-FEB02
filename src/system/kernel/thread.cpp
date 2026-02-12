@@ -1428,70 +1428,6 @@ receive_data_etc(thread_id *_sender, void *buffer, size_t bufferSize,
 }
 
 
-static status_t
-common_getrlimit(int resource, struct rlimit * rlp)
-{
-	if (!rlp)
-		return B_BAD_ADDRESS;
-
-	switch (resource) {
-		case RLIMIT_AS:
-			rlp->rlim_cur = __HAIKU_ADDR_MAX;
-			rlp->rlim_max = __HAIKU_ADDR_MAX;
-			return B_OK;
-
-		case RLIMIT_CORE:
-			rlp->rlim_cur = 0;
-			rlp->rlim_max = 0;
-			return B_OK;
-
-		case RLIMIT_DATA:
-			rlp->rlim_cur = RLIM_INFINITY;
-			rlp->rlim_max = RLIM_INFINITY;
-			return B_OK;
-
-		case RLIMIT_NOFILE:
-		case RLIMIT_NOVMON:
-			return vfs_getrlimit(resource, rlp);
-
-		case RLIMIT_STACK:
-		{
-			rlp->rlim_cur = USER_MAIN_THREAD_STACK_SIZE;
-			rlp->rlim_max = USER_MAIN_THREAD_STACK_SIZE;
-			return B_OK;
-		}
-
-		default:
-			return EINVAL;
-	}
-
-	return B_OK;
-}
-
-
-static status_t
-common_setrlimit(int resource, const struct rlimit * rlp)
-{
-	if (!rlp)
-		return B_BAD_ADDRESS;
-
-	switch (resource) {
-		case RLIMIT_CORE:
-			// We don't support core file, so allow settings to 0/0 only.
-			if (rlp->rlim_cur != 0 || rlp->rlim_max != 0)
-				return EINVAL;
-			return B_OK;
-
-		case RLIMIT_NOFILE:
-		case RLIMIT_NOVMON:
-			return vfs_setrlimit(resource, rlp);
-
-		default:
-			return EINVAL;
-	}
-
-	return B_OK;
-}
 
 
 static status_t
@@ -3542,30 +3478,6 @@ spawn_kernel_thread(thread_func function, const char *name, int32 priority,
 }
 
 
-int
-getrlimit(int resource, struct rlimit * rlp)
-{
-	status_t error = common_getrlimit(resource, rlp);
-	if (error != B_OK) {
-		errno = error;
-		return -1;
-	}
-
-	return 0;
-}
-
-
-int
-setrlimit(int resource, const struct rlimit * rlp)
-{
-	status_t error = common_setrlimit(resource, rlp);
-	if (error != B_OK) {
-		errno = error;
-		return -1;
-	}
-
-	return 0;
-}
 
 
 //	#pragma mark - syscalls
@@ -3976,50 +3888,6 @@ _user_unblock_threads(thread_id* userThreads, uint32 count, status_t status)
 }
 
 
-// TODO: the following two functions don't belong here
-
-
-int
-_user_getrlimit(int resource, struct rlimit *urlp)
-{
-	struct rlimit rl;
-	int ret;
-
-	if (urlp == NULL)
-		return EINVAL;
-
-	if (!IS_USER_ADDRESS(urlp))
-		return B_BAD_ADDRESS;
-
-	ret = common_getrlimit(resource, &rl);
-
-	if (ret == 0) {
-		ret = user_memcpy(urlp, &rl, sizeof(struct rlimit));
-		if (ret < 0)
-			return ret;
-
-		return 0;
-	}
-
-	return ret;
-}
-
-
-int
-_user_setrlimit(int resource, const struct rlimit *userResourceLimit)
-{
-	struct rlimit resourceLimit;
-
-	if (userResourceLimit == NULL)
-		return EINVAL;
-
-	if (!IS_USER_ADDRESS(userResourceLimit)
-		|| user_memcpy(&resourceLimit, userResourceLimit,
-			sizeof(struct rlimit)) < B_OK)
-		return B_BAD_ADDRESS;
-
-	return common_setrlimit(resource, &resourceLimit);
-}
 
 
 int

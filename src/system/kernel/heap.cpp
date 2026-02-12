@@ -849,8 +849,19 @@ static void
 heap_validate_heap(heap_allocator *heap)
 {
 	ReadLocker areaReadLocker(heap->area_lock);
-	for (uint32 i = 0; i < heap->bin_count; i++)
-		mutex_lock(&heap->bins[i].lock);
+	struct BinLocker {
+		BinLocker(heap_allocator *heap) : fHeap(heap)
+		{
+			for (uint32 i = 0; i < fHeap->bin_count; i++)
+				mutex_lock(&fHeap->bins[i].lock);
+		}
+		~BinLocker()
+		{
+			for (uint32 i = 0; i < fHeap->bin_count; i++)
+				mutex_unlock(&fHeap->bins[i].lock);
+		}
+		heap_allocator *fHeap;
+	} binLocker(heap);
 	MutexLocker pageLocker(heap->page_lock);
 
 	uint32 totalPageCount = 0;
@@ -1007,11 +1018,6 @@ heap_validate_heap(heap_allocator *heap)
 			page = page->next;
 		}
 	}
-
-	pageLocker.Unlock();
-	for (uint32 i = 0; i < heap->bin_count; i++)
-		mutex_unlock(&heap->bins[i].lock);
-	areaReadLocker.Unlock();
 }
 #endif // PARANOID_HEAP_VALIDATION
 

@@ -150,3 +150,9 @@ arch_cpu_user_TLB_invalidate(void)
 */
 #warning WRITEME
 }
+
+void
+arch_cpu_sync_dcache(void* address, size_t length)
+{
+	// TODO: implement
+}
