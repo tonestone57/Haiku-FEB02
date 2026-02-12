@@ -138,6 +138,7 @@ If `descriptor->pos` becomes negative (e.g., -1), subsequent I/O operations that
 ## 3. Double Unlock / Race Condition in `scheduler_start`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/scheduler/scheduler.cpp`
 **Function:** `scheduler_start`
 
@@ -165,6 +166,7 @@ Releasing a spinlock that is not held (or held by another CPU) is a race conditi
 ## 4. Integer Overflow in `_vm_map_file` Check
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/vm.cpp`
 **Function:** `_vm_map_file`
 
@@ -207,6 +209,7 @@ This negative result propagates to `write_to_buffer`, where checks like `if (len
 ## 6. `RadixBitmap` Integer Truncation / Undefined Behavior
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/util/RadixBitmap.cpp`
 **Function:** `radix_leaf_alloc`
 
@@ -231,6 +234,7 @@ Unpredictable allocation behavior or crashes when requesting very large contiguo
 ## 7. Infinite Loop in `block_alloc`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/slab/allocator.cpp`
 **Function:** `block_alloc`
 
@@ -250,6 +254,7 @@ Denial of service (kernel hang) if a very large alignment is requested (or compu
 ## 8. Integer Overflow in `MemoryManager::AllocateRaw`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/slab/MemoryManager.cpp`
 **Function:** `MemoryManager::AllocateRaw`
 
@@ -268,6 +273,7 @@ Heap buffer overflow. The caller believes it has allocated a large buffer, but t
 ## 9. Kernel Stack Overflow in `KDiskDeviceManager::_Scan`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KDiskDeviceManager.cpp`
 **Function:** `_Scan`
 
@@ -288,6 +294,7 @@ Kernel panic or crash due to stack overflow if a deep directory structure exists
 ## 10. `VMUserAddressSpace::UnreserveAddressRange` Silent Failure
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMUserAddressSpace.cpp`
 **Function:** `UnreserveAddressRange`
 
@@ -328,6 +335,7 @@ Heap corruption or crash due to out-of-bounds write when `vfs_normalize_path` is
 ## 12. Integer Overflow in `Allocator::AllocateAligned`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/core_dump.cpp`
 **Function:** `Allocator::AllocateAligned`
 
@@ -346,6 +354,7 @@ Heap corruption or buffer overflow during core dump generation if very large all
 ## 13. Integer Overflow in `gdb_parse_command` Address Parsing
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/gdb.cpp`
 **Function:** `gdb_parse_command`
 
@@ -557,6 +566,7 @@ Denial of service (kernel panic).
 ## 23. Stack Overflow via Recursion in `TraceFilterParser`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/tracing.cpp`
 **Function:** `TraceFilterParser::_ParseExpression`
 
@@ -577,6 +587,7 @@ Kernel stack overflow (crash) triggered by debugger command.
 ## 24. Integer Overflow in `switch_sem_etc` Timeout Calculation
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/sem.cpp`
 **Function:** `switch_sem_etc`
 
@@ -664,6 +675,7 @@ Heap buffer overflow.
 ## 28. ASLR Setting Lost in `fork_team`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `fork_team`
 
@@ -683,6 +695,7 @@ Inconsistent process state; debuggers or tools relying on disabled ASLR might fa
 ## 29. Zombie Process Leak in `team_get_death_entry`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `team_get_death_entry`
 
@@ -705,6 +718,7 @@ It checks if the *caller's* team ID matches the *dead child's* thread ID (`entry
 ## 30. Infinite Loop / Logic Error in `get_next_team_info` ID Wrap
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `_get_next_team_info`
 
@@ -752,6 +766,7 @@ Kernel memory information disclosure to unprivileged users.
 ## 32. DoS Vector in `create_port` Team Limit Check
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/port.cpp`
 **Function:** `create_port`
 
@@ -879,6 +894,7 @@ Kernel memory corruption.
 ## 40. Missing Null Termination Check in `_user_register_image`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/image.cpp`
 **Function:** `_user_register_image`
 
@@ -1036,6 +1052,7 @@ Unresponsive system/processes when I/O devices hang.
 ## 52. Logic Error / Data Miss in `RingBuffer::Read`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/fifo.cpp`
 **Function:** `RingBuffer::Read`
 
@@ -1102,6 +1119,7 @@ Incorrect swap space accounting for extremely large swap files.
 ## 56. `UserNodeListener` RTTI Usage in Kernel
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/node_monitor.cpp`
 **Function:** `_RemoveListener`
 
@@ -1114,6 +1132,7 @@ Potential build failure or undefined behavior depending on compiler flags.
 ## 57. Signal to Kernel Thread in `FIFOInode::Write`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/fifo.cpp`
 **Function:** `FIFOInode::Write`
 
@@ -1139,6 +1158,7 @@ Unexpected failure of `rename()` in bind-mount scenarios.
 ## 59. `common_ioctl` Buffer Safety Design Flaw
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `common_ioctl`
 
@@ -1164,6 +1184,7 @@ Hung thread or resource leak if I/O iteration fails early.
 ## 61. Race Condition in `republish_driver`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
 **Function:** `republish_driver`
 
@@ -1176,6 +1197,7 @@ Potential instability during driver updates.
 ## 62. Unsafe String Copy in `LegacyDevice::Control`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
 **Function:** `LegacyDevice::Control`
 
@@ -1194,6 +1216,7 @@ Potential race reading driver path.
 ## 63. Integer Overflow in `id_generator`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/id_generator.cpp`
 **Function:** `create_id_internal`
 
@@ -1206,6 +1229,7 @@ Resource exhaustion (IDs) with relatively low limit.
 ## 64. Integer Overflow in `DMABuffer::Create`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/dma_resources.cpp`
 **Function:** `DMABuffer::Create`
 
@@ -1223,6 +1247,7 @@ Huge allocation failure or heap corruption.
 ## 65. Integer Overflow in `KPartition::SetSize`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
 **Function:** `KPartition::SetSize`
 
@@ -1241,6 +1266,7 @@ Logic errors in partition handling.
 ## 66. `KDiskDevice::GetMediaStatus` Masks Errors
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KDiskDevice.cpp`
 **Function:** `KDiskDevice::GetMediaStatus`
 
@@ -1263,6 +1289,7 @@ Masking of I/O errors.
 ## 67. Buffer Overflow Risk in `KPartition::GetFileName`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
 **Function:** `KPartition::GetFileName`
 
@@ -1281,6 +1308,7 @@ Inability to publish deeply nested partitions.
 ## 68. Livelock / Excessive Wait in `block_notifier_and_writer`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/block_cache.cpp`
 **Function:** `block_notifier_and_writer`
 
@@ -1304,6 +1332,7 @@ Inefficient block flushing, potential memory pressure.
 ## 69. Unchecked Return Value in `BlockPrefetcher::Allocate`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/block_cache.cpp`
 **Function:** `BlockPrefetcher::Allocate`
 
@@ -1344,6 +1373,7 @@ Potential data loss notification delayed.
 ## 70. Use-After-Free in `nub_thread_cleanup`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/user_debugger.cpp`
 **Function:** `nub_thread_cleanup`
 
@@ -1367,6 +1397,7 @@ Potential race condition during debugger teardown.
 ## 71. Integer Overflow in `debugger_write` Message Size
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/user_debugger.cpp`
 **Function:** `debugger_write`
 
@@ -1438,6 +1469,7 @@ The code allocates memory for version info using `malloc(sizeof(elf_version_info
 
 ### 78. Integer Overflow in `heap` malloc
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/heap.cpp`
 **Function:** `heap_memalign` (implied context)
 **Description:**
@@ -1446,6 +1478,7 @@ The code calls `malloc(numElements * size)` (or similar calculation). If `numEle
 
 ### 79. Integer Overflow in `DMAResource::Init`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/dma_resources.cpp`
 **Function:** `DMAResource::Init`
 **Description:**
@@ -1481,6 +1514,7 @@ For `IPC_STAT`, the code checks `!messageQueue->HasReadPermission()`. Due to Bug
 
 ### 83. Lock Ordering Violation in `fs_mount`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `fs_mount` / `get_mount`
 **Description:**
@@ -1489,6 +1523,7 @@ For `IPC_STAT`, the code checks `!messageQueue->HasReadPermission()`. Due to Bug
 
 ### 84. Swap Space Leak in `PageWriteWrapper::Done` Logic
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/vm_page.cpp`
 **Function:** `PageWriteWrapper::Done` (implied logic)
 **Description:**
@@ -1497,6 +1532,7 @@ When a page write completes, if the page is freed or repurposed, the associated 
 
 ### 85. Iterator Invalidation in `_InsertAreaSlot`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMUserAddressSpace.cpp`
 **Function:** `_InsertAreaSlot`
 **Description:**
@@ -1514,6 +1550,7 @@ The function creates a `WriteCallback` object. If `vfs_asynchronous_write_pages`
 
 ### 87. Unchecked User Buffer in `common_ioctl`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `common_ioctl`
 **Description:**
@@ -1522,6 +1559,7 @@ The `common_ioctl` function passes the user buffer pointer directly to the drive
 
 ### 88. Error Ignored in `BlockWriter::Write`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/block_cache.cpp`
 **Function:** `BlockWriter::Write`
 **Description:**
@@ -1530,6 +1568,7 @@ When writing multiple blocks, if `_WriteBlocks` fails for a batch, `fStatus` is 
 
 ### 89. Insecure `user_memcpy` Macro in `ring_buffer.cpp`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/util/ring_buffer.cpp`
 **Function:** Macro definition
 **Description:**
@@ -1538,6 +1577,7 @@ The file defines `#define user_memcpy(x...) (memcpy(x), B_OK)`. If this code is 
 
 ### 90. Unsafe `sprintf` in Legacy Drivers
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
 **Function:** `legacy_driver_add` (implied)
 **Description:**
@@ -1546,6 +1586,7 @@ The code uses `sprintf` to construct paths (e.g. combining directory and leaf). 
 
 ### 91. Unchecked `strcpy` in `rootfs`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/rootfs.cpp`
 **Function:** `rootfs_create_vnode` (implied)
 **Description:**
@@ -1554,6 +1595,7 @@ The code uses `strcpy` to copy names into fixed-size buffers or allocated buffer
 
 ### 92. Unsafe `sprintf` in `debug.cpp`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/debug.cpp`
 **Function:** `debug_printf` / others
 **Description:**
@@ -1562,6 +1604,7 @@ Usage of `sprintf` into fixed buffers for debug output. If arguments are large, 
 
 ### 93. Integer Overflow in `CheckCommandSize`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/messaging/MessagingService.cpp`
 **Function:** `MessagingArea::CheckCommandSize`
 **Description:**
@@ -1570,6 +1613,7 @@ The function uses `int32` for data size. It checks if `size < 0`? If not, large 
 
 ### 94. Missing Validation in `_user_ioctl`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/fd.cpp`
 **Function:** `_user_ioctl`
 **Description:**
@@ -1578,6 +1622,7 @@ The function should use `is_user_address_range` to validate the buffer and lengt
 
 ### 95. Return Value Ignored in `_AddNode`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/module.cpp`
 **Function:** `ModuleNotificationService::_AddNode`
 **Description:**
@@ -1586,6 +1631,7 @@ The function calls `hash_insert` but ignores the return value. If insertion fail
 
 ### 96. Locking Race in `ThreadTimeUserTimer`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/UserTimer.cpp`
 **Function:** `ThreadTimeUserTimer::Schedule` / `Stop`
 **Description:**
@@ -1612,6 +1658,7 @@ Similar to `load_image_etc` (Bug 26), `load_image_internal` calculates the size 
 
 ### 99. Info Leak in `read_port_etc`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/port.cpp`
 **Function:** `read_port_etc`
 **Description:**
@@ -1621,6 +1668,7 @@ The bug is usually that uninitialized padding or bytes in the kernel message str
 
 ### 100. Race Condition in Driver Reloading
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/legacy_drivers.cpp`
 **Function:** `reload_driver`
 **Description:**
@@ -1629,6 +1677,7 @@ Reloading a driver involves unloading and loading. If a device is open or being 
 
 ### 101. Integer Overflow in `id_generator` Bitmap
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/id_generator.cpp`
 **Function:** `create_id`
 **Description:**
@@ -1655,6 +1704,7 @@ Unconditional use of `user_memcpy` even for kernel threads.
 
 ### 104. Use-After-Free in `unload_module`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/module.cpp`
 **Function:** `unload_module`
 **Description:**
@@ -1663,6 +1713,7 @@ Dropping lock before `put_module_image` allows race where image is deleted.
 
 ### 105. Recursion Limit in `TraceFilterParser`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/tracing.cpp`
 **Function:** `_ParseExpression`
 **Description:**
@@ -1680,6 +1731,7 @@ Child team does not inherit ASLR disabled state.
 
 ### 107. Integer Overflow in `debugger_write`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/user_debugger.cpp`
 **Function:** `debugger_write`
 **Description:**
@@ -1688,6 +1740,7 @@ Message size overflow.
 
 ### 108. Locking Missing in `user_timer_stop_cpu_timers`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/UserTimer.cpp`
 **Function:** `user_timer_stop_cpu_timers`
 **Description:**
@@ -1705,6 +1758,7 @@ Kernel pointers copied to user stack.
 
 ### 110. Race in `nub_thread_cleanup`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/debug/user_debugger.cpp`
 **Function:** `nub_thread_cleanup`
 **Description:**
@@ -1713,6 +1767,7 @@ Race condition accessing team debug info.
 
 ### 111. Error Code Masking in `GetMediaStatus`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KDiskDevice.cpp`
 **Function:** `GetMediaStatus`
 **Description:**
@@ -1721,6 +1776,7 @@ Masks errors as `B_OK` for non-removable devices.
 
 ### 112. Buffer Overflow in `GetFileName`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
 **Function:** `GetFileName`
 **Description:**
@@ -1729,6 +1785,7 @@ Name construction might overflow if recursion is deep.
 
 ### 113. Negative Value Check in `SetSize`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/disk_device_manager/KPartition.cpp`
 **Function:** `SetSize`
 **Description:**
@@ -1737,6 +1794,7 @@ Accepts negative values.
 
 ### 114. Integer Overflow in `DMABuffer::Create`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/dma_resources.cpp`
 **Function:** `DMABuffer::Create`
 **Description:**
@@ -1763,6 +1821,7 @@ Fails to release semaphore in success path.
 
 ### 117. Unchecked `create_sem` Validation
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/sem.cpp`
 **Function:** `create_sem`
 **Description:**
@@ -1780,6 +1839,7 @@ If mapping commpage fails, system might boot but crash later.
 
 ### 119. Stack Trace Buffer Overflow
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/arch/x86/arch_debug.cpp`
 **Function:** `stack_trace`
 **Description:**
@@ -1797,6 +1857,7 @@ Unbounded recursion in scanning directories.
 
 ### 121. Infinite Loop in `probe_path`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/device_manager.cpp`
 **Function:** `probe_path`
 **Description:**
