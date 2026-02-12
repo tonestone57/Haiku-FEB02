@@ -97,9 +97,9 @@ MessagingArea::CheckCommandSize(int32 dataSize)
 	if (dataSize < 0 || dataSize > kMessagingAreaSize)
 		return false;
 
-	int32 size = sizeof(messaging_command) + dataSize;
+	uint32 size = sizeof(messaging_command) + (uint32)dataSize;
 
-	return size <= kMessagingAreaSize - (int32)sizeof(messaging_area_header);
+	return size <= (uint32)kMessagingAreaSize - sizeof(messaging_area_header);
 }
 
 

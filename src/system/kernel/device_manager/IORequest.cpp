@@ -938,6 +938,12 @@ IORequest::Wait(uint32 flags, bigtime_t timeout)
 	locker.Unlock();
 
 	status_t error = entry.Wait(flags, timeout);
+
+	// Make sure the notifier has released the lock, so that we don't access
+	// the object while it is still using it.
+	mutex_lock(&fLock);
+	mutex_unlock(&fLock);
+
 	if (error != B_OK)
 		return error;
 

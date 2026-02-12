@@ -669,7 +669,7 @@ KDiskDeviceManager::WriteLockPartition(partition_id id)
 
 
 status_t
-KDiskDeviceManager::ScanPartition(KPartition* partition)
+KDiskDeviceManager::ScanPartition(KPartition* partition, int32 depth)
 {
 // TODO: This won't do. Locking the DDM while scanning the partition is not a
 // good idea. Even locking the device doesn't feel right. Marking the partition
@@ -677,7 +677,7 @@ KDiskDeviceManager::ScanPartition(KPartition* partition)
 // should work as well.
 	if (DeviceWriteLocker deviceLocker = partition->Device()) {
 		if (ManagerLocker locker = this)
-			return _ScanPartition(partition, false);
+			return _ScanPartition(partition, false, NULL, depth);
 	}
 
 	return B_ERROR;

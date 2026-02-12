@@ -492,7 +492,7 @@ VMAnonymousCache::~VMAnonymousCache()
 	delete fNoSwapPages;
 	fNoSwapPages = NULL;
 
-	_FreeSwapPageRange(virtual_base, virtual_end, false);
+	_FreeSwapPageRange(virtual_base, virtual_end);
 	swap_space_unreserve(fCommittedSwapSize);
 	if (committed_size > fCommittedSwapSize)
 		vm_unreserve_memory(committed_size - fCommittedSwapSize);
@@ -561,8 +561,7 @@ VMAnonymousCache::SetCanSwapPages(off_t base, size_t size, bool canSwap)
 
 
 void
-VMAnonymousCache::_FreeSwapPageRange(off_t fromOffset, off_t toOffset,
-	bool skipBusyPages)
+VMAnonymousCache::_FreeSwapPageRange(off_t fromOffset, off_t toOffset)
 {
 	swap_block* swapBlock = NULL;
 	off_t toIndex = toOffset >> PAGE_SHIFT;
@@ -586,25 +585,6 @@ VMAnonymousCache::_FreeSwapPageRange(off_t fromOffset, off_t toOffset,
 		swap_addr_t slotIndex = swapBlock->swap_slots[blockIndex];
 		if (slotIndex == SWAP_SLOT_NONE)
 			continue;
-
-		if (skipBusyPages) {
-			vm_page* page = LookupPage(pageIndex * B_PAGE_SIZE);
-			if (page != NULL && page->busy) {
-				// We skip (i.e. leak) swap space of busy pages, since
-				// there could be I/O going on (paging in/out). Waiting is
-				// not an option as 1. unlocking the cache means that new
-				// swap pages could be added in a range we've already
-				// cleared (since the cache still has the old size) and 2.
-				// we'd risk a deadlock in case we come from the file cache
-				// and the FS holds the node's write-lock.
-				// Note that Resize(), Rebase() and Discard() call this method
-				// after calling the VMCache implementation which waits for and
-				// removes all pages in the range. Thus this case should only
-				// occur for the destructor, where the pages have already been
-				// removed.
-				continue;
-			}
-		}
 
 		swap_slot_dealloc(slotIndex, 1);
 		fAllocatedSwapSize -= B_PAGE_SIZE;

@@ -332,8 +332,10 @@ KDiskDevice::Dump(bool deep, int32 level)
 status_t
 KDiskDevice::GetMediaStatus(status_t* mediaStatus)
 {
-	status_t error = ioctl(fFD, B_GET_MEDIA_STATUS, mediaStatus,
-		sizeof(*mediaStatus));
+	status_t error = B_OK;
+	if (ioctl(fFD, B_GET_MEDIA_STATUS, mediaStatus, sizeof(*mediaStatus)) != 0)
+		error = errno;
+
 	// maybe the device driver doesn't implement this ioctl -- see, if getting
 	// the device geometry succeeds
 	if (error != B_OK) {

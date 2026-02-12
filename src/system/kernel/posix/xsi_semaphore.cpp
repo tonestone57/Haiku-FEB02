@@ -278,7 +278,7 @@ public:
 			| (result->sem_perm.mode & 0x01ff);
 	}
 
-	bool HasPermission() const
+	bool HasWritePermission() const
 	{
 		if ((fPermissions.mode & S_IWOTH) != 0)
 			return true;
@@ -307,8 +307,19 @@ public:
 
 	bool HasReadPermission() const
 	{
-		// TODO: fix this
-		return HasPermission();
+		if ((fPermissions.mode & S_IROTH) != 0)
+			return true;
+
+		uid_t uid = geteuid();
+		if (uid == 0 || (uid == fPermissions.uid
+			&& (fPermissions.mode & S_IRUSR) != 0))
+			return true;
+
+		gid_t gid = getegid();
+		if (gid == fPermissions.gid && (fPermissions.mode & S_IRGRP) != 0)
+			return true;
+
+		return false;
 	}
 
 	int ID() const
@@ -722,7 +733,7 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 					"key %d\n", (int)key));
 				return B_BAD_VALUE;
 			}
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasReadPermission()) {
 				TRACE(("xsi_semget: calling process has no permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)key));
@@ -852,7 +863,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 		}
 
 		case SETVAL: {
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasWritePermission()) {
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
@@ -923,7 +934,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 		}
 
 		case SETALL: {
-			if (!semaphoreSet->HasPermission()) {
+			if (!semaphoreSet->HasWritePermission()) {
 				TRACE(("xsi_semctl: calling process has not permission "
 					"on semaphore %d, key %d\n", semaphoreSet->ID(),
 					(int)semaphoreSet->IpcKey()));
@@ -1069,6 +1080,24 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 			(sizeof(struct sembuf) * numOps)) != B_OK) {
 		TRACE_ERROR(("xsi_semop: user_memcpy failed\n"));
 		return B_BAD_ADDRESS;
+	}
+
+	bool hasWritePermission = semaphoreSet->HasWritePermission();
+	bool hasReadPermission = semaphoreSet->HasReadPermission();
+	for (uint32 i = 0; i < numOps; i++) {
+		if (operations[i].sem_op != 0) {
+			if (!hasWritePermission) {
+				TRACE(("xsi_semop: calling process has not write permission "
+					"on semaphore set %d\n", semaphoreID));
+				return B_PERMISSION_DENIED;
+			}
+		} else {
+			if (!hasReadPermission) {
+				TRACE(("xsi_semop: calling process has not read permission "
+					"on semaphore set %d\n", semaphoreID));
+				return B_PERMISSION_DENIED;
+			}
+		}
 	}
 
 	// We won't do partial request, that is operations

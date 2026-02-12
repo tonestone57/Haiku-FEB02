@@ -67,7 +67,7 @@ public:
 		// Both the device and the partition is also registered and must be
 		// unregistered by the caller.
 
-	status_t ScanPartition(KPartition* partition);
+	status_t ScanPartition(KPartition* partition, int32 depth = 0);
 
 	partition_id CreateDevice(const char *path, bool *newlyCreated = NULL);
 	status_t DeleteDevice(const char *path);
@@ -127,7 +127,7 @@ private:
 		DiskSystemMap* restrictScan = NULL, int depth = 0);
 		// the manager must be locked and the device write locked
 	status_t _ScanPartition(KPartition *partition,
-		DiskSystemMap* restrictScan, int depth);
+		DiskSystemMap* restrictScan, int depth = 0);
 
 	status_t _AddRemoveMonitoring(const char *path, bool add);
 

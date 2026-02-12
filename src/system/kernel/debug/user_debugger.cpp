@@ -1816,10 +1816,15 @@ debug_nub_thread(void *)
 				status_t result = B_OK;
 
 				// check the parameters
-				if (!BreakpointManager::CanAccessAddress(address, true))
+				if (!BreakpointManager::CanAccessAddress(address, true)) {
 					result = B_BAD_ADDRESS;
-				else if (size <= 0 || size > realSize)
-					result = B_BAD_VALUE;
+				} else {
+					const char* messageStart = (const char*)&message;
+					if (data < messageStart || data >= messageStart + messageSize
+						|| size <= 0 || size > messageStart + messageSize - data) {
+						result = B_BAD_VALUE;
+					}
+				}
 
 				// write the memory
 				size_t bytesWritten = 0;

@@ -822,21 +822,31 @@ get_file_system_name(const char* fsName)
 	name for the specified layer.
 */
 static char*
-get_file_system_name_for_layer(const char* fsNames, int32 layer)
+get_file_system_name_for_layer(const char* fsNames, int32 layer,
+	status_t* _status)
 {
 	while (layer >= 0) {
 		const char* end = strchr(fsNames, ':');
 		if (end == NULL) {
-			if (layer == 0)
-				return strdup(fsNames);
+			if (layer == 0) {
+				char* result = strdup(fsNames);
+				if (result == NULL && _status != NULL)
+					*_status = B_NO_MEMORY;
+				return result;
+			}
+			if (_status != NULL)
+				*_status = B_BAD_VALUE;
 			return NULL;
 		}
 
 		if (layer == 0) {
 			size_t length = end - fsNames + 1;
 			char* result = (char*)malloc(length);
-			if (result == NULL)
+			if (result == NULL) {
+				if (_status != NULL)
+					*_status = B_NO_MEMORY;
 				return NULL;
+			}
 
 			strlcpy(result, fsNames, length);
 			return result;
@@ -7725,10 +7735,12 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 
 	// build up the volume(s)
 	while (true) {
-		char* layerFSName = get_file_system_name_for_layer(fsName, layer);
+		status_t getFSNameStatus;
+		char* layerFSName = get_file_system_name_for_layer(fsName, layer,
+			&getFSNameStatus);
 		if (layerFSName == NULL) {
 			if (layer == 0) {
-				status = B_NO_MEMORY;
+				status = getFSNameStatus;
 				goto err1;
 			}
 

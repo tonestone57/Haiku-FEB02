@@ -390,6 +390,9 @@ KPartition::UnmarkBusy(bool includeDescendants)
 void
 KPartition::SetOffset(off_t offset)
 {
+	if (offset < 0)
+		return;
+
 	if (fPartitionData.offset != offset) {
 		fPartitionData.offset = offset;
 		FireOffsetChanged(offset);
@@ -427,6 +430,9 @@ KPartition::Size() const
 void
 KPartition::SetContentSize(off_t size)
 {
+	if (size < 0)
+		return;
+
 	if (fPartitionData.content_size != size) {
 		fPartitionData.content_size = size;
 		FireContentSizeChanged(size);
@@ -703,7 +709,8 @@ KPartition::GetFileName(char* buffer, size_t size) const
 		return error;
 
 	size_t len = strlen(buffer);
-	if (snprintf(buffer + len, size - len, "_%" B_PRId32, Index()) >= int(size - len))
+	if ((size_t)snprintf(buffer + len, size - len, "_%" B_PRId32, Index())
+			>= size - len)
 		return B_NAME_TOO_LONG;
 	return B_OK;
 }
