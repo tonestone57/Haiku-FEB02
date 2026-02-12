@@ -95,24 +95,24 @@ register_image(Team *team, extended_image_info *info, size_t size, bool locked)
 	memcpy(&image->info, info, sizeof(extended_image_info));
 	image->team = team->id;
 
-	if (!locked)
-		mutex_lock(&sImageMutex);
+	{
+		MutexLocker locker;
+		if (!locked)
+			locker.SetTo(sImageMutex);
 
-	image->info.basic_info.id = id;
+		image->info.basic_info.id = id;
 
-	// Add the app image to the head of the list. Some code relies on it being
-	// the first image to be returned by get_next_image_info().
-	if (image->info.basic_info.type == B_APP_IMAGE)
-		team->image_list.Add(image, false);
-	else
-		team->image_list.Add(image);
-	sImageTable->Insert(image);
+		// Add the app image to the head of the list. Some code relies on it being
+		// the first image to be returned by get_next_image_info().
+		if (image->info.basic_info.type == B_APP_IMAGE)
+			team->image_list.Add(image, false);
+		else
+			team->image_list.Add(image);
+		sImageTable->Insert(image);
 
-	// notify listeners
-	sNotificationService.Notify(IMAGE_ADDED, image);
-
-	if (!locked)
-		mutex_unlock(&sImageMutex);
+		// notify listeners
+		sNotificationService.Notify(IMAGE_ADDED, image);
+	}
 
 	TRACE(("register_image(team = %p, image id = %ld, image = %p\n", team, id, image));
 	return id;
