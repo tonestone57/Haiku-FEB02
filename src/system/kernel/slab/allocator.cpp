@@ -146,6 +146,9 @@ block_alloc_early(size_t size)
 		sUsedBootStrapMemory = 0;
 	}
 
+	if (size > sBootStrapMemorySize - sUsedBootStrapMemory)
+		return NULL;
+
 	size_t neededSize = ROUNDUP(size, sizeof(double));
 	if (sUsedBootStrapMemory + neededSize > sBootStrapMemorySize)
 		return NULL;

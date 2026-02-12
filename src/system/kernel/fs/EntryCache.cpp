@@ -96,6 +96,9 @@ EntryCache::Init()
 	}
 
 	fGenerations = new(std::nothrow) EntryCacheGeneration[fGenerationCount];
+	if (fGenerations == NULL)
+		return B_NO_MEMORY;
+
 	for (int32 i = 0; i < fGenerationCount; i++) {
 		error = fGenerations[i].Init(entriesSize);
 		if (error != B_OK)

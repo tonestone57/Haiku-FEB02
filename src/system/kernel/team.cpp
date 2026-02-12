@@ -1433,8 +1433,7 @@ copy_user_process_args(const char* const* userFlatArgs, size_t flatArgsSize,
 
 	if (flatArgsSize > MAX_PROCESS_ARGS_SIZE)
 		return B_TOO_MANY_ARGS;
-	if ((argCount + envCount + 2) * sizeof(char*) > flatArgsSize
-		|| (size_t)argCount + envCount + 2 > flatArgsSize / sizeof(char*))
+	if ((uint64)argCount + envCount + 2 > flatArgsSize / sizeof(char*))
 		return B_BAD_VALUE;
 
 	if (!IS_USER_ADDRESS(userFlatArgs))
@@ -3803,14 +3802,20 @@ load_image_etc(int32 argCount, const char* const* args,
 		return B_BAD_VALUE;
 
 	// determine total needed size
-	int32 argSize = 0;
-	for (int32 i = 0; i < argCount; i++)
+	size_t argSize = 0;
+	for (int32 i = 0; i < argCount; i++) {
 		argSize += strlen(args[i]) + 1;
+		if (argSize > MAX_PROCESS_ARGS_SIZE)
+			return B_TOO_MANY_ARGS;
+	}
 
 	int32 envCount = 0;
-	int32 envSize = 0;
-	while (env != NULL && env[envCount] != NULL)
+	size_t envSize = 0;
+	while (env != NULL && env[envCount] != NULL) {
 		envSize += strlen(env[envCount++]) + 1;
+		if (envSize > MAX_PROCESS_ARGS_SIZE)
+			return B_TOO_MANY_ARGS;
+	}
 
 	size_t size = (argCount + envCount + 2) * sizeof(char*) + argSize + envSize;
 	if (size > MAX_PROCESS_ARGS_SIZE)

@@ -32,6 +32,11 @@ const phys_size_t kMaxBounceBufferSize = 4 * B_PAGE_SIZE;
 DMABuffer*
 DMABuffer::Create(size_t count)
 {
+	if (count == 0 || count > (SIZE_MAX - sizeof(DMABuffer))
+			/ sizeof(generic_io_vec) + 1) {
+		return NULL;
+	}
+
 	DMABuffer* buffer = (DMABuffer*)malloc(
 		sizeof(DMABuffer) + sizeof(generic_io_vec) * (count - 1));
 	if (buffer == NULL)

@@ -2859,6 +2859,11 @@ block_notifier_and_writer(void* /*data*/)
 		status_t status = acquire_sem_etc(sEventSemaphore, 1,
 			B_RELATIVE_TIMEOUT, timeout);
 		if (status == B_OK) {
+			// drain the semaphore
+			while (acquire_sem_etc(sEventSemaphore, 1, B_RELATIVE_TIMEOUT, 0)
+					== B_OK) {
+			}
+
 			flush_pending_notifications();
 			timeout -= system_time() - start;
 			continue;

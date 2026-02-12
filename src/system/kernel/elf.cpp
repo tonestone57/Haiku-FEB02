@@ -2029,6 +2029,9 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 		if (programHeaders[i].p_type != PT_LOAD)
 			continue;
 
+		if (programHeaders[i].p_filesz > programHeaders[i].p_memsz)
+			return B_BAD_DATA;
+
 		regionAddress = (char *)(ROUNDDOWN(programHeaders[i].p_vaddr,
 			B_PAGE_SIZE) + delta);
 		originalRegionAddress = regionAddress;
@@ -2321,6 +2324,11 @@ load_kernel_add_on(const char *path)
 		if (programHeaders[i].p_type != PT_LOAD)
 			continue;
 
+		if (programHeaders[i].p_filesz > programHeaders[i].p_memsz) {
+			status = B_BAD_DATA;
+			goto error3;
+		}
+
 		size_t segmentSize = ROUNDUP(programHeaders[i].p_memsz
 			+ (programHeaders[i].p_vaddr % B_PAGE_SIZE), B_PAGE_SIZE);
 		if (segmentSize < programHeaders[i].p_memsz || (size_t)length + segmentSize < (size_t)length) {
@@ -2328,6 +2336,12 @@ load_kernel_add_on(const char *path)
 			goto error3;
 		}
 		length += segmentSize;
+
+		if (programHeaders[i].p_memsz + programHeaders[i].p_vaddr
+				< programHeaders[i].p_vaddr) {
+			status = B_BAD_DATA;
+			goto error3;
+		}
 
 		end = ROUNDUP(programHeaders[i].p_memsz + programHeaders[i].p_vaddr,
 			B_PAGE_SIZE);

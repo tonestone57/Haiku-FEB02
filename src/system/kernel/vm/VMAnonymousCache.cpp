@@ -1041,6 +1041,7 @@ VMAnonymousCache::WriteAsync(off_t offset, const generic_io_vec* vecs,
 
 	status_t status = vfs_asynchronous_write_pages(swapFile->vnode,
 		swapFile->cookie, pos, vecs, 1, numBytes, flags, callback);
+
 	if (status != B_OK)
 		delete callback;
 

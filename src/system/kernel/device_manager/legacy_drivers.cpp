@@ -1328,9 +1328,12 @@ LegacyDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 {
 	switch (op) {
 		case B_GET_DRIVER_FOR_DEVICE:
+		{
+			RecursiveLocker _(sLock);
 			if (length != 0 && length <= strlen(fDriver->path))
 				return ERANGE;
 			return user_strlcpy(static_cast<char*>(buffer), fDriver->path, length);
+		}
 		default:
 			return AbstractModuleDevice::Control(_cookie, op, buffer, length);
 	}

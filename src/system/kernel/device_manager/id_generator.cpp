@@ -108,7 +108,7 @@ create_id_internal(id_generator* generator)
 		if ((generator->alloc_map[id / 8] & (1 << (id & 7))) == 0) {
 			TRACE(("  id: %lu\n", id));
 
-			generator->alloc_map[id / 8] |= 1 << (id & 7);
+			generator->alloc_map[id / 8] |= (uint8)(1 << (id & 7));
 			generator->num_ids++;
 
 			return id;
@@ -243,7 +243,7 @@ dm_free_id(const char* name, uint32 id)
 		return B_BAD_VALUE;
 	}
 
-	generator->alloc_map[id / 8] &= ~(1 << (id & 7));
+	generator->alloc_map[id / 8] &= (uint8)~(1 << (id & 7));
 	generator->num_ids--;
 
 	release_generator_locked(generator);

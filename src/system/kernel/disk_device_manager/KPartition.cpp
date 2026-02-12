@@ -407,6 +407,9 @@ KPartition::Offset() const
 void
 KPartition::SetSize(off_t size)
 {
+	if (size < 0)
+		return;
+
 	if (fPartitionData.size != size) {
 		fPartitionData.size = size;
 		FireSizeChanged(size);

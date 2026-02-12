@@ -835,6 +835,9 @@ get_file_system_name_for_layer(const char* fsNames, int32 layer)
 		if (layer == 0) {
 			size_t length = end - fsNames + 1;
 			char* result = (char*)malloc(length);
+			if (result == NULL)
+				return NULL;
+
 			strlcpy(result, fsNames, length);
 			return result;
 		}
