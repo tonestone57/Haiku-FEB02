@@ -361,6 +361,7 @@ Incorrect address access during kernel debugging sessions.
 ## 14. Missing NULL Check in `PrecacheIO::Prepare`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `PrecacheIO::Prepare`
 
@@ -380,6 +381,7 @@ Kernel panic (null pointer dereference).
 ## 15. Missing NULL Check in `read_into_cache`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `read_into_cache`
 
@@ -397,6 +399,7 @@ Kernel panic (null pointer dereference).
 ## 16. Missing NULL Check in `write_to_cache`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `write_to_cache`
 
@@ -414,6 +417,7 @@ Kernel panic (null pointer dereference).
 ## 17. Kernel Panic on Partial Page Read Error in `write_to_cache`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `write_to_cache`
 
@@ -434,6 +438,7 @@ Denial of service (kernel panic) triggered by disk I/O errors.
 ## 18. Integer Overflow in `cache_prefetch_vnode` Heuristic
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `cache_prefetch_vnode`
 
@@ -453,6 +458,7 @@ Incorrect cache prefetching decisions on systems with extremely large memory/cac
 ## 19. Unsafe Downcast in `file_cache_create`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `file_cache_create`
 
@@ -474,6 +480,7 @@ Kernel crash or memory corruption.
 ## 20. Dangling Pointer in `VMVnodeCache` after `file_cache_delete`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/cache/file_cache.cpp`
 **Function:** `file_cache_delete`
 
@@ -493,6 +500,7 @@ Use-after-free, leading to kernel panic or corruption.
 ## 21. Double Child Removal in `device_node` Destructor
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/device_manager.cpp`
 **Function:** `~device_node`
 
@@ -614,6 +622,7 @@ The semaphore that should have been released remains held. This breaks the atomi
 ## 26. Integer Overflow in `load_image_etc` Allocation
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `load_image_etc`
 
@@ -632,6 +641,7 @@ Heap buffer overflow, potentially leading to privilege escalation or kernel cras
 ## 27. Integer Overflow in `copy_user_process_args` Check
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `copy_user_process_args`
 
@@ -756,6 +766,7 @@ Performance degradation / CPU consumption.
 ## 33. Unsafe Kernel Copy in `send_data`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/thread.cpp`
 **Function:** `send_data` / `send_data_etc`
 
@@ -774,6 +785,7 @@ Kernel malfunction or crash when using thread messaging between kernel threads.
 ## 34. Unsafe Kernel Copy in `receive_data`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/thread.cpp`
 **Function:** `receive_data` / `receive_data_etc`
 
@@ -792,6 +804,7 @@ Kernel malfunction or crash.
 ## 35. Stack Overflow in `thread_create_user_stack`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/thread.cpp`
 **Function:** `create_thread_user_stack`
 
@@ -810,6 +823,7 @@ Stack overflow / memory corruption.
 ## 36. Integer Overflow in `KMessage::_CapacityFor`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/messaging/KMessage.cpp`
 **Function:** `KMessage::_CapacityFor`
 
@@ -822,6 +836,7 @@ Heap buffer overflow.
 ## 37. Integer Truncation in `XsiSemaphoreSet::RecordUndo`
 
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/posix/xsi_semaphore.cpp`
 **Function:** `XsiSemaphoreSet::RecordUndo`
 
@@ -834,6 +849,7 @@ Corruption of semaphore undo state, leading to incorrect semaphore values on pro
 ## 38. Integer Overflow in `elf_load_user_image` Segment Calculation
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/elf.cpp`
 **Function:** `elf_load_user_image`
 
@@ -846,6 +862,7 @@ Memory corruption, potential code execution via malformed ELF.
 ## 39. Integer Overflow in `load_kernel_add_on` Reservation
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/elf.cpp`
 **Function:** `load_kernel_add_on`
 
@@ -883,6 +900,7 @@ Kernel crash or security violation (SMAP bypass).
 ## 42. Missing Ownership Check in `_user_xsi_msgctl`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/posix/xsi_message_queue.cpp`
 **Function:** `_user_xsi_msgctl`
 
@@ -895,6 +913,7 @@ Unauthorized deletion or modification of message queues.
 ## 43. Missing Ownership Check in `_user_xsi_semctl`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/posix/xsi_semaphore.cpp`
 **Function:** `_user_xsi_semctl`
 
@@ -907,6 +926,7 @@ Unauthorized deletion or modification of semaphore sets.
 ## 44. Unsafe Kernel Copy in `receive_data_etc`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/thread.cpp`
 **Function:** `receive_data_etc`
 
@@ -919,6 +939,7 @@ Kernel malfunction or crash.
 ## 45. Unsafe Kernel Copy in `send_data_etc`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/thread.cpp`
 **Function:** `send_data_etc`
 
@@ -931,6 +952,7 @@ Kernel malfunction or crash.
 ## 46. Missing Argument Relocation in `team_create_thread_start_internal`
 
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `team_create_thread_start_internal`
 
@@ -1100,6 +1122,7 @@ Potential stability issue for kernel services using FIFOs.
 ## 58. Bind Mount Renaming Limitation in `common_rename`
 
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `common_rename`
 
@@ -1366,6 +1389,7 @@ The code uses `ASSERT(user_memcpy(...) >= B_OK)`. In release builds where assert
 
 ### 73. Unchecked `malloc` in `get_file_system_name_for_layer`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs.cpp`
 **Function:** `get_file_system_name_for_layer`
 **Description:**
@@ -1398,6 +1422,7 @@ The function allocates `fOperationArray = new(std::nothrow) IOOperation*[count];
 
 ### 77. Integer Overflow in `elf` malloc
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/elf.cpp`
 **Function:** `elf_parse_dynamic_section` (implied context)
 **Description:**
@@ -1422,6 +1447,7 @@ The code calls `malloc(numElements * size)` (or similar calculation). If `numEle
 
 ### 80. Missing Read Permission Check in `XsiMessageQueue::HasReadPermission`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/posix/xsi_message_queue.cpp`
 **Function:** `XsiMessageQueue::HasReadPermission`
 **Description:**
@@ -1430,6 +1456,7 @@ The function `HasReadPermission` calls `HasPermission()`, which checks for **wri
 
 ### 81. Incorrect Permission Check in `_user_xsi_msgrcv`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/posix/xsi_message_queue.cpp`
 **Function:** `_user_xsi_msgrcv`
 **Description:**
@@ -1438,6 +1465,7 @@ The function calls `messageQueue->HasPermission()` to verify access. As noted in
 
 ### 82. Incorrect Permission Check in `IPC_STAT`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/posix/xsi_message_queue.cpp`
 **Function:** `_user_xsi_msgctl`
 **Description:**
@@ -1470,6 +1498,7 @@ The function modifies the area list/tree while iterating or uses an iterator tha
 
 ### 86. Callback Leak in `VMAnonymousCache::WriteAsync`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/vm/VMAnonymousCache.cpp`
 **Function:** `VMAnonymousCache::WriteAsync`
 **Description:**
@@ -1558,6 +1587,7 @@ The `fScheduled` flag is protected by `fThread->scheduler_lock`. However, some p
 
 ### 97. Race Condition in `NotifyFinished`
 **Severity:** Medium
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/IORequest.cpp`
 **Function:** `IORequest::NotifyFinished`
 **Description:**
@@ -1566,6 +1596,7 @@ The function notifies waiting threads. If `NotifyFinished` is called concurrentl
 
 ### 98. Integer Overflow in `load_image_internal` Args
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `load_image_internal`
 **Description:**
@@ -1599,6 +1630,7 @@ The bitmap size is fixed/small. It doesn't handle overflow if requested ID count
 
 ### 102. Hung Request in `do_iterative_fd_io`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/fs/vfs_request_io.cpp`
 **Function:** `do_iterative_fd_io`
 **Description:**
@@ -1607,6 +1639,7 @@ If an error occurs during iteration, the function returns but fails to notify th
 
 ### 103. Unsafe `user_memcpy` in `send_data_etc`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/thread.cpp`
 **Function:** `send_data_etc`
 **Description:**
@@ -1631,6 +1664,7 @@ Unbounded recursion processing filter string.
 
 ### 106. ASLR Propagation Failure in `fork_team`
 **Severity:** Low
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `fork_team`
 **Description:**
@@ -1655,6 +1689,7 @@ Accesses timer lists without `sUserTimerLock`.
 
 ### 109. Info Leak in `team_create_thread_start_internal`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/team.cpp`
 **Function:** `team_create_thread_start_internal`
 **Description:**
@@ -1703,6 +1738,7 @@ Overflow in allocation size calculation when count is 0.
 
 ### 115. Panic on User Memory Mapping
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/device_manager/IORequest.cpp`
 **Function:** `_CopyUser`
 **Description:**
@@ -1728,6 +1764,7 @@ Validation of initial count vs max count might be insufficient.
 
 ### 118. Map Failure Handling in `commpage_init`
 **Severity:** High
+**Status:** Fixed.
 **File:** `src/system/kernel/commpage.cpp`
 **Function:** `commpage_init`
 **Description:**

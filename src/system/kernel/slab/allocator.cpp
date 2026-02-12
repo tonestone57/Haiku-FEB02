@@ -93,6 +93,8 @@ block_alloc(size_t size, size_t alignment, uint32 flags)
 			if (alignment >= (size_t)1 << (sizeof(size_t) * 8 - 1))
 				return NULL;
 			alignment <<= 1;
+			if (alignment == 0)
+				return NULL;
 		}
 		size = alignment;
 

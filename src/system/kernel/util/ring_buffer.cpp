@@ -25,7 +25,7 @@
  */
 
 
-static inline size_t
+static inline ssize_t
 space_left_in_buffer(struct ring_buffer *buffer)
 {
 	return buffer->size - buffer->in;

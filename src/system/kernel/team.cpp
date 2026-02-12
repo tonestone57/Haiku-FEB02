@@ -3817,7 +3817,8 @@ load_image_etc(int32 argCount, const char* const* args,
 			return B_TOO_MANY_ARGS;
 	}
 
-	size_t size = (argCount + envCount + 2) * sizeof(char*) + argSize + envSize;
+	size_t size = ((size_t)argCount + envCount + 2) * sizeof(char*) + argSize
+		+ envSize;
 	if (size > MAX_PROCESS_ARGS_SIZE)
 		return B_TOO_MANY_ARGS;
 
