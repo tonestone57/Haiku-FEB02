@@ -757,6 +757,8 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 static void
 fill_port_info(Port* port, port_info* info, size_t size)
 {
+	memset(info, 0, size);
+
 	info->port = port->id;
 	info->team = port->owner;
 	info->capacity = port->capacity;
@@ -1353,6 +1355,8 @@ _get_port_message_info_etc(port_id id, port_message_info* info,
 		return B_BAD_VALUE;
 	if (!sPortsActive || id < 0)
 		return B_BAD_PORT_ID;
+
+	memset(info, 0, infoSize);
 
 	flags &= B_CAN_INTERRUPT | B_KILL_CAN_INTERRUPT | B_RELATIVE_TIMEOUT
 		| B_ABSOLUTE_TIMEOUT;

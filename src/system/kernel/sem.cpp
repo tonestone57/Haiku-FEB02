@@ -859,10 +859,10 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		semLocker.Unlock();
 
 		if (semToBeReleased >= 0)
-			release_sem_etc(semToBeReleased, 1, B_DO_NOT_RESCHEDULE);
+			release_sem_etc(semToBeReleased, 1, 0);
 	}
 
-	KTRACE("switch_sem_etc() done: 0x%lx", status);
+	KTRACE("switch_sem_etc() done: 0x%lx", B_OK);
 
 	return B_OK;
 }

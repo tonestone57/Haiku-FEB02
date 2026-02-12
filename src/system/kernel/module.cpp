@@ -459,6 +459,14 @@ unload_module_image(module_image* moduleImage, bool remove)
 	if (remove)
 		sModuleImagesHash->Remove(moduleImage);
 
+	// Make sure no module refers to this image anymore
+	ModuleTable::Iterator iterator(sModulesHash);
+	while (iterator.HasNext()) {
+		module* module = iterator.Next();
+		if (module->module_image == moduleImage)
+			module->module_image = NULL;
+	}
+
 	unload_kernel_add_on(moduleImage->image);
 	free(moduleImage->path);
 	free(moduleImage);
@@ -2177,11 +2185,18 @@ get_next_loaded_module_name(uint32* _cookie, char* buffer, size_t* _bufferSize)
 	for (uint32 i = 0; iterator.HasNext(); i++) {
 		struct module* module = iterator.Next();
 		if (i >= offset) {
-			ssize_t length = user_strlcpy(buffer, module->name, bufferSize);
-			if (length < 0)
-				return B_BAD_ADDRESS;
+			size_t nameLength = strlen(module->name);
+			size_t toCopy = bufferSize > 0 ? std::min(nameLength, bufferSize - 1) : 0;
 
-			bufferSize = length;
+			if (bufferSize > 0) {
+				if (user_memcpy(buffer, module->name, toCopy) != B_OK)
+					return B_BAD_ADDRESS;
+				char zero = '\0';
+				if (user_memcpy(buffer + toCopy, &zero, 1) != B_OK)
+					return B_BAD_ADDRESS;
+			}
+
+			bufferSize = nameLength;
 			if (user_memcpy(_bufferSize, &bufferSize, sizeof(size_t)) != B_OK)
 				return B_BAD_ADDRESS;
 

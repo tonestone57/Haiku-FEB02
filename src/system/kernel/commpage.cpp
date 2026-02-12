@@ -78,6 +78,10 @@ commpage_init(void)
 	sCommPageArea = create_area("kernel_commpage", (void **)&sCommPageAddress,
 		B_ANY_ADDRESS, COMMPAGE_SIZE, B_FULL_LOCK,
 		B_KERNEL_WRITE_AREA | B_KERNEL_READ_AREA);
+	if (sCommPageArea < 0) {
+		panic("commpage_init: create_area failed: %s\n",
+			strerror(sCommPageArea));
+	}
 
 	// zero it out
 	memset(sCommPageAddress, 0, COMMPAGE_SIZE);

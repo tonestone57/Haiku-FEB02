@@ -149,7 +149,7 @@ public:
 		return fMessageQueue;
 	}
 
-	bool HasPermission() const
+	bool HasWritePermission() const
 	{
 		if ((fMessageQueue.msg_perm.mode & S_IWOTH) != 0)
 			return true;
@@ -179,8 +179,20 @@ public:
 
 	bool HasReadPermission() const
 	{
-		// TODO: fix this
-		return HasPermission();
+		if ((fMessageQueue.msg_perm.mode & S_IROTH) != 0)
+			return true;
+
+		uid_t uid = geteuid();
+		if (uid == 0 || (uid == fMessageQueue.msg_perm.uid
+			&& (fMessageQueue.msg_perm.mode & S_IRUSR) != 0))
+			return true;
+
+		gid_t gid = getegid();
+		if (gid == fMessageQueue.msg_perm.gid
+			&& (fMessageQueue.msg_perm.mode & S_IRGRP) != 0)
+			return true;
+
+		return false;
 	}
 
 	int ID() const
@@ -650,7 +662,7 @@ _user_xsi_msgget(key_t key, int flags)
 
 			MutexLocker _(sXsiMessageQueueLock);
 			messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
-			if (!messageQueue->HasPermission()) {
+			if (!messageQueue->HasReadPermission()) {
 				TRACE(("xsi_msgget: calling process has not permission "
 					"on message queue %d, key %d\n", messageQueue->ID(),
 					(int)key));
@@ -711,7 +723,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 		TRACE_ERROR(("xsi_msgrcv: message size is out of range\n"));
 		return B_BAD_VALUE;
 	}
-	if (!messageQueue->HasPermission()) {
+	if (!messageQueue->HasReadPermission()) {
 		TRACE(("xsi_msgrcv: calling process has not permission "
 			"on message queue id %d, key %d\n", messageQueueID,
 			(int)messageQueue->IpcKey()));
@@ -809,7 +821,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 		TRACE_ERROR(("xsi_msgsnd: message size is out of range\n"));
 		return B_BAD_VALUE;
 	}
-	if (!messageQueue->HasPermission()) {
+	if (!messageQueue->HasWritePermission()) {
 		TRACE(("xsi_msgsnd: calling process has not permission "
 			"on message queue id %d, key %d\n", messageQueueID,
 			(int)messageQueue->IpcKey()));

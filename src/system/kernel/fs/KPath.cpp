@@ -247,6 +247,9 @@ KPath::UnlockBuffer()
 char*
 KPath::DetachBuffer()
 {
+	if (fBuffer == NULL)
+		return NULL;
+
 	char* buffer = fBuffer;
 
 #ifdef _KERNEL_MODE

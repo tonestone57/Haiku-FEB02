@@ -1269,6 +1269,9 @@ file_cache_init(void)
 		PAGE_STATE_WIRED | VM_PAGE_ALLOC_CLEAR);
 	vm_page_unreserve_pages(&reservation);
 
+	if (page == NULL)
+		return B_NO_MEMORY;
+
 	sZeroPage = (phys_addr_t)page->physical_page_number * B_PAGE_SIZE;
 
 	for (uint32 i = 0; i < kZeroVecCount; i++) {

@@ -1575,10 +1575,13 @@ user_timer_stop_cpu_timers(Thread* thread, Thread* nextThread)
 	InterruptsWriteSequentialLocker locker(sUserTimerLock);
 
 	// stop thread timers
-	for (ThreadTimeUserTimerList::ConstIterator it
-				= thread->CPUTimeUserTimerIterator();
-			ThreadTimeUserTimer* timer = it.Next();) {
-		timer->Stop();
+	{
+		InterruptsSpinLocker schedulerLocker(thread->scheduler_lock);
+		for (ThreadTimeUserTimerList::ConstIterator it
+					= thread->CPUTimeUserTimerIterator();
+				ThreadTimeUserTimer* timer = it.Next();) {
+			timer->Stop();
+		}
 	}
 
 	// update team timers
@@ -1607,10 +1610,13 @@ user_timer_continue_cpu_timers(Thread* thread, Thread* previousThread)
 	}
 
 	// start thread timers
-	for (ThreadTimeUserTimerList::ConstIterator it
-				= thread->CPUTimeUserTimerIterator();
-			ThreadTimeUserTimer* timer = it.Next();) {
-		timer->Start();
+	{
+		InterruptsSpinLocker schedulerLocker(thread->scheduler_lock);
+		for (ThreadTimeUserTimerList::ConstIterator it
+					= thread->CPUTimeUserTimerIterator();
+				ThreadTimeUserTimer* timer = it.Next();) {
+			timer->Start();
+		}
 	}
 }
 

@@ -1242,7 +1242,7 @@ status_t
 BlockWriter::Write(cache_transaction* transaction, bool canUnlock)
 {
 	if (fCount == 0)
-		return B_OK;
+		return fStatus;
 
 	if (canUnlock)
 		rw_lock_write_unlock(&fCache->lock);
@@ -2866,7 +2866,8 @@ block_notifier_and_writer(void* /*data*/)
 
 			flush_pending_notifications();
 			timeout -= system_time() - start;
-			continue;
+			if (timeout > 0)
+				continue;
 		}
 
 		// Write 64 blocks of each block_cache roughly every 2 seconds,

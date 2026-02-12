@@ -15,9 +15,6 @@
 #include <string.h>
 #include <sys/uio.h>
 
-#ifndef HAIKU_TARGET_PLATFORM_HAIKU
-#define user_memcpy(x...) (memcpy(x), B_OK)
-#endif
 
 /*!	This is a light-weight ring_buffer implementation.
  *	It does not provide any locking - you are supposed to ensure thread-safety
