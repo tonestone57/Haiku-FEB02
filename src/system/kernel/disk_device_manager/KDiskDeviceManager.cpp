@@ -1335,7 +1335,7 @@ KDiskDeviceManager::_Scan(const char* path, int depth)
 */
 status_t
 KDiskDeviceManager::_ScanPartition(KPartition* partition, bool async,
-	DiskSystemMap* restrictScan)
+	DiskSystemMap* restrictScan, int depth)
 {
 // TODO: There's no reason why the manager needs to be locked anymore.
 	if (!partition)
@@ -1374,14 +1374,17 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition, bool async,
 
 	// scan synchronously
 
-	return _ScanPartition(partition, restrictScan);
+	return _ScanPartition(partition, restrictScan, depth);
 }
 
 
 status_t
 KDiskDeviceManager::_ScanPartition(KPartition* partition,
-	DiskSystemMap* restrictScan)
+	DiskSystemMap* restrictScan, int depth)
 {
+	if (depth > 16)
+		return B_LINK_LIMIT;
+
 	// the partition's device must be write-locked
 	if (partition == NULL)
 		return B_BAD_VALUE;
@@ -1392,7 +1395,7 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 		// Since this partition has already children, we don't scan it
 		// again, but only its children.
 		for (int32 i = 0; KPartition* child = partition->ChildAt(i); i++) {
-			_ScanPartition(child, restrictScan);
+			_ScanPartition(child, restrictScan, depth + 1);
 		}
 		return B_OK;
 	}
@@ -1466,7 +1469,7 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 		if (error == B_OK) {
 			partition->SetDiskSystem(bestDiskSystem, bestPriority);
 			for (int32 i = 0; KPartition* child = partition->ChildAt(i); i++)
-				_ScanPartition(child, restrictScan);
+				_ScanPartition(child, restrictScan, depth + 1);
 		} else {
 			// TODO: Handle the error.
 			TRACE_ERROR("scanning failed: %s\n", strerror(error));

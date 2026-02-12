@@ -124,10 +124,10 @@ private:
 
 	status_t _Scan(const char *path, int depth = 0);
 	status_t _ScanPartition(KPartition *partition, bool async,
-		DiskSystemMap* restrictScan = NULL);
+		DiskSystemMap* restrictScan = NULL, int depth = 0);
 		// the manager must be locked and the device write locked
 	status_t _ScanPartition(KPartition *partition,
-		DiskSystemMap* restrictScan);
+		DiskSystemMap* restrictScan, int depth);
 
 	status_t _AddRemoveMonitoring(const char *path, bool add);
 

@@ -192,6 +192,8 @@ IOSchedulerSimple::Init(const char* name)
 	}
 
 	fOperationArray = new(std::nothrow) IOOperation*[count];
+	if (fOperationArray == NULL)
+		return B_NO_MEMORY;
 
 	if (fDMAResource != NULL)
 		fBlockSize = fDMAResource->BlockSize();

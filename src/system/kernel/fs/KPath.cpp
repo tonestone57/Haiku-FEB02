@@ -252,6 +252,9 @@ KPath::DetachBuffer()
 #ifdef _KERNEL_MODE
 	if (fBufferSize == B_PATH_NAME_LENGTH) {
 		buffer = (char*)malloc(fBufferSize);
+		if (buffer == NULL)
+			return NULL;
+
 		memcpy(buffer, fBuffer, fBufferSize);
 		_FreeBuffer();
 	}

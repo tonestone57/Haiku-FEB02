@@ -249,6 +249,8 @@ do_iterative_fd_io_iterate(void* _cookie, io_request* request,
 				subRequest);
 			error = vfs_vnode_io(cookie->vnode, cookie->descriptor->cookie,
 				subRequest);
+			if (error != B_OK)
+				subRequest->SetStatusAndNotify(error);
 		} else {
 			// Once scheduling a subrequest failed, we cancel all subsequent
 			// subrequests.

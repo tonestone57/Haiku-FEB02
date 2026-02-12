@@ -355,8 +355,8 @@ RingBuffer::Write(const void* data, size_t length, size_t minimum, bool isUser, 
 		}
 	}
 
-	atomic_set((int32*)&fWriteHead, (fWriteHead + length) % fBufferSize);
 	uint32 previouslyAvailable = atomic_add((int32*)&fWriteAvailable, -length);
+	atomic_set((int32*)&fWriteHead, (fWriteHead + length) % fBufferSize);
 
 	if (wasEmpty != NULL)
 		*wasEmpty = (previouslyAvailable == fBufferSize);
