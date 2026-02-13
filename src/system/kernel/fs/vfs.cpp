@@ -2143,12 +2143,22 @@ disconnect_mount_or_vnode_fds(struct fs_mount* mount,
 			// if this descriptor points at this mount, we
 			// need to disconnect it to be able to unmount
 			struct vnode* vnode = fd_vnode(descriptor);
+			bool disconnect = false;
+
 			if (vnodeToDisconnect != NULL) {
 				if (vnode == vnodeToDisconnect)
-					disconnect_fd(descriptor);
+					disconnect = true;
 			} else if ((vnode != NULL && vnode->mount == mount)
-				|| (vnode == NULL && descriptor->u.mount == mount))
+				|| (vnode == NULL && descriptor->u.mount == mount)) {
+				disconnect = true;
+			}
+
+			if (disconnect) {
 				disconnect_fd(descriptor);
+				if (context->select_infos[i] != NULL)
+					notify_select_events_list(context->select_infos[i],
+						(uint16)B_EVENT_DISCONNECTED);
+			}
 
 			put_fd(descriptor);
 		}
