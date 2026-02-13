@@ -6773,7 +6773,6 @@ _user_munlock(const void* _address, size_t size)
 	// if multiple clones of an area had mlock() called on them,
 	// munlock() must also be called on all of them to actually unlock.
 	// (At present, the first munlock() will unlock all.)
-	// TODO: fork() should automatically unlock memory in the child.
 	return user_set_memory_swappable(_address, size, true);
 }
 
