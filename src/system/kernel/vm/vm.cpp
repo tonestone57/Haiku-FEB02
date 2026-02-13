@@ -2604,25 +2604,42 @@ vm_clone_area(team_id team, const char* name, void** address,
 			VMTranslationMap* map = targetAddressSpace->TranslationMap();
 			size_t reservePages = map->MaxPagesNeededToMap(
 				newArea->Base(), newArea->Base() + (newArea->Size() - 1));
+
+			// If this is a RAM cache, we need to reserve pages for the
+			// missing ones, so we can allocate them.
+			if (cache->type == CACHE_TYPE_RAM) {
+				for (addr_t offset = 0; offset < newArea->Size();
+						offset += B_PAGE_SIZE) {
+					if (cache->LookupPage((newArea->cache_offset + offset)
+							/ B_PAGE_SIZE) == NULL) {
+						reservePages++;
+					}
+				}
+			}
+
 			vm_page_reservation reservation;
 			vm_page_reserve_pages(&reservation, reservePages,
 				targetAddressSpace == VMAddressSpace::Kernel()
 					? VM_PRIORITY_SYSTEM : VM_PRIORITY_USER);
 
 			// map in all pages from source
-			for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
-					vm_page* page  = it.Next();) {
-				if (!page->busy) {
+			for (addr_t offset = 0; offset < newArea->Size();
+					offset += B_PAGE_SIZE) {
+				off_t cacheOffset = newArea->cache_offset + offset;
+				vm_page* page = cache->LookupPage(cacheOffset / B_PAGE_SIZE);
+				if (page == NULL && cache->type == CACHE_TYPE_RAM) {
+					page = vm_page_allocate_page(&reservation,
+						PAGE_STATE_WIRED | VM_PAGE_ALLOC_CLEAR);
+					cache->InsertPage(page, cacheOffset);
+				}
+
+				if (page != NULL && !page->busy) {
 					DEBUG_PAGE_ACCESS_START(page);
-					map_page(newArea, page,
-						newArea->Base() + ((page->cache_offset << PAGE_SHIFT)
-							- newArea->cache_offset),
+					map_page(newArea, page, newArea->Base() + offset,
 						protection, &reservation);
 					DEBUG_PAGE_ACCESS_END(page);
 				}
 			}
-			// TODO: B_FULL_LOCK means that all pages are locked. We are not
-			// ensuring that!
 
 			vm_page_unreserve_pages(&reservation);
 		}
