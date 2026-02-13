@@ -1657,6 +1657,9 @@ drop_into_debugger(int argc, char **argv)
 		return 0;
 	}
 
+	// Note: This function replaces the old behavior of calling _user_debug_thread() directly.
+	// Setting the B_THREAD_DEBUG_STOP flag causes the thread to stop at the next opportunity
+	// (e.g. syscall exit), which is safer and handles concurrency correctly.
 	atomic_or(&thread->debug_info.flags, B_THREAD_DEBUG_STOP);
 	thread->ReleaseReference();
 

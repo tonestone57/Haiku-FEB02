@@ -3031,6 +3031,9 @@ vm_copy_area(team_id team, const char* name, void** _address,
 	virtual_address_restrictions addressRestrictions = {};
 	addressRestrictions.address = *_address;
 	addressRestrictions.address_specification = addressSpec;
+	// Note: We inherit the wiring of the source area (e.g. B_FULL_LOCK).
+	// However, typical mlock()ed memory uses B_NO_LOCK with wired_ranges,
+	// and wired_ranges are NOT copied, so mlock() state is correctly NOT inherited.
 	status = map_backing_store(targetAddressSpace, cache, source->cache_offset,
 		name, source->Size(), source->wiring, source->protection,
 		source->protection_max,
