@@ -6,7 +6,6 @@ This file lists potential bugs found in the kernel source code, categorized by s
 
 | File | Line | Type | Description |
 |---|---|---|---|
-| `src/system/kernel/device_manager/IORequest.cpp` | 209 | **VIP Violation / Priority Inversion** | `vm_get_physical_page` is called without VIP flags even if the IORequest is VIP. This violates the VIP requirement and can lead to deadlocks during swap operations. (Note: `vm_map_physical_memory_vecs` was fixed). |
 | `src/system/kernel/vm/vm.cpp` | 2606 | **Security / Correctness** | TODO: "B_FULL_LOCK means that all pages are locked. We are not...". The implementation might not be fully respecting `B_FULL_LOCK` semantics, potentially leading to page faults in critical sections. |
 
 ## Medium Priority

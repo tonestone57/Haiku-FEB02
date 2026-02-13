@@ -197,8 +197,14 @@ IOBuffer::GetNextVirtualVec(void*& _cookie, iovec& vector)
 			vector.iov_base = mappedAddress;
 			vector.iov_len = mappedSize;
 			return B_OK;
-		} else
+		} else {
 			ktrace_printf("failed to map area: %s\n", strerror(cookie->mapped_area));
+			// If this is a VIP request, we must not fall back to page-wise mapping,
+			// because vm_get_physical_page() does not support VIP priorities and
+			// could deadlock.
+			if (fVIP)
+				return cookie->mapped_area;
+		}
 	}
 
 	// fallback to page wise mapping
@@ -206,8 +212,6 @@ IOBuffer::GetNextVirtualVec(void*& _cookie, iovec& vector)
 	const generic_addr_t address = currentVec.base + cookie->vec_offset;
 	const size_t pageOffset = address % B_PAGE_SIZE;
 
-// TODO: This is a potential violation of the VIP requirement, since
-// vm_get_physical_page() may allocate memory without special flags!
 	status_t result = vm_get_physical_page(address - pageOffset,
 		&cookie->virtual_address, &cookie->physical_page_handle);
 	if (result != B_OK)
