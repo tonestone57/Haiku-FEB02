@@ -596,10 +596,6 @@ add_driver(const char* path, image_id image)
 
 		if (strcmp(driver->path, path) != 0
 			&& (priority >= driver->priority || sameNode)) {
-			// TODO: do properly, but for now we just update the path if it
-			// isn't the same anymore so rescanning of drivers will work in
-			// case this driver was loaded so early that it has a boot module
-			// path and not a proper driver path
 			free((char*)driver->path);
 			driver->path = strdup(path);
 			if (driver->path != NULL) {
@@ -610,16 +606,11 @@ add_driver(const char* path, image_id image)
 			}
 		}
 
-		// TODO: check if this driver is a different one and has precedence
-		// (ie. common supersedes system).
-		//dprintf("new driver has priority %ld, old %ld\n", priority, driver->priority);
 		if (priority >= driver->priority) {
 			driver->binary_updated = true;
 			return B_OK;
 		}
 
-		// TODO: test for changes here and/or via node monitoring and reload
-		//	the driver if necessary
 		if (driver->image < B_OK)
 			return driver->image;
 
@@ -1118,14 +1109,26 @@ start_watching(const char* base, const char* sub)
 	KPath path(base);
 	path.Append(sub);
 
-	// TODO: create missing directories?
-	struct stat stat;
-	if (::stat(path.Path(), &stat) != 0) {
-		if (_kern_create_dir(-1, path.Path(), 0755) != B_OK)
-			return;
-		if (::stat(path.Path(), &stat) != 0)
-			return;
+	char* pathBuffer = path.LockBuffer();
+	if (pathBuffer != NULL) {
+		char* p = pathBuffer;
+		if (*p == '/')
+			p++;
+
+		while ((p = strchr(p, '/')) != NULL) {
+			*p = '\0';
+			_kern_create_dir(-1, pathBuffer, 0755);
+			*p = '/';
+			p++;
+		}
+		path.UnlockBuffer();
 	}
+
+	_kern_create_dir(-1, path.Path(), 0755);
+
+	struct stat stat;
+	if (::stat(path.Path(), &stat) != 0)
+		return;
 
 	add_node_listener(stat.st_dev, stat.st_ino, B_WATCH_DIRECTORY,
 		sDirectoryWatcher);

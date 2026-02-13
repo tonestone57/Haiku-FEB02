@@ -361,12 +361,16 @@ ConditionVariable::NotifyAll(const void* object, status_t result)
 ConditionVariable::_Notify(const void* object, bool all, status_t result)
 {
 	InterruptsLocker ints;
-	ReadSpinLocker hashLocker(sConditionVariableHashLock);
-	ConditionVariable* variable = sConditionVariableHash.Lookup(object);
-	if (variable == NULL)
-		return 0;
-	SpinLocker variableLocker(variable->fLock);
-	hashLocker.Unlock();
+	SpinLocker variableLocker;
+	ConditionVariable* variable;
+
+	{
+		ReadSpinLocker hashLocker(sConditionVariableHashLock);
+		variable = sConditionVariableHash.Lookup(object);
+		if (variable == NULL)
+			return 0;
+		variableLocker.SetTo(variable->fLock);
+	}
 
 	return variable->_NotifyLocked(all, result);
 }
