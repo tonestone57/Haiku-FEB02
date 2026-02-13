@@ -1357,7 +1357,6 @@ LegacyDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 void
 LegacyDevice::SetHooks(device_hooks* hooks)
 {
-	// TODO: setup compatibility layer!
 	fHooks = hooks;
 
 	fDeviceModule->close = hooks->close;

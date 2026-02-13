@@ -12,5 +12,4 @@ This file lists potential bugs found in the kernel source code, categorized by s
 
 | File | Line | Type | Description |
 |---|---|---|---|
-| `src/system/kernel/device_manager/legacy_drivers.cpp` | 523, 596, 606 | **Code Smell** | TODOs indicating temporary or suboptimal logic in driver loading. |
 | `src/system/kernel/device_manager/legacy_drivers.cpp` | 614, 1077 | **Missing Feature** | Missing hot-reloading features. |
