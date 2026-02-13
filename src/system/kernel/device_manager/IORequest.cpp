@@ -23,6 +23,13 @@
 #include "dma_resources.h"
 
 
+// TODO: This should be in a header!
+extern "C" area_id vm_map_physical_memory_vecs_etc(team_id team,
+	const char* name, void** _address, uint32 addressSpec, addr_t* _size,
+	uint32 protection, struct generic_io_vec* vecs, uint32 vecCount,
+	uint32 flags);
+
+
 //#define TRACE_IO_REQUEST
 #ifdef TRACE_IO_REQUEST
 #	define TRACE(x...) dprintf(x)
@@ -170,17 +177,20 @@ IOBuffer::GetNextVirtualVec(void*& _cookie, iovec& vector)
 	}
 
 	if (cookie->vec_index == 0
-			&& (fVecCount > 1 || fVecs[0].length > B_PAGE_SIZE)) {
+			&& (fVecCount > 1 || fVecs[0].length > B_PAGE_SIZE || fVIP)) {
 		void* mappedAddress;
 		addr_t mappedSize;
 		ASSERT(cookie->mapped_area < 0);
 
-// TODO: This is a potential violation of the VIP requirement, since
-// vm_map_physical_memory_vecs() allocates memory without special flags!
-		cookie->mapped_area = vm_map_physical_memory_vecs(
+		uint32 flags = 0;
+		if (fVIP)
+			flags |= CREATE_AREA_PRIORITY_VIP;
+
+		cookie->mapped_area = vm_map_physical_memory_vecs_etc(
 			VMAddressSpace::KernelID(), "io buffer mapped physical vecs",
 			&mappedAddress, B_ANY_KERNEL_ADDRESS, &mappedSize,
-			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA, fVecs, fVecCount);
+			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA, fVecs, fVecCount,
+			flags);
 
 		if (cookie->mapped_area >= 0) {
 			vector.iov_base = mappedAddress;
@@ -195,8 +205,6 @@ IOBuffer::GetNextVirtualVec(void*& _cookie, iovec& vector)
 	const generic_addr_t address = currentVec.base + cookie->vec_offset;
 	const size_t pageOffset = address % B_PAGE_SIZE;
 
-// TODO: This is a potential violation of the VIP requirement, since
-// vm_get_physical_page() may allocate memory without special flags!
 	status_t result = vm_get_physical_page(address - pageOffset,
 		&cookie->virtual_address, &cookie->physical_page_handle);
 	if (result != B_OK)
