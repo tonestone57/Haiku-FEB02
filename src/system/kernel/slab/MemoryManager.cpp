@@ -554,8 +554,6 @@ MemoryManager::InitPostArea()
 /*static*/ status_t
 MemoryManager::Allocate(ObjectCache* cache, uint32 flags, void*& _pages)
 {
-	// TODO: Support CACHE_UNLOCKED_PAGES!
-
 	T(Allocate(cache, flags));
 
 	size_t chunkSize = cache->slab_size;
@@ -1372,7 +1370,7 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 		vmArea = VMAreas::Lookup(areaID);
 		vmArea->protection = B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA;
 		status_t error = _MapChunk(vmArea, (addr_t)area, kAreaAdminSize,
-			pagesNeededToMap * B_PAGE_SIZE, flags);
+			pagesNeededToMap * B_PAGE_SIZE, flags & ~CACHE_UNLOCKED_PAGES);
 		if (error != B_OK) {
 			delete_area(areaID);
 			mutex_lock(&sLock);
@@ -1538,15 +1536,20 @@ MemoryManager::_MapChunk(VMArea* vmArea, addr_t address, size_t size,
 	// map the pages
 	translationMap->Lock();
 
+	bool unlocked = (flags & CACHE_UNLOCKED_PAGES) != 0;
+
 	addr_t areaOffset = address - vmArea->Base();
 	addr_t endAreaOffset = areaOffset + size;
 	for (size_t offset = areaOffset; offset < endAreaOffset;
 			offset += B_PAGE_SIZE) {
-		vm_page* page = vm_page_allocate_page(&reservation, PAGE_STATE_WIRED);
+		vm_page* page = vm_page_allocate_page(&reservation,
+			unlocked ? PAGE_STATE_ACTIVE : PAGE_STATE_WIRED);
 		cache->InsertPage(page, offset);
 
-		page->IncrementWiredCount();
-		atomic_add(&gMappedPagesCount, 1);
+		if (!unlocked) {
+			page->IncrementWiredCount();
+			atomic_add(&gMappedPagesCount, 1);
+		}
 		DEBUG_PAGE_ACCESS_END(page);
 
 		error = translationMap->Map(vmArea->Base() + offset,
@@ -1556,8 +1559,10 @@ MemoryManager::_MapChunk(VMArea* vmArea, addr_t address, size_t size,
 		if (error != B_OK) {
 			// clean up the page
 			DEBUG_PAGE_ACCESS_START(page);
-			page->DecrementWiredCount();
-			atomic_add(&gMappedPagesCount, -1);
+			if (!unlocked) {
+				page->DecrementWiredCount();
+				atomic_add(&gMappedPagesCount, -1);
+			}
 			cache->RemovePage(page);
 			vm_page_free_etc(cache, page, &reservation);
 
@@ -1602,10 +1607,13 @@ MemoryManager::_UnmapChunk(VMArea* vmArea, addr_t address, size_t size,
 	VMTranslationMap* translationMap = addressSpace->TranslationMap();
 	VMCache* cache = vm_area_get_locked_cache(vmArea);
 
+	bool unlocked = (flags & CACHE_UNLOCKED_PAGES) != 0;
+
 	// unmap the pages
 	translationMap->Lock();
 	translationMap->Unmap(address, address + size - 1);
-	atomic_add(&gMappedPagesCount, -(size / B_PAGE_SIZE));
+	if (!unlocked)
+		atomic_add(&gMappedPagesCount, -(size / B_PAGE_SIZE));
 	translationMap->Unlock();
 
 	// free the pages
@@ -1620,7 +1628,8 @@ MemoryManager::_UnmapChunk(VMArea* vmArea, addr_t address, size_t size,
 
 		DEBUG_PAGE_ACCESS_START(page);
 
-		page->DecrementWiredCount();
+		if (!unlocked)
+			page->DecrementWiredCount();
 
 		cache->RemovePage(page);
 			// the iterator is remove-safe

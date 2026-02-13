@@ -8,9 +8,6 @@ This file lists potential bugs found in the kernel source code, categorized by s
 |---|---|---|---|
 | `src/system/kernel/fs/vfs.cpp` | 1208 | **Missing Feature** | `acquire_advisory_lock` has a TODO: "deadlock detection is complex and currently deferred". This means local file locking deadlocks are possible and undetected. |
 | `src/system/kernel/fs/vfs.cpp` | 1992 | **Missing Feature** | `disconnect_mount_or_vnode_fds`: "TODO: there is currently no means to stop a blocking read/write!". Unmounting a busy FS might hang or leave threads blocked indefinitely. |
-| `src/system/kernel/thread.cpp` | 1719 | **Concurrency Issue** | `drop_into_debugger` calls `_user_debug_thread` with a comment: "TODO: This is a non-trivial syscall doing some locking, so this is really nasty and may go seriously wrong." |
-| `src/system/kernel/vm/vm.cpp` | 6709 | **Logic Error** | TODO: "fork() should automatically unlock memory in the child.". Missing feature that might lead to memory accounting issues or unexpected behavior in children. |
-| `src/system/kernel/slab/MemoryManager.cpp` | 557 | **Missing Feature** | TODO: "Support CACHE_UNLOCKED_PAGES!". |
 | `src/system/kernel/disk_device_manager/KDiskDeviceManager.cpp` | 674 | **Locking Issue** | TODO: "This won't do. Locking the DDM while scanning the partition is not a...". Performance/Concurrency issue. |
 
 ## Low Priority / Code Quality / Potential Issues
