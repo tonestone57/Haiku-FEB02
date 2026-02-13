@@ -17,6 +17,7 @@ This file lists potential bugs found in the kernel source code, categorized by s
 
 | File | Line | Type | Description |
 |---|---|---|---|
+| `src/system/kernel/port.cpp` | 639 | **Manual Locking** | `create_port` uses `mutex_lock` manually (via `new Port`). |
 | `src/system/kernel/device_manager/legacy_drivers.cpp` | 523, 596, 606 | **Code Smell** | TODOs indicating temporary or suboptimal logic in driver loading. |
 | `src/system/kernel/device_manager/legacy_drivers.cpp` | 614, 1077 | **Missing Feature** | Missing hot-reloading features. |
 | `src/system/kernel/device_manager/IOCache.cpp` | 323, 343 | **Optimization** | Optimization opportunities for read requests and low memory handling. |
