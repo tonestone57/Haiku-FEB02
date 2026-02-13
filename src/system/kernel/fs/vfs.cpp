@@ -56,6 +56,7 @@
 #include <util/AutoLock.h>
 #include <util/ThreadAutoLock.h>
 #include <util/DoublyLinkedList.h>
+#include <condition_variable.h>
 #include <vfs.h>
 #include <vm/vm.h>
 #include <vm/VMCache.h>
@@ -171,6 +172,7 @@ struct fs_mount {
 	KPartition*		partition;
 	VnodeList		vnodes;
 	EntryCache		entry_cache;
+	ConditionVariable unused_condition;
 	bool			unmounting;
 	bool			owns_file_device;
 };
@@ -873,6 +875,7 @@ remove_vnode_from_mount_list(struct vnode* vnode, struct fs_mount* mount)
 {
 	MutexLocker _(mount->lock);
 	mount->vnodes.Remove(vnode);
+	mount->unused_condition.NotifyAll();
 }
 
 
@@ -8066,8 +8069,12 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 
 		if (disconnectedDescriptors) {
 			// wait a bit until the last access is finished, and then try again
+			ConditionVariableEntry entry;
+			mount->unused_condition.Add(&entry);
+
 			vnodesWriteLocker.Unlock();
-			snooze(10000);
+			entry.Wait(B_RELATIVE_TIMEOUT, 10000);
+
 			// TODO: if there is some kind of bug that prevents the ref counts
 			// from getting back to zero, this will fall into an endless loop...
 			if (++tries > 500) {
@@ -9869,14 +9876,19 @@ _user_create_pipe(int* userFDs, int flags)
 	int fds[2];
 	fds[0] = open_vnode(vnode, O_RDONLY | O_NONBLOCK | flags, false);
 	fds[1] = open_vnode(vnode, O_WRONLY | flags, false);
-	// Reset O_NONBLOCK if requested
-	if ((flags & O_NONBLOCK) == 0)
-		common_fcntl(fds[0], F_SETFL, flags & O_NONBLOCK, false);
-
 	FDCloser closer0(fds[0], false);
 	FDCloser closer1(fds[1], false);
 
 	status = (fds[0] >= 0 ? (fds[1] >= 0 ? B_OK : fds[1]) : fds[0]);
+	if (status != B_OK)
+		return status;
+
+	// Reset O_NONBLOCK if requested
+	if ((flags & O_NONBLOCK) == 0) {
+		status = common_fcntl(fds[0], F_SETFL, flags & O_NONBLOCK, false);
+		if (status != B_OK)
+			return status;
+	}
 
 	// copy FDs to userland
 	if (status == B_OK) {

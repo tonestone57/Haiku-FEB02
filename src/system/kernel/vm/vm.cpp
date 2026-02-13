@@ -2045,12 +2045,12 @@ vm_map_physical_memory(team_id team, const char* name, void** _address,
 area_id
 vm_map_physical_memory_vecs(team_id team, const char* name, void** _address,
 	uint32 addressSpec, addr_t* _size, uint32 protection,
-	struct generic_io_vec* vecs, uint32 vecCount)
+	struct generic_io_vec* vecs, uint32 vecCount, uint32 flags)
 {
 	TRACE(("vm_map_physical_memory_vecs(team = %" B_PRId32 ", \"%s\", virtual "
 		"= %p, spec = %" B_PRIu32 ", _size = %p, protection = %" B_PRIu32 ", "
-		"vecs = %p, vecCount = %" B_PRIu32 ")\n", team, name, *_address,
-		addressSpec, _size, protection, vecs, vecCount));
+		"vecs = %p, vecCount = %" B_PRIu32 ", flags = %#" B_PRIx32 ")\n", team,
+		name, *_address, addressSpec, _size, protection, vecs, vecCount, flags));
 
 	if (!arch_vm_supports_protection(protection)
 		|| (addressSpec & B_MEMORY_TYPE_MASK) != 0) {
@@ -2089,8 +2089,9 @@ vm_map_physical_memory_vecs(team_id team, const char* name, void** _address,
 	addressRestrictions.address = *_address;
 	addressRestrictions.address_specification = addressSpec & ~B_MEMORY_TYPE_MASK;
 	result = map_backing_store(locker.AddressSpace(), cache, 0, name, size,
-		B_FULL_LOCK, protection, 0, REGION_NO_PRIVATE_MAP, CREATE_AREA_DONT_COMMIT_MEMORY,
-		&addressRestrictions, true, &area, _address);
+		B_FULL_LOCK, protection, 0, REGION_NO_PRIVATE_MAP,
+		CREATE_AREA_DONT_COMMIT_MEMORY | flags, &addressRestrictions, true,
+		&area, _address);
 
 	if (result != B_OK)
 		cache->ReleaseRefLocked();
@@ -2592,19 +2593,27 @@ vm_clone_area(team_id team, const char* name, void** address,
 					? VM_PRIORITY_SYSTEM : VM_PRIORITY_USER);
 
 			// map in all pages from source
-			for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
-					vm_page* page  = it.Next();) {
-				if (!page->busy) {
+			for (addr_t offset = 0; offset < newArea->Size();
+					offset += B_PAGE_SIZE) {
+				off_t cacheOffset = newArea->cache_offset + offset;
+				vm_page* page = cache->LookupPage(cacheOffset / B_PAGE_SIZE);
+				if (page != NULL && !page->busy) {
 					DEBUG_PAGE_ACCESS_START(page);
-					map_page(newArea, page,
-						newArea->Base() + ((page->cache_offset << PAGE_SHIFT)
-							- newArea->cache_offset),
+					map_page(newArea, page, newArea->Base() + offset,
 						protection, &reservation);
 					DEBUG_PAGE_ACCESS_END(page);
+				} else if (page == NULL && cache->type == CACHE_TYPE_RAM) {
+					// if the page is missing, and we are using a RAM cache, we
+					// can just allocate a new page
+					page = vm_page_allocate_page(&reservation,
+						PAGE_STATE_WIRED | VM_PAGE_ALLOC_CLEAR);
+					if (page != NULL) {
+						cache->InsertPage(page, cacheOffset);
+						map_page(newArea, page, newArea->Base() + offset,
+							protection, &reservation);
+					}
 				}
 			}
-			// TODO: B_FULL_LOCK means that all pages are locked. We are not
-			// ensuring that!
 
 			vm_page_unreserve_pages(&reservation);
 		}
