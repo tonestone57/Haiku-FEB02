@@ -1037,45 +1037,45 @@ PPCVMTranslationMap460::ClearAccessedAndModified(VMArea* area,
 {
 	ASSERT(address % B_PAGE_SIZE == 0);
 
-	// TODO: Implement for real! ATM this is just an approximation using
-	// Query(), ClearFlags(), and UnmapPage(). See below!
-
 	RecursiveLocker locker(fLock);
 
-	uint32 flags;
-	phys_addr_t physicalAddress;
-	if (Query(address, &physicalAddress, &flags) != B_OK
-		|| (flags & PAGE_PRESENT) == 0) {
+	page_table_entry* entry = LookupPageTableEntry(address);
+	if (entry == NULL)
 		return false;
+
+	if (entry->changed) {
+		entry->changed = false;
+		_modified = true;
 	}
 
-	_modified = (flags & PAGE_MODIFIED) != 0;
+	bool accessed = entry->referenced;
+	if (accessed)
+		entry->referenced = false;
 
-	if ((flags & (PAGE_ACCESSED | PAGE_MODIFIED)) != 0)
-		ClearFlags(address, flags & (PAGE_ACCESSED | PAGE_MODIFIED));
+	if (entry->changed || accessed) {
+		tlbie(address);
+		eieio();
+		tlbsync();
+		ppc_sync();
+	}
 
-	if ((flags & PAGE_ACCESSED) != 0)
+	if (accessed)
 		return true;
 
 	if (!unmapIfUnaccessed)
 		return false;
 
-	locker.Unlock();
+	// The page has not been accessed - unmap it.
+	page_num_t pageNumber = entry->physical_page_number;
+	RemovePageTableEntry(address);
+	fMapCount--;
 
-	UnmapPage(area, address, false);
-		// TODO: Obvious race condition: Between querying and unmapping the
-		// page could have been accessed. We try to compensate by considering
-		// vm_page::{accessed,modified} (which would have been updated by
-		// UnmapPage()) below, but that doesn't quite match the required
-		// semantics of the method.
+	locker.Detach();
+		// PageUnmapped() will unlock for us
 
-	vm_page* page = vm_lookup_page(physicalAddress / B_PAGE_SIZE);
-	if (page == NULL)
-		return false;
+	PageUnmapped(area, pageNumber, false, _modified, false);
 
-	_modified |= page->modified;
-
-	return page->accessed;
+	return false;
 
 #if 0//X86
 	page_directory_entry* pd = fPagingStructures->pgdir_virt;

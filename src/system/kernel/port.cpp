@@ -120,6 +120,7 @@ struct Port : public KernelReferenceable {
 	Port*				hash_link;
 	port_id				id;
 	team_id				owner;
+	Team*				owner_team;
 	Port*				name_hash_link;
 	size_t				name_hash;
 	int32				capacity;
@@ -134,9 +135,10 @@ struct Port : public KernelReferenceable {
 	select_info*		select_infos;
 	MessageList			messages;
 
-	Port(team_id owner, int32 queueLength, const char* name)
+	Port(team_id owner, Team* team, int32 queueLength, const char* name)
 		:
 		owner(owner),
+		owner_team(team),
 		name_hash(0),
 		capacity(queueLength),
 		state(kUnused),
@@ -155,7 +157,7 @@ struct Port : public KernelReferenceable {
 	virtual ~Port()
 	{
 		while (port_message* message = messages.RemoveHead())
-			put_port_message(message);
+			put_port_message(message, owner_team);
 
 		mutex_destroy(&lock);
 	}
@@ -670,10 +672,13 @@ is_port_closed(Port* port)
 
 
 static void
-put_port_message(port_message* message)
+put_port_message(port_message* message, Team* ownerTeam)
 {
 	const size_t size = sizeof(port_message) + message->size;
 	free(message);
+
+	if (ownerTeam != NULL)
+		atomic_add(&ownerTeam->port_space_committed, -(int32)size);
 
 	atomic_add(&sTotalSpaceCommited, -size);
 	if (atomic_get(&sWaitingForSpace) > 0)
@@ -691,9 +696,16 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 	while (true) {
 		int32 previouslyCommited = atomic_add(&sTotalSpaceCommited, size);
 
-		while (previouslyCommited + size > kTotalSpaceLimit) {
-			// TODO: add per team limit
+		bool teamLimitReached = false;
+		if (port.owner_team != NULL) {
+			int32 teamCommited = atomic_add(&port.owner_team->port_space_committed, (int32)size);
+			if (teamCommited + size > kTeamSpaceLimit) {
+				teamLimitReached = true;
+				atomic_add(&port.owner_team->port_space_committed, -(int32)size);
+			}
+		}
 
+		while (teamLimitReached || previouslyCommited + size > kTotalSpaceLimit) {
 			// We are not allowed to allocate more memory, as our
 			// space limit has been reached - just wait until we get
 			// some free space again.
@@ -999,7 +1011,7 @@ create_port(int32 queueLength, const char* name)
 	// create a port
 	BReference<Port> port;
 	{
-		Port* newPort = new(std::nothrow) Port(team_get_current_team_id(),
+		Port* newPort = new(std::nothrow) Port(team->id, team,
 			queueLength, name != NULL ? name : "unnamed port");
 		if (newPort == NULL)
 			return B_NO_MEMORY;
@@ -1551,7 +1563,7 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 	size_t size = copy_port_message(message, _code, buffer, bufferSize,
 		userCopy);
 
-	put_port_message(message);
+	put_port_message(message, portRef->owner_team);
 	return size;
 }
 
@@ -1678,7 +1690,7 @@ writev_port_etc(port_id id, int32 msgCode, const iovec* msgVecs,
 				status_t status = user_memcpy(message->buffer + offset,
 					msgVecs[i].iov_base, bytes);
 				if (status != B_OK) {
-					put_port_message(message);
+					put_port_message(message, portRef->owner_team);
 					goto error;
 				}
 			} else
@@ -1768,7 +1780,19 @@ set_port_owner(port_id id, team_id newTeamID)
 
 			list_remove_link(&portRef->team_link);
 			list_add_item(&team->port_list, portRef.Get());
+
+			// Transfer committed space from old owner to new owner
+			int32 committed = 0;
+			for (MessageList::Iterator it = portRef->messages.GetIterator();
+					port_message* message = it.Next();) {
+				committed += sizeof(port_message) + message->size;
+			}
+			if (portRef->owner_team)
+				atomic_add(&portRef->owner_team->port_space_committed, -committed);
+			atomic_add(&team->port_space_committed, committed);
+
 			portRef->owner = team->id;
+			portRef->owner_team = team;
 			team->num_ports++;
 		} else {
 			// Port was already deleted. We haven't changed anything yet so
