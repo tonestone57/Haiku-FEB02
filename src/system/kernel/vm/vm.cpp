@@ -2045,12 +2045,12 @@ vm_map_physical_memory(team_id team, const char* name, void** _address,
 area_id
 vm_map_physical_memory_vecs(team_id team, const char* name, void** _address,
 	uint32 addressSpec, addr_t* _size, uint32 protection,
-	struct generic_io_vec* vecs, uint32 vecCount, uint32 flags)
+	struct generic_io_vec* vecs, uint32 vecCount)
 {
 	TRACE(("vm_map_physical_memory_vecs(team = %" B_PRId32 ", \"%s\", virtual "
 		"= %p, spec = %" B_PRIu32 ", _size = %p, protection = %" B_PRIu32 ", "
-		"vecs = %p, vecCount = %" B_PRIu32 ", flags = %#" B_PRIx32 ")\n", team,
-		name, *_address, addressSpec, _size, protection, vecs, vecCount, flags));
+		"vecs = %p, vecCount = %" B_PRIu32 ")\n", team, name, *_address,
+		addressSpec, _size, protection, vecs, vecCount));
 
 	if (!arch_vm_supports_protection(protection)
 		|| (addressSpec & B_MEMORY_TYPE_MASK) != 0) {
@@ -2089,9 +2089,8 @@ vm_map_physical_memory_vecs(team_id team, const char* name, void** _address,
 	addressRestrictions.address = *_address;
 	addressRestrictions.address_specification = addressSpec & ~B_MEMORY_TYPE_MASK;
 	result = map_backing_store(locker.AddressSpace(), cache, 0, name, size,
-		B_FULL_LOCK, protection, 0, REGION_NO_PRIVATE_MAP,
-		CREATE_AREA_DONT_COMMIT_MEMORY | flags, &addressRestrictions, true,
-		&area, _address);
+		B_FULL_LOCK, protection, 0, REGION_NO_PRIVATE_MAP, CREATE_AREA_DONT_COMMIT_MEMORY,
+		&addressRestrictions, true, &area, _address);
 
 	if (result != B_OK)
 		cache->ReleaseRefLocked();

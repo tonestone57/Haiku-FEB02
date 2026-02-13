@@ -175,11 +175,12 @@ IOBuffer::GetNextVirtualVec(void*& _cookie, iovec& vector)
 		addr_t mappedSize;
 		ASSERT(cookie->mapped_area < 0);
 
+// TODO: This is a potential violation of the VIP requirement, since
+// vm_map_physical_memory_vecs() allocates memory without special flags!
 		cookie->mapped_area = vm_map_physical_memory_vecs(
 			VMAddressSpace::KernelID(), "io buffer mapped physical vecs",
 			&mappedAddress, B_ANY_KERNEL_ADDRESS, &mappedSize,
-			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA, fVecs, fVecCount,
-			fVIP ? CREATE_AREA_PRIORITY_VIP : 0);
+			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA, fVecs, fVecCount);
 
 		if (cookie->mapped_area >= 0) {
 			vector.iov_base = mappedAddress;
