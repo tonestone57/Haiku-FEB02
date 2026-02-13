@@ -2042,7 +2042,7 @@ vm_map_physical_memory(team_id team, const char* name, void** _address,
 	contiguous virtual memory in IOBuffer::GetNextVirtualVec(). It does
 	use a device cache and does not track vm_page::wired_count!
 */
-area_id
+extern "C" area_id
 vm_map_physical_memory_vecs_etc(team_id team, const char* name, void** _address,
 	uint32 addressSpec, addr_t* _size, uint32 protection,
 	struct generic_io_vec* vecs, uint32 vecCount, uint32 flags)
