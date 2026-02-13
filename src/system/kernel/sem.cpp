@@ -1063,38 +1063,42 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 
 	InterruptsSpinLocker semListLocker(sSemsSpinlock);
 
-	// TODO: find a way to iterate the list that is more reliable
+	// Iterating by ID is more reliable against deletions
 	sem_entry* sem = (sem_entry*)list_get_first_item(&team->sem_list);
-	int32 newIndex = *_cookie;
-	int32 index = 0;
-	bool found = false;
+	int32 lastID = *_cookie;
+	int32 nextID = -1;
+	sem_entry* nextSem = NULL;
 
-	while (!found) {
-		// find the next entry to be returned
-		while (sem != NULL && index < newIndex) {
-			sem = (sem_entry*)list_get_next_item(&team->sem_list, sem);
-			index++;
-		}
-
-		if (sem == NULL)
-			return B_BAD_VALUE;
-
+	while (sem != NULL) {
 		SpinLocker _(sem->lock);
-
 		if (sem->id != -1 && sem->u.used.owner == team->id) {
-			// found one!
-			fill_sem_info(sem, info, size);
-			newIndex = index + 1;
-			found = true;
-		} else
-			newIndex++;
+			if (sem->id > lastID) {
+				if (nextID == -1 || sem->id < nextID) {
+					nextID = sem->id;
+					nextSem = sem;
+				}
+			}
+		}
+		// unlock explicitly to allow iteration
+		// (SpinLocker destructor would do it at end of scope, but we want it done before getting next item)
+		// Actually, scoping handles it if we use a block, but here it's inside while loop.
+		// Wait, we can't let SpinLocker unlock AFTER getting next item if next item depends on list lock?
+		// We hold list lock (sSemsSpinlock). So getting next item is safe regardless of sem lock.
+		// So standard scoping is fine.
+
+		sem = (sem_entry*)list_get_next_item(&team->sem_list, sem);
 	}
 
-	if (!found)
-		return B_BAD_VALUE;
+	if (nextSem != NULL) {
+		SpinLocker _(nextSem->lock);
+		if (nextSem->id == nextID && nextSem->u.used.owner == team->id) {
+			fill_sem_info(nextSem, info, size);
+			*_cookie = nextID;
+			return B_OK;
+		}
+	}
 
-	*_cookie = newIndex;
-	return B_OK;
+	return B_BAD_VALUE;
 }
 
 

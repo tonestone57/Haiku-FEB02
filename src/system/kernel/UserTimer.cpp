@@ -1075,9 +1075,13 @@ ThreadTimeUserTimer::Stop()
 	CancelTimer();
 	fScheduled = false;
 
-	// TODO: To avoid odd race conditions, we should check the current time of
-	// the thread (ignoring the time since last_time) and manually fire the
-	// user event, if necessary.
+	if (fNextTime <= fThread->CPUTime(false)) {
+		HandleTimer();
+		if (fScheduled) {
+			CancelTimer();
+			fScheduled = false;
+		}
+	}
 }
 
 

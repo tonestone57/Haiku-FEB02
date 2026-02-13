@@ -56,6 +56,7 @@
 #include <util/AutoLock.h>
 #include <util/ThreadAutoLock.h>
 #include <util/DoublyLinkedList.h>
+#include <condition_variable.h>
 #include <vfs.h>
 #include <vm/vm.h>
 #include <vm/VMCache.h>
@@ -171,6 +172,7 @@ struct fs_mount {
 	KPartition*		partition;
 	VnodeList		vnodes;
 	EntryCache		entry_cache;
+	ConditionVariable unused_condition;
 	bool			unmounting;
 	bool			owns_file_device;
 };
@@ -873,6 +875,7 @@ remove_vnode_from_mount_list(struct vnode* vnode, struct fs_mount* mount)
 {
 	MutexLocker _(mount->lock);
 	mount->vnodes.Remove(vnode);
+	mount->unused_condition.NotifyAll();
 }
 
 
@@ -1179,7 +1182,8 @@ get_vnode(dev_t mountID, ino_t vnodeID, struct vnode** _vnode, bool canWait,
 	FUNCTION(("get_vnode: mountid %" B_PRId32 " vnid 0x%" B_PRIx64 " %p\n",
 		mountID, vnodeID, _vnode));
 
-	rw_lock_read_lock(&sVnodeLock);
+	if (rw_lock_read_lock(&sVnodeLock) != B_OK)
+		return B_ERROR;
 
 	int32 tries = BUSY_VNODE_RETRIES;
 restart:
@@ -2172,12 +2176,15 @@ lookup_dir_entry(struct vnode* dir, const char* name, struct vnode** _vnode)
 
 	// The lookup() hook calls get_vnode() or publish_vnode(), so we do already
 	// have a reference and just need to look the node up.
-	rw_lock_read_lock(&sVnodeLock);
+	status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
+
 	*_vnode = lookup_vnode(dir->device, id);
 	rw_lock_read_unlock(&sVnodeLock);
 
 	if (*_vnode == NULL) {
-		panic("lookup_dir_entry(): could not lookup vnode (mountid 0x%" B_PRIx32
+		dprintf("lookup_dir_entry(): could not lookup vnode (mountid 0x%" B_PRIx32
 			" vnid 0x%" B_PRIx64 ")\n", dir->device, id);
 		return B_ENTRY_NOT_FOUND;
 	}
@@ -4401,7 +4408,9 @@ vfs_open_vnode(struct vnode* vnode, int openMode, bool kernel)
 extern "C" status_t
 vfs_lookup_vnode(dev_t mountID, ino_t vnodeID, struct vnode** _vnode)
 {
-	rw_lock_read_lock(&sVnodeLock);
+	if (rw_lock_read_lock(&sVnodeLock) != B_OK)
+		return B_ERROR;
+
 	struct vnode* vnode = lookup_vnode(mountID, vnodeID);
 	rw_lock_read_unlock(&sVnodeLock);
 
@@ -4841,10 +4850,11 @@ vfs_get_vnode_cache(struct vnode* vnode, VMCache** _cache, bool allocate)
 		return B_OK;
 	}
 
-	rw_lock_read_lock(&sVnodeLock);
-	vnode->Lock();
+	status_t status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
 
-	status_t status = B_OK;
+	vnode->Lock();
 
 	// The cache could have been created in the meantime
 	if (vnode->cache == NULL) {
@@ -4886,10 +4896,11 @@ vfs_get_vnode_cache(struct vnode* vnode, VMCache** _cache, bool allocate)
 extern "C" status_t
 vfs_set_vnode_cache(struct vnode* vnode, VMCache* _cache)
 {
-	rw_lock_read_lock(&sVnodeLock);
-	vnode->Lock();
+	status_t status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
 
-	status_t status = B_OK;
+	vnode->Lock();
 	if (vnode->cache != NULL) {
 		status = B_NOT_ALLOWED;
 	} else {
@@ -5634,7 +5645,10 @@ create_vnode(struct vnode* directory, const char* name, int openMode,
 
 	// the node has been created successfully
 
-	rw_lock_read_lock(&sVnodeLock);
+	status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
+
 	vnode.SetTo(lookup_vnode(directory->device, newID));
 	rw_lock_read_unlock(&sVnodeLock);
 
@@ -6418,7 +6432,10 @@ common_fcntl(int fd, int op, size_t argument, bool kernel)
 			// Set file descriptor flags
 
 			// O_CLOEXEC and O_CLOFORK are the only flags available at this time
-			rw_lock_write_lock(&context->lock);
+			status = rw_lock_write_lock(&context->lock);
+			if (status != B_OK)
+				break;
+
 			fd_set_close_on_exec(context, fd, (argument & FD_CLOEXEC) != 0);
 			fd_set_close_on_fork(context, fd, (argument & FD_CLOFORK) != 0);
 			rw_lock_write_unlock(&context->lock);
@@ -6430,7 +6447,10 @@ common_fcntl(int fd, int op, size_t argument, bool kernel)
 		case F_GETFD:
 		{
 			// Get file descriptor flags
-			rw_lock_read_lock(&context->lock);
+			status = rw_lock_read_lock(&context->lock);
+			if (status != B_OK)
+				break;
+
 			status = fd_close_on_exec(context, fd) ? FD_CLOEXEC : 0;
 			status |= fd_close_on_fork(context, fd) ? FD_CLOFORK : 0;
 			rw_lock_read_unlock(&context->lock);
@@ -8015,6 +8035,7 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 	WriteLocker vnodesWriteLocker(&sVnodeLock);
 
 	bool disconnectedDescriptors = false;
+	int32 tries = 0;
 
 	while (true) {
 		bool busy = false;
@@ -8056,10 +8077,19 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 
 		if (disconnectedDescriptors) {
 			// wait a bit until the last access is finished, and then try again
+			ConditionVariableEntry entry;
+			mount->unused_condition.Add(&entry);
+
 			vnodesWriteLocker.Unlock();
-			snooze(100000);
+			entry.Wait(B_RELATIVE_TIMEOUT, 10000);
+
 			// TODO: if there is some kind of bug that prevents the ref counts
 			// from getting back to zero, this will fall into an endless loop...
+			if (++tries > 500) {
+				dprintf("fs_unmount: gave up waiting for vnodes to become unused\n");
+				vnodesWriteLocker.Lock();
+				break;
+			}
 			vnodesWriteLocker.Lock();
 			continue;
 		}
@@ -8207,30 +8237,30 @@ fs_sync(dev_t device)
 			// do while holding fs_mount::lock.
 
 		// synchronize access to vnode list
-		mutex_lock(&mount->lock);
+		{
+			MutexLocker _(mount->lock);
 
-		struct vnode* vnode;
-		if (!marker.IsRemoved()) {
-			vnode = mount->vnodes.GetNext(&marker);
-			mount->vnodes.Remove(&marker);
-			marker.SetRemoved(true);
-		} else
-			vnode = mount->vnodes.First();
+			struct vnode* vnode;
+			if (!marker.IsRemoved()) {
+				vnode = mount->vnodes.GetNext(&marker);
+				mount->vnodes.Remove(&marker);
+				marker.SetRemoved(true);
+			} else
+				vnode = mount->vnodes.First();
 
-		while (vnode != NULL && (vnode->cache == NULL
-			|| vnode->IsRemoved() || vnode->IsBusy())) {
-			// TODO: we could track writes (and writable mapped vnodes)
-			//	and have a simple flag that we could test for here
-			vnode = mount->vnodes.GetNext(vnode);
+			while (vnode != NULL && (vnode->cache == NULL
+				|| vnode->IsRemoved() || vnode->IsBusy())) {
+				// TODO: we could track writes (and writable mapped vnodes)
+				//	and have a simple flag that we could test for here
+				vnode = mount->vnodes.GetNext(vnode);
+			}
+
+			if (vnode != NULL) {
+				// insert marker vnode again
+				mount->vnodes.InsertBefore(mount->vnodes.GetNext(vnode), &marker);
+				marker.SetRemoved(false);
+			}
 		}
-
-		if (vnode != NULL) {
-			// insert marker vnode again
-			mount->vnodes.InsertBefore(mount->vnodes.GetNext(vnode), &marker);
-			marker.SetRemoved(false);
-		}
-
-		mutex_unlock(&mount->lock);
 
 		if (vnode == NULL)
 			break;
@@ -9854,14 +9884,19 @@ _user_create_pipe(int* userFDs, int flags)
 	int fds[2];
 	fds[0] = open_vnode(vnode, O_RDONLY | O_NONBLOCK | flags, false);
 	fds[1] = open_vnode(vnode, O_WRONLY | flags, false);
-	// Reset O_NONBLOCK if requested
-	if ((flags & O_NONBLOCK) == 0)
-		common_fcntl(fds[0], F_SETFL, flags & O_NONBLOCK, false);
-
 	FDCloser closer0(fds[0], false);
 	FDCloser closer1(fds[1], false);
 
 	status = (fds[0] >= 0 ? (fds[1] >= 0 ? B_OK : fds[1]) : fds[0]);
+	if (status != B_OK)
+		return status;
+
+	// Reset O_NONBLOCK if requested
+	if ((flags & O_NONBLOCK) == 0) {
+		status = common_fcntl(fds[0], F_SETFL, flags & O_NONBLOCK, false);
+		if (status != B_OK)
+			return status;
+	}
 
 	// copy FDs to userland
 	if (status == B_OK) {

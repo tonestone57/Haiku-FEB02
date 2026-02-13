@@ -28,6 +28,7 @@
 #include <util/OpenHashTable.h>
 #include <util/Stack.h>
 #include <vfs.h>
+#include <syscalls.h>
 
 #include "AbstractModuleDevice.h"
 #include "devfs_private.h"
@@ -520,9 +521,7 @@ change_driver_watcher(dev_t device, ino_t node, bool add)
 static int32
 get_priority(const char* path)
 {
-	// TODO: would it be better to initialize a static structure here
-	// using find_directory()?
-	const directory_which whichPath[] = {
+	static const directory_which whichPath[] = {
 		B_SYSTEM_DIRECTORY,
 		B_SYSTEM_NONPACKAGED_DIRECTORY,
 		B_USER_DIRECTORY
@@ -592,15 +591,23 @@ add_driver(const char* path, image_id image)
 	legacy_driver* driver = sDriverHash->Lookup(get_leaf(path));
 	if (driver != NULL) {
 		// we know this driver
-		if (strcmp(driver->path, path) != 0 && priority >= driver->priority) {
+		bool sameNode = stat.st_dev == driver->device
+			&& stat.st_ino == driver->node;
+
+		if (strcmp(driver->path, path) != 0
+			&& (priority >= driver->priority || sameNode)) {
 			// TODO: do properly, but for now we just update the path if it
 			// isn't the same anymore so rescanning of drivers will work in
 			// case this driver was loaded so early that it has a boot module
 			// path and not a proper driver path
 			free((char*)driver->path);
 			driver->path = strdup(path);
-			driver->name = get_leaf(driver->path);
-			driver->binary_updated = true;
+			if (driver->path != NULL) {
+				driver->name = get_leaf(driver->path);
+				driver->binary_updated = true;
+				if (sameNode)
+					driver->priority = priority;
+			}
 		}
 
 		// TODO: check if this driver is a different one and has precedence
@@ -1073,9 +1080,9 @@ DirectoryWatcher::EventOccurred(NotificationService& service,
 			directory = from;
 			opcode = B_ENTRY_REMOVED;
 		} else {
-			// Move within, don't do anything for now
-			// TODO: adjust driver priority if necessary
-			return;
+			// Move within
+			directory = to;
+			opcode = B_ENTRY_CREATED;
 		}
 	}
 
@@ -1113,8 +1120,12 @@ start_watching(const char* base, const char* sub)
 
 	// TODO: create missing directories?
 	struct stat stat;
-	if (::stat(path.Path(), &stat) != 0)
-		return;
+	if (::stat(path.Path(), &stat) != 0) {
+		if (_kern_create_dir(-1, path.Path(), 0755) != B_OK)
+			return;
+		if (::stat(path.Path(), &stat) != 0)
+			return;
+	}
 
 	add_node_listener(stat.st_dev, stat.st_ino, B_WATCH_DIRECTORY,
 		sDirectoryWatcher);

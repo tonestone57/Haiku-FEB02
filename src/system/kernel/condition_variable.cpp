@@ -151,13 +151,14 @@ ConditionVariableEntry::_RemoveFromVariable()
 		cpu_pause();
 	}
 
+	SpinLocker locker(variable->fLock, true);
+
 	// We now hold the variable's lock. Remove ourselves.
 	if (fVariable->fEntries.Contains(this))
 		fVariable->fEntries.Remove(this);
 
 	atomic_pointer_set(&fVariable, (ConditionVariable*)NULL);
 	atomic_add(&variable->fEntriesCount, -1);
-	release_spinlock(&variable->fLock);
 }
 
 
@@ -313,7 +314,9 @@ ConditionVariable::Wait(mutex* lock, uint32 flags, bigtime_t timeout)
 	Add(&entry);
 	mutex_unlock(lock);
 	status_t res = entry.Wait(flags, timeout);
-	mutex_lock(lock);
+	status_t lockStatus = mutex_lock(lock);
+	if (lockStatus != B_OK)
+		return lockStatus;
 	return res;
 }
 
@@ -330,8 +333,11 @@ ConditionVariable::Wait(recursive_lock* lock, uint32 flags, bigtime_t timeout)
 
 	status_t res = entry.Wait(flags, timeout);
 
-	for (int32 i = 0; i < recursion; i++)
-		recursive_lock_lock(lock);
+	for (int32 i = 0; i < recursion; i++) {
+		status_t lockStatus = recursive_lock_lock(lock);
+		if (lockStatus != B_OK)
+			return lockStatus;
+	}
 
 	return res;
 }

@@ -304,6 +304,9 @@ struct file_descriptor*
 get_fd(const struct io_context* context, int fd)
 {
 	ReadLocker locker(context->lock);
+	if (!locker.IsLocked())
+		return NULL;
+
 	return get_fd_locked(context, fd);
 }
 

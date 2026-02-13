@@ -38,6 +38,7 @@
 #include <ksignal.h>
 #include <Notifications.h>
 #include <real_time_clock.h>
+#include <sem.h>
 #include <slab/Slab.h>
 #include <smp.h>
 #include <syscalls.h>
@@ -1428,70 +1429,6 @@ receive_data_etc(thread_id *_sender, void *buffer, size_t bufferSize,
 }
 
 
-static status_t
-common_getrlimit(int resource, struct rlimit * rlp)
-{
-	if (!rlp)
-		return B_BAD_ADDRESS;
-
-	switch (resource) {
-		case RLIMIT_AS:
-			rlp->rlim_cur = __HAIKU_ADDR_MAX;
-			rlp->rlim_max = __HAIKU_ADDR_MAX;
-			return B_OK;
-
-		case RLIMIT_CORE:
-			rlp->rlim_cur = 0;
-			rlp->rlim_max = 0;
-			return B_OK;
-
-		case RLIMIT_DATA:
-			rlp->rlim_cur = RLIM_INFINITY;
-			rlp->rlim_max = RLIM_INFINITY;
-			return B_OK;
-
-		case RLIMIT_NOFILE:
-		case RLIMIT_NOVMON:
-			return vfs_getrlimit(resource, rlp);
-
-		case RLIMIT_STACK:
-		{
-			rlp->rlim_cur = USER_MAIN_THREAD_STACK_SIZE;
-			rlp->rlim_max = USER_MAIN_THREAD_STACK_SIZE;
-			return B_OK;
-		}
-
-		default:
-			return EINVAL;
-	}
-
-	return B_OK;
-}
-
-
-static status_t
-common_setrlimit(int resource, const struct rlimit * rlp)
-{
-	if (!rlp)
-		return B_BAD_ADDRESS;
-
-	switch (resource) {
-		case RLIMIT_CORE:
-			// We don't support core file, so allow settings to 0/0 only.
-			if (rlp->rlim_cur != 0 || rlp->rlim_max != 0)
-				return EINVAL;
-			return B_OK;
-
-		case RLIMIT_NOFILE:
-		case RLIMIT_NOVMON:
-			return vfs_setrlimit(resource, rlp);
-
-		default:
-			return EINVAL;
-	}
-
-	return B_OK;
-}
 
 
 static status_t
@@ -1702,7 +1639,6 @@ make_thread_resumed(int argc, char **argv)
 static int
 drop_into_debugger(int argc, char **argv)
 {
-	status_t err;
 	int32 id;
 
 	if (argc > 2) {
@@ -1715,13 +1651,16 @@ drop_into_debugger(int argc, char **argv)
 	else
 		id = strtoul(argv[1], NULL, 0);
 
-	err = _user_debug_thread(id);
-		// TODO: This is a non-trivial syscall doing some locking, so this is
-		// really nasty and may go seriously wrong.
-	if (err)
-		kprintf("drop failed\n");
-	else
-		kprintf("thread %" B_PRId32 " dropped into user debugger\n", id);
+	Thread* thread = Thread::Get(id);
+	if (thread == NULL) {
+		kprintf("thread %" B_PRId32 " not found\n", id);
+		return 0;
+	}
+
+	atomic_or(&thread->debug_info.flags, B_THREAD_DEBUG_STOP);
+	thread->ReleaseReference();
+
+	kprintf("thread %" B_PRId32 " dropped into user debugger\n", id);
 
 	return 0;
 }
@@ -2516,7 +2455,8 @@ thread_reset_for_exec(void)
 	thread->DeleteUserTimers(true);
 
 	// cancel pre-defined timer
-	if (UserTimer* timer = thread->UserTimerFor(USER_TIMER_REAL_TIME_ID))
+	UserTimer* timer = thread->UserTimerFor(USER_TIMER_REAL_TIME_ID);
+	if (timer != NULL)
 		timer->Cancel();
 
 	// reset user_thread and user stack
@@ -3541,30 +3481,6 @@ spawn_kernel_thread(thread_func function, const char *name, int32 priority,
 }
 
 
-int
-getrlimit(int resource, struct rlimit * rlp)
-{
-	status_t error = common_getrlimit(resource, rlp);
-	if (error != B_OK) {
-		errno = error;
-		return -1;
-	}
-
-	return 0;
-}
-
-
-int
-setrlimit(int resource, const struct rlimit * rlp)
-{
-	status_t error = common_setrlimit(resource, rlp);
-	if (error != B_OK) {
-		errno = error;
-		return -1;
-	}
-
-	return 0;
-}
 
 
 //	#pragma mark - syscalls
@@ -3975,50 +3891,6 @@ _user_unblock_threads(thread_id* userThreads, uint32 count, status_t status)
 }
 
 
-// TODO: the following two functions don't belong here
-
-
-int
-_user_getrlimit(int resource, struct rlimit *urlp)
-{
-	struct rlimit rl;
-	int ret;
-
-	if (urlp == NULL)
-		return EINVAL;
-
-	if (!IS_USER_ADDRESS(urlp))
-		return B_BAD_ADDRESS;
-
-	ret = common_getrlimit(resource, &rl);
-
-	if (ret == 0) {
-		ret = user_memcpy(urlp, &rl, sizeof(struct rlimit));
-		if (ret < 0)
-			return ret;
-
-		return 0;
-	}
-
-	return ret;
-}
-
-
-int
-_user_setrlimit(int resource, const struct rlimit *userResourceLimit)
-{
-	struct rlimit resourceLimit;
-
-	if (userResourceLimit == NULL)
-		return EINVAL;
-
-	if (!IS_USER_ADDRESS(userResourceLimit)
-		|| user_memcpy(&resourceLimit, userResourceLimit,
-			sizeof(struct rlimit)) < B_OK)
-		return B_BAD_ADDRESS;
-
-	return common_setrlimit(resource, &resourceLimit);
-}
 
 
 int

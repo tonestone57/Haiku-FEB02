@@ -80,30 +80,115 @@ Bitmap::Shift(ssize_t bitCount)
 void
 Bitmap::SetRange(size_t index, size_t count)
 {
-	// TODO: optimize
-	for (; count > 0; count--)
-		Set(index++);
+	if (count == 0)
+		return;
+
+	ASSERT(index + count <= fSize);
+
+	size_t startWord = index / kBitsPerElement;
+	size_t endWord = (index + count) / kBitsPerElement;
+	size_t startBit = index % kBitsPerElement;
+	size_t endBit = (index + count) % kBitsPerElement;
+
+	if (startWord == endWord) {
+		addr_t mask;
+		if (count == kBitsPerElement)
+			mask = ~(addr_t)0;
+		else
+			mask = ((addr_t(1) << count) - 1) << startBit;
+		fBits[startWord] |= mask;
+	} else {
+		if (startBit > 0) {
+			fBits[startWord++] |= ~(addr_t(0)) << startBit;
+		}
+
+		while (startWord < endWord) {
+			fBits[startWord++] = ~(addr_t(0));
+		}
+
+		if (endBit > 0) {
+			fBits[endWord] |= (addr_t(1) << endBit) - 1;
+		}
+	}
 }
 
 
 void
 Bitmap::ClearRange(size_t index, size_t count)
 {
-	// TODO: optimize
-	for (; count > 0; count--)
-		Clear(index++);
+	if (count == 0)
+		return;
+
+	ASSERT(index + count <= fSize);
+
+	size_t startWord = index / kBitsPerElement;
+	size_t endWord = (index + count) / kBitsPerElement;
+	size_t startBit = index % kBitsPerElement;
+	size_t endBit = (index + count) % kBitsPerElement;
+
+	if (startWord == endWord) {
+		addr_t mask;
+		if (count == kBitsPerElement)
+			mask = ~(addr_t)0;
+		else
+			mask = ((addr_t(1) << count) - 1) << startBit;
+		fBits[startWord] &= ~mask;
+	} else {
+		if (startBit > 0) {
+			fBits[startWord++] &= ~(~(addr_t(0)) << startBit);
+		}
+
+		while (startWord < endWord) {
+			fBits[startWord++] = 0;
+		}
+
+		if (endBit > 0) {
+			fBits[endWord] &= ~((addr_t(1) << endBit) - 1);
+		}
+	}
 }
 
 
 ssize_t
 Bitmap::GetLowestClear(size_t fromIndex) const
 {
-	// TODO: optimize
+	if (fromIndex >= fSize)
+		return -1;
 
-	for (size_t i = fromIndex; i < fSize; i++) {
-		if (!Get(i))
-			return i;
+	size_t startWord = fromIndex / kBitsPerElement;
+	size_t startBit = fromIndex % kBitsPerElement;
+
+	// Check the first word specially
+	addr_t word = fBits[startWord];
+	if (startBit > 0)
+		word |= (addr_t(1) << startBit) - 1;
+
+	if (word != ~(addr_t(0))) {
+		for (size_t k = startBit; k < kBitsPerElement; k++) {
+			if (!((word >> k) & 1)) {
+				size_t result = startWord * kBitsPerElement + k;
+				if (result >= fSize)
+					return -1;
+				return result;
+			}
+		}
 	}
+
+	size_t endWord = (fSize + kBitsPerElement - 1) / kBitsPerElement;
+	for (size_t i = startWord + 1; i < endWord; i++) {
+		word = fBits[i];
+		if (word != ~(addr_t(0))) {
+			for (size_t k = 0; k < kBitsPerElement; k++) {
+				if (!((word >> k) & 1)) {
+					size_t result = i * kBitsPerElement + k;
+					if (result >= fSize)
+						return -1;
+					return result;
+				}
+			}
+		}
+	}
+
 	return -1;
 }
 
@@ -111,29 +196,67 @@ Bitmap::GetLowestClear(size_t fromIndex) const
 ssize_t
 Bitmap::GetLowestContiguousClear(size_t count, size_t fromIndex) const
 {
-	// TODO: optimize
-
-	// nothing to find
 	if (count == 0)
 		return fromIndex;
+	if (fromIndex >= fSize)
+		return -1;
 
 	for (;;) {
 		ssize_t index = GetLowestClear(fromIndex);
 		if (index < 0)
-			return index;
-
-		// overflow check
-		if ((size_t)index + count - 1 < (size_t)index)
 			return -1;
 
-		size_t curCount = 1;
-		while (curCount < count && Get(index + curCount))
-			curCount++;
+		if (count > fSize || index > fSize - count)
+			return -1;
 
-		if (curCount == count)
+		// Check if [index + 1, index + count) is clear
+		bool allClear = true;
+		size_t i = 1;
+
+		// Align to word boundary
+		while (i < count && (index + i) % kBitsPerElement != 0) {
+			if (Get(index + i)) {
+				allClear = false;
+				break;
+			}
+			i++;
+		}
+
+		if (allClear) {
+			// Check full words
+			while (i + kBitsPerElement <= count) {
+				size_t wordIdx = (index + i) / kBitsPerElement;
+				addr_t word = fBits[wordIdx];
+				if (word != 0) {
+					allClear = false;
+					// Find the first set bit to skip properly
+					for (size_t k = 0; k < kBitsPerElement; k++) {
+						if ((word >> k) & 1) {
+							i += k;
+							break;
+						}
+					}
+					break;
+				}
+				i += kBitsPerElement;
+			}
+		}
+
+		if (allClear) {
+			// Check remaining bits
+			while (i < count) {
+				if (Get(index + i)) {
+					allClear = false;
+					break;
+				}
+				i++;
+			}
+		}
+
+		if (allClear)
 			return index;
 
-		fromIndex = index + curCount;
+		fromIndex = index + i + 1;
 	}
 }
 
