@@ -852,8 +852,10 @@ heap_validate_heap(heap_allocator *heap)
 	struct BinLocker {
 		BinLocker(heap_allocator *heap) : fHeap(heap)
 		{
-			for (uint32 i = 0; i < fHeap->bin_count; i++)
-				mutex_lock(&fHeap->bins[i].lock);
+		for (uint32 i = 0; i < fHeap->bin_count; i++) {
+			if (mutex_lock(&fHeap->bins[i].lock) != B_OK)
+				panic("heap_validate_heap: failed to lock heap bin");
+		}
 		}
 		~BinLocker()
 		{

@@ -697,8 +697,6 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 
 			atomic_add(&sTotalSpaceCommited, -size);
 
-			// TODO: we don't want to wait - but does that also mean we
-			// shouldn't wait for free memory?
 			if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0)
 				return B_WOULD_BLOCK;
 
