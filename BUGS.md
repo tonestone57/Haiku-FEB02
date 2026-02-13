@@ -2,16 +2,6 @@
 
 This file lists potential bugs found in the kernel source code, categorized by severity and type.
 
-## Critical / High Priority
-
-| File | Line | Type | Description |
-|---|---|---|---|
-| `src/system/kernel/fs/vfs.cpp` | 2156 | **Live Lock** | `fs_unmount` busy-waits in a loop with `snooze(100000)` if vnodes are still referenced. This can lead to a live lock if the reference count never drops. Documented in TODO comment (line 2200). |
-| `src/system/kernel/device_manager/IORequest.cpp` | 178, 198 | **VIP Violation / Priority Inversion** | `vm_map_physical_memory_vecs` and `vm_get_physical_page` are called without VIP flags even if the IORequest is VIP. This violates the VIP requirement and can lead to deadlocks during swap operations. |
-| `src/system/kernel/vm/vm.cpp` | 2606 | **Security / Correctness** | TODO: "B_FULL_LOCK means that all pages are locked. We are not...". The implementation might not be fully respecting `B_FULL_LOCK` semantics, potentially leading to page faults in critical sections. |
-| `src/system/kernel/timer.cpp` | 418 | **Logic Error** | FIXME: "Theoretically we should be able to skip this if (previous == NULL). But it seems adding that causes problems on some systems, possibly due to some other bug." |
-| `src/system/kernel/debug/debug.cpp` | 662 | **Code Smell / Hack** | "HACK ALERT!!! If we get a $ at the beginning of the line...". Hardcoded parser hack in debug output. |
-
 ## Medium Priority
 
 | File | Line | Type | Description |
