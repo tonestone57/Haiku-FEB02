@@ -17,20 +17,10 @@ This file lists potential bugs found in the kernel source code, categorized by s
 
 | File | Line | Type | Description |
 |---|---|---|---|
-| `src/system/kernel/heap.cpp` | 1056 | **Manual Locking** | `heap_validate_heap` manually locks all bins in a loop. |
-| `src/system/kernel/image.cpp` | 99, 138, 212, 239 | **Manual Locking** | Various functions in `image.cpp` use manual locking. |
-| `src/system/kernel/locks/lock.cpp` | 15, 105 | **Manual Locking** | Manual `mutex_lock` usage. |
-| `src/system/kernel/port.cpp` | 639 | **Manual Locking** | `create_port` uses `mutex_lock` manually (via `new Port`). |
-| `src/system/kernel/condition_variable.cpp` | 316 | **Manual Locking** | `ConditionVariable::NotifyAll` uses manual lock/unlock. |
 | `src/system/kernel/device_manager/legacy_drivers.cpp` | 523, 596, 606 | **Code Smell** | TODOs indicating temporary or suboptimal logic in driver loading. |
-| `src/system/kernel/device_manager/legacy_drivers.cpp` | 614, 1077, 1114 | **Missing Feature** | Missing hot-reloading features and directory creation. |
+| `src/system/kernel/device_manager/legacy_drivers.cpp` | 614, 1077 | **Missing Feature** | Missing hot-reloading features. |
 | `src/system/kernel/device_manager/IOCache.cpp` | 323, 343 | **Optimization** | Optimization opportunities for read requests and low memory handling. |
-| `src/system/kernel/device_manager/IOCache.cpp` | 675 | **Testing** | TODO: "_MapPages() cannot fail, so the fallback is never needed. Test which". |
 | `src/system/kernel/fs/vfs.cpp` | 1818, 1839 | **Concurrency** | TODOs regarding deadlock detection and lock joining. |
 | `src/system/kernel/port.cpp` | 692, 700 | **Resource Management** | TODOs for team limits and wait logic. |
 | `src/system/kernel/sem.cpp` | 756 | **Cleanup** | "TODO: the B_CHECK_PERMISSION flag should be made private". |
-| `src/system/kernel/elf.cpp` | 678 | **Logic** | "TODO: Revise the default version case!". |
-| `src/system/kernel/thread.cpp` | 3978 | **Code Organization** | "TODO: the following two functions don't belong here". |
-| `src/system/kernel/cpu.cpp` | 194 | **Missing Feature** | "TODO: data cache". |
 | `src/system/kernel/arch/ppc/paging/460/PPCVMTranslationMap460.cpp` | 1066 | **Race Condition** | TODO: "Obvious race condition: Between querying and unmapping the". |
-| `src/system/kernel/arch/arm/arch_system_info.cpp` | 43 | **Missing Feature** | TODO: "node->data.core.default_frequency = sCPUClockFrequency;". |

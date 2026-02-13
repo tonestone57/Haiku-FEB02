@@ -415,7 +415,7 @@ cancel_timer(timer* event)
 		event->cpu = 0xffff;
 
 		// If on the current CPU, also reset the hardware timer.
-		if (cpu == smp_get_current_cpu() && previous == NULL) {
+		if (cpu == smp_get_current_cpu()) {
 			if (cpuData.events == NULL)
 				arch_timer_clear_hardware_timer();
 			else

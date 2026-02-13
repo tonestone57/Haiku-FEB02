@@ -2643,6 +2643,38 @@ vm_clone_area(team_id team, const char* name, void** address,
 
 			vm_page_unreserve_pages(&reservation);
 		}
+	} else {
+		VMTranslationMap* map = targetAddressSpace->TranslationMap();
+		size_t reservePages = map->MaxPagesNeededToMap(
+			newArea->Base(), newArea->Base() + (newArea->Size() - 1));
+
+		vm_page_reservation reservation;
+		vm_page_reserve_pages(&reservation, reservePages,
+			targetAddressSpace == VMAddressSpace::Kernel()
+				? VM_PRIORITY_SYSTEM : VM_PRIORITY_USER);
+
+		uint32 pageProtection = protection;
+		if (newArea->cache != cache)
+			pageProtection &= ~(B_WRITE_AREA | B_KERNEL_WRITE_AREA);
+
+		for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
+				vm_page* page = it.Next();) {
+			if (page->cache_offset >= newArea->cache_offset / B_PAGE_SIZE
+				&& page->cache_offset < (newArea->cache_offset
+					+ newArea->Size()) / B_PAGE_SIZE) {
+				off_t offset = ((off_t)page->cache_offset * B_PAGE_SIZE)
+					- newArea->cache_offset;
+
+				if (!page->busy) {
+					DEBUG_PAGE_ACCESS_START(page);
+					map_page(newArea, page, newArea->Base() + offset,
+						pageProtection, &reservation);
+					DEBUG_PAGE_ACCESS_END(page);
+				}
+			}
+		}
+
+		vm_page_unreserve_pages(&reservation);
 	}
 
 	newArea->cache_type = sourceArea->cache_type;

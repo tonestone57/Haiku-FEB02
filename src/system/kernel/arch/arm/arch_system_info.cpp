@@ -39,8 +39,8 @@ arch_fill_topology_node(cpu_topology_node_info* node, int32 cpu)
 			break;
 
 		case B_TOPOLOGY_CORE:
-			//TODO node->data.core.model = sPVR;
-			//TODO node->data.core.default_frequency = sCPUClockFrequency;
+			node->data.core.model = sPVR;
+			node->data.core.default_frequency = sCPUClockFrequency;
 			break;
 
 		default:
