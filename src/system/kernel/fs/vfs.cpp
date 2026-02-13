@@ -1951,8 +1951,12 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 								break;
 							}
 						}
-						if (!found)
-							conflictingTeams.PushBack(lock->team);
+						if (!found) {
+							if (conflictingTeams.PushBack(lock->team) != B_OK) {
+								put_advisory_locking(locking);
+								return B_NO_MEMORY;
+							}
+						}
 					}
 				}
 			}

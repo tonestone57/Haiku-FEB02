@@ -705,12 +705,16 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 			}
 		}
 
-		while (teamLimitReached || previouslyCommited + size > kTotalSpaceLimit) {
+		if (teamLimitReached || previouslyCommited + size > kTotalSpaceLimit) {
 			// We are not allowed to allocate more memory, as our
 			// space limit has been reached - just wait until we get
 			// some free space again.
 
 			atomic_add(&sTotalSpaceCommited, -size);
+
+			// If we acquired team space but failed due to global space, release it.
+			if (!teamLimitReached && port.owner_team != NULL)
+				atomic_add(&port.owner_team->port_space_committed, -(int32)size);
 
 			if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0)
 				return B_WOULD_BLOCK;
@@ -743,7 +747,6 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 			if (status == B_TIMED_OUT)
 				return B_TIMED_OUT;
 
-			previouslyCommited = atomic_add(&sTotalSpaceCommited, size);
 			continue;
 		}
 
