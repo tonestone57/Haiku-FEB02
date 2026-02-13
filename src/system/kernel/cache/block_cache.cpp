@@ -1683,6 +1683,10 @@ block_cache::~block_cache()
 status_t
 block_cache::Init()
 {
+	// sMarkCache relies on the link being at offset 0
+	if ((void*)&sMarkCache != (void*)(block_cache*)&sMarkCache)
+		panic("block_cache link offset != 0");
+
 	rw_lock_init(&lock, "block cache");
 	B_INITIALIZE_SPINLOCK(&unused_blocks_lock);
 
@@ -1952,10 +1956,11 @@ block_cache::_GetUnusedBlock()
 		ASSERT(block->original_data == NULL && block->parent_data == NULL);
 		block->unused = false;
 
-		// TODO: see if compare data is handled correctly here!
 #if BLOCK_CACHE_DEBUG_CHANGED
-		if (block->compare != NULL)
+		if (block->compare != NULL) {
 			Free(block->compare);
+			block->compare = NULL;
+		}
 #endif
 		return block;
 	}
@@ -2858,7 +2863,8 @@ get_next_locked_block_cache(block_cache* last)
 		cache = sCaches.Head();
 
 	if (cache != NULL) {
-		rw_lock_write_lock(&cache->lock);
+		if (rw_lock_write_lock(&cache->lock) != B_OK)
+			panic("get_next_locked_block_cache(): could not write lock cache %p!", cache);
 		sCaches.InsertBefore(sCaches.GetNext(cache), (block_cache*)&sMarkCache);
 	}
 
@@ -3735,10 +3741,12 @@ block_cache_delete(void* _cache, bool allowWrites)
 	if (allowWrites)
 		block_cache_sync(cache);
 
-	if (mutex_lock(&sCachesLock) != B_OK)
-		panic("block_cache_delete(): could not lock sCachesLock!");
-	sCaches.Remove(cache);
-	mutex_unlock(&sCachesLock);
+	{
+		MutexLocker locker(sCachesLock);
+		if (!locker.IsLocked())
+			panic("block_cache_delete(): could not lock sCachesLock!");
+		sCaches.Remove(cache);
+	}
 
 	if (rw_lock_write_lock(&cache->lock) != B_OK)
 		panic("block_cache_delete(): could not write lock cache %p!", cache);

@@ -673,7 +673,7 @@ put_port_message(port_message* message)
 	free(message);
 
 	atomic_add(&sTotalSpaceCommited, -size);
-	if (sWaitingForSpace > 0)
+	if (atomic_get(&sWaitingForSpace) > 0)
 		sNoSpaceCondition.NotifyAll();
 }
 
@@ -705,13 +705,15 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 			ConditionVariableEntry entry;
 			sNoSpaceCondition.Add(&entry);
 
-			port_id portID = port.id;
-			mutex_unlock(&port.lock);
-
 			atomic_add(&sWaitingForSpace, 1);
 
-			// TODO: right here the condition could be notified and we'd
-			//       miss it.
+			if (atomic_get(&sTotalSpaceCommited) + size <= kTotalSpaceLimit) {
+				atomic_add(&sWaitingForSpace, -1);
+				continue;
+			}
+
+			port_id portID = port.id;
+			mutex_unlock(&port.lock);
 
 			status_t status = entry.Wait(flags, timeout);
 
@@ -1301,32 +1303,31 @@ _get_next_port_info(team_id teamID, int32* _cookie, struct port_info* info,
 	const uint8 lockIndex = teamID % kTeamListLockCount;
 	MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
 
-	int32 stopIndex = *_cookie;
-	int32 index = 0;
+	int32 lastID = *_cookie;
+	Port* nextPort = NULL;
 
 	Port* port = (Port*)list_get_first_item(&team->port_list);
 	while (port != NULL) {
-		if (!is_port_closed(port)) {
-			if (index == stopIndex)
-				break;
-			index++;
+		if (!is_port_closed(port) && port->id >= lastID) {
+			if (nextPort == NULL || port->id < nextPort->id)
+				nextPort = port;
 		}
 
 		port = (Port*)list_get_next_item(&team->port_list, port);
 	}
 
-	if (port == NULL)
+	if (nextPort == NULL)
 		return B_BAD_PORT_ID;
 
 	// fill in the port info
-	BReference<Port> portRef = port;
+	BReference<Port> portRef = nextPort;
 	teamPortsListLocker.Unlock();
 		// Only use portRef below this line...
 
 	MutexLocker locker(portRef->lock);
 	fill_port_info(portRef, info, size);
 
-	*_cookie = stopIndex + 1;
+	*_cookie = nextPort->id + 1;
 	return B_OK;
 }
 

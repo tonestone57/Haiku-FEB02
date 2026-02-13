@@ -2521,9 +2521,10 @@ load_kernel_add_on(const char *path)
 		load_elf_symbol_table(fd, image);
 
 	free(programHeaders);
-	mutex_lock(&sImageMutex);
-	status = register_elf_image(image);
-	mutex_unlock(&sImageMutex);
+	{
+		MutexLocker _(sImageMutex);
+		status = register_elf_image(image);
+	}
 	if (status != B_OK)
 		goto error2;
 

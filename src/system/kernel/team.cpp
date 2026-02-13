@@ -763,7 +763,8 @@ Team::UnlockTeamAndProcessGroup()
 void
 Team::SetName(const char* name)
 {
-	if (const char* lastSlash = strrchr(name, '/'))
+	const char* lastSlash = strrchr(name, '/');
+	if (lastSlash != NULL)
 		name = lastSlash + 1;
 
 	strlcpy(fName, name, B_OS_NAME_LENGTH);
@@ -2019,8 +2020,10 @@ load_image_internal(char**& _flatArgs, size_t flatArgsSize, int32 argCount,
 		team->Unlock();
 		teamLoadingReference.Unset();
 
-		if (loadingInfo.result < B_OK)
-			return loadingInfo.result;
+		if (loadingInfo.result < B_OK) {
+			status = loadingInfo.result;
+			goto err6;
+		}
 	}
 
 	return thread;

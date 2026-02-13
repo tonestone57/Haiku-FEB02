@@ -672,9 +672,6 @@ IOCache::_CopyPages(IORequest* request, size_t pagesRelativeOffset,
 
 	// map the pages
 	status_t error = _MapPages(firstPage, endPage);
-// TODO: _MapPages() cannot fail, so the fallback is never needed. Test which
-// method is faster (probably the active one)!
-#if 0
 	if (error != B_OK) {
 		// fallback to copying individual pages
 		size_t inPageOffset = pagesRelativeOffset % B_PAGE_SIZE;
@@ -712,7 +709,6 @@ IOCache::_CopyPages(IORequest* request, size_t pagesRelativeOffset,
 
 		return B_OK;
 	}
-#endif	// 0
 
 	// copy
 	if (toRequest) {
@@ -753,9 +749,13 @@ IOCache::_MapPages(size_t firstPage, size_t endPage)
 		ASSERT_PRINT(page->State() == PAGE_STATE_UNUSED,
 			"page: %p @! page -m %p", page, page);
 
-		translationMap->Map((addr_t)fAreaBase + i * B_PAGE_SIZE,
+		status_t error = translationMap->Map((addr_t)fAreaBase + i * B_PAGE_SIZE,
 			page->physical_page_number * B_PAGE_SIZE,
 			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA, 0, &fMappingReservation);
+		if (error != B_OK) {
+			translationMap->Unlock();
+			return error;
+		}
 		// NOTE: We don't increment gMappedPagesCount. Our pages have state
 		// PAGE_STATE_UNUSED anyway and we map them only for a short time.
 	}

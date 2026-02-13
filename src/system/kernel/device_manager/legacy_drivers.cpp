@@ -28,6 +28,7 @@
 #include <util/OpenHashTable.h>
 #include <util/Stack.h>
 #include <vfs.h>
+#include <syscalls.h>
 
 #include "AbstractModuleDevice.h"
 #include "devfs_private.h"
@@ -1119,8 +1120,12 @@ start_watching(const char* base, const char* sub)
 
 	// TODO: create missing directories?
 	struct stat stat;
-	if (::stat(path.Path(), &stat) != 0)
-		return;
+	if (::stat(path.Path(), &stat) != 0) {
+		if (_kern_create_dir(-1, path.Path(), 0755) != B_OK)
+			return;
+		if (::stat(path.Path(), &stat) != 0)
+			return;
+	}
 
 	add_node_listener(stat.st_dev, stat.st_ino, B_WATCH_DIRECTORY,
 		sDirectoryWatcher);

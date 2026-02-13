@@ -1182,7 +1182,8 @@ get_vnode(dev_t mountID, ino_t vnodeID, struct vnode** _vnode, bool canWait,
 	FUNCTION(("get_vnode: mountid %" B_PRId32 " vnid 0x%" B_PRIx64 " %p\n",
 		mountID, vnodeID, _vnode));
 
-	rw_lock_read_lock(&sVnodeLock);
+	if (rw_lock_read_lock(&sVnodeLock) != B_OK)
+		return B_ERROR;
 
 	int32 tries = BUSY_VNODE_RETRIES;
 restart:
@@ -2175,7 +2176,10 @@ lookup_dir_entry(struct vnode* dir, const char* name, struct vnode** _vnode)
 
 	// The lookup() hook calls get_vnode() or publish_vnode(), so we do already
 	// have a reference and just need to look the node up.
-	rw_lock_read_lock(&sVnodeLock);
+	status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
+
 	*_vnode = lookup_vnode(dir->device, id);
 	rw_lock_read_unlock(&sVnodeLock);
 
@@ -4404,7 +4408,9 @@ vfs_open_vnode(struct vnode* vnode, int openMode, bool kernel)
 extern "C" status_t
 vfs_lookup_vnode(dev_t mountID, ino_t vnodeID, struct vnode** _vnode)
 {
-	rw_lock_read_lock(&sVnodeLock);
+	if (rw_lock_read_lock(&sVnodeLock) != B_OK)
+		return B_ERROR;
+
 	struct vnode* vnode = lookup_vnode(mountID, vnodeID);
 	rw_lock_read_unlock(&sVnodeLock);
 
@@ -4844,10 +4850,11 @@ vfs_get_vnode_cache(struct vnode* vnode, VMCache** _cache, bool allocate)
 		return B_OK;
 	}
 
-	rw_lock_read_lock(&sVnodeLock);
-	vnode->Lock();
+	status_t status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
 
-	status_t status = B_OK;
+	vnode->Lock();
 
 	// The cache could have been created in the meantime
 	if (vnode->cache == NULL) {
@@ -4889,10 +4896,11 @@ vfs_get_vnode_cache(struct vnode* vnode, VMCache** _cache, bool allocate)
 extern "C" status_t
 vfs_set_vnode_cache(struct vnode* vnode, VMCache* _cache)
 {
-	rw_lock_read_lock(&sVnodeLock);
-	vnode->Lock();
+	status_t status = rw_lock_read_lock(&sVnodeLock);
+	if (status != B_OK)
+		return status;
 
-	status_t status = B_OK;
+	vnode->Lock();
 	if (vnode->cache != NULL) {
 		status = B_NOT_ALLOWED;
 	} else {
@@ -8229,30 +8237,30 @@ fs_sync(dev_t device)
 			// do while holding fs_mount::lock.
 
 		// synchronize access to vnode list
-		mutex_lock(&mount->lock);
+		{
+			MutexLocker _(mount->lock);
 
-		struct vnode* vnode;
-		if (!marker.IsRemoved()) {
-			vnode = mount->vnodes.GetNext(&marker);
-			mount->vnodes.Remove(&marker);
-			marker.SetRemoved(true);
-		} else
-			vnode = mount->vnodes.First();
+			struct vnode* vnode;
+			if (!marker.IsRemoved()) {
+				vnode = mount->vnodes.GetNext(&marker);
+				mount->vnodes.Remove(&marker);
+				marker.SetRemoved(true);
+			} else
+				vnode = mount->vnodes.First();
 
-		while (vnode != NULL && (vnode->cache == NULL
-			|| vnode->IsRemoved() || vnode->IsBusy())) {
-			// TODO: we could track writes (and writable mapped vnodes)
-			//	and have a simple flag that we could test for here
-			vnode = mount->vnodes.GetNext(vnode);
+			while (vnode != NULL && (vnode->cache == NULL
+				|| vnode->IsRemoved() || vnode->IsBusy())) {
+				// TODO: we could track writes (and writable mapped vnodes)
+				//	and have a simple flag that we could test for here
+				vnode = mount->vnodes.GetNext(vnode);
+			}
+
+			if (vnode != NULL) {
+				// insert marker vnode again
+				mount->vnodes.InsertBefore(mount->vnodes.GetNext(vnode), &marker);
+				marker.SetRemoved(false);
+			}
 		}
-
-		if (vnode != NULL) {
-			// insert marker vnode again
-			mount->vnodes.InsertBefore(mount->vnodes.GetNext(vnode), &marker);
-			marker.SetRemoved(false);
-		}
-
-		mutex_unlock(&mount->lock);
 
 		if (vnode == NULL)
 			break;

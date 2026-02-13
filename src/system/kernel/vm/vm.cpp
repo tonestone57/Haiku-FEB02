@@ -2592,27 +2592,19 @@ vm_clone_area(team_id team, const char* name, void** address,
 					? VM_PRIORITY_SYSTEM : VM_PRIORITY_USER);
 
 			// map in all pages from source
-			for (addr_t offset = 0; offset < newArea->Size();
-					offset += B_PAGE_SIZE) {
-				off_t cacheOffset = newArea->cache_offset + offset;
-				vm_page* page = cache->LookupPage(cacheOffset / B_PAGE_SIZE);
-				if (page != NULL && !page->busy) {
+			for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
+					vm_page* page  = it.Next();) {
+				if (!page->busy) {
 					DEBUG_PAGE_ACCESS_START(page);
-					map_page(newArea, page, newArea->Base() + offset,
+					map_page(newArea, page,
+						newArea->Base() + ((page->cache_offset << PAGE_SHIFT)
+							- newArea->cache_offset),
 						protection, &reservation);
 					DEBUG_PAGE_ACCESS_END(page);
-				} else if (page == NULL && cache->type == CACHE_TYPE_RAM) {
-					// if the page is missing, and we are using a RAM cache, we
-					// can just allocate a new page
-					page = vm_page_allocate_page(&reservation,
-						PAGE_STATE_WIRED | VM_PAGE_ALLOC_CLEAR);
-					if (page != NULL) {
-						cache->InsertPage(page, cacheOffset);
-						map_page(newArea, page, newArea->Base() + offset,
-							protection, &reservation);
-					}
 				}
 			}
+			// TODO: B_FULL_LOCK means that all pages are locked. We are not
+			// ensuring that!
 
 			vm_page_unreserve_pages(&reservation);
 		}
@@ -2972,23 +2964,12 @@ vm_copy_area(team_id team, const char* name, void** _address,
 	virtual_address_restrictions addressRestrictions = {};
 	addressRestrictions.address = *_address;
 	addressRestrictions.address_specification = addressSpec;
-	// We don't want to inherit the wiring of the source area, as that would
-	// mean we would have to wire all pages immediately.
-	// TODO: we might want to support B_CONTIGUOUS, though.
-	uint32 wiring = source->wiring;
-	bool fullLock = wiring == B_FULL_LOCK;
-	if (wiring == B_FULL_LOCK || wiring == B_CONTIGUOUS)
-		wiring = B_NO_LOCK;
-
 	status = map_backing_store(targetAddressSpace, cache, source->cache_offset,
-		name, source->Size(), wiring, source->protection,
+		name, source->Size(), source->wiring, source->protection,
 		source->protection_max,
 		sharedArea ? REGION_NO_PRIVATE_MAP : REGION_PRIVATE_MAP,
 		writableCopy ? 0 : CREATE_AREA_DONT_COMMIT_MEMORY,
 		&addressRestrictions, true, &target, _address);
-
-	if (status == B_OK && fullLock)
-		target->wiring = B_FULL_LOCK;
 	if (status < B_OK) {
 		free_etc(targetPageProtections, HEAP_DONT_LOCK_KERNEL_SPACE);
 		return status;

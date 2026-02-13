@@ -38,6 +38,7 @@
 #include <ksignal.h>
 #include <Notifications.h>
 #include <real_time_clock.h>
+#include <sem.h>
 #include <slab/Slab.h>
 #include <smp.h>
 #include <syscalls.h>

@@ -196,6 +196,8 @@ DMAResource::Init(const dma_restrictions& restrictions,
 			* min_c(fRestrictions.max_segment_count, 4);
 		if (fBounceBufferSize > kMaxBounceBufferSize)
 			fBounceBufferSize = kMaxBounceBufferSize;
+		if (fBounceBufferSize < 2 * fBlockSize)
+			fBounceBufferSize = 2 * fBlockSize;
 		TRACE("DMAResource::Init(): chose bounce buffer size %lu\n",
 			fBounceBufferSize);
 	}
@@ -510,13 +512,10 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 	// check alignment, boundaries, etc. and set vecs in DMA buffer
 
 	// Fetch a bounce buffer we can use for the DMABuffer.
-	// TODO: We should do that lazily when needed!
 	DMABounceBuffer* bounceBuffer = NULL;
-	if (_NeedsBoundsBuffers()) {
+	if (_NeedsBoundsBuffers())
 		bounceBuffer = fBounceBuffers.Head();
-		if (bounceBuffer == NULL)
-			return B_BUSY;
-	}
+
 	dmaBuffer->SetBounceBuffer(bounceBuffer);
 
 	generic_size_t dmaLength = 0;
@@ -527,6 +526,9 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 	// If the offset isn't block-aligned, use the bounce buffer to bridge the
 	// gap to the start of the vec.
 	if (partialBegin > 0) {
+		if (bounceBuffer == NULL)
+			return B_BUSY;
+
 		generic_size_t length;
 		if (request->IsWrite()) {
 			// we always need to read in a whole block for the partial write
@@ -617,6 +619,9 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 		}
 
 		if (useBounceBufferSize > 0) {
+			if (bounceBuffer == NULL)
+				return B_BUSY;
+
 			// alignment could still be wrong (we round up here)
 			useBounceBufferSize = (useBounceBufferSize
 				+ fRestrictions.alignment - 1) & ~(fRestrictions.alignment - 1);
@@ -667,6 +672,9 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 		}
 
 		if (diff != 0) {
+			if (bounceBuffer == NULL)
+				return B_BUSY;
+
 			// Not yet block aligned -- cut back to the previous block and add
 			// a block-sized bounce buffer segment.
 			TRACE("  partial end write: %lu, diff %lu\n", dmaLength, diff);
@@ -689,6 +697,9 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 	// If total length not block aligned, use bounce buffer for padding (read
 	// case only).
 	while ((dmaLength & (fBlockSize - 1)) != 0) {
+		if (bounceBuffer == NULL)
+			return B_BUSY;
+
 		TRACE("  dmaLength not block aligned: %lu\n", dmaLength);
 			generic_size_t length
 				= (dmaLength + fBlockSize - 1) & ~(fBlockSize - 1);

@@ -843,8 +843,8 @@ VMAnonymousCache::Read(off_t offset, const generic_io_vec* vecs, size_t count,
 				break;
 		}
 
-		T(ReadPage(this, pageIndex, startSlotIndex));
-			// TODO: Assumes that only one page is read.
+		for (uint32 k = i; k < j; k++)
+			T(ReadPage(this, pageIndex + k, startSlotIndex + k - i));
 
 		swap_file* swapFile = find_swap_file(startSlotIndex);
 
@@ -911,8 +911,8 @@ VMAnonymousCache::Write(off_t offset, const generic_io_vec* vecs, size_t count,
 			if (slotIndex == SWAP_SLOT_NONE)
 				panic("VMAnonymousCache::Write(): can't allocate swap space\n");
 
-			T(WritePage(this, pageIndex, slotIndex));
-				// TODO: Assumes that only one page is written.
+			for (page_num_t k = 0; k < n; k++)
+				T(WritePage(this, pageIndex + totalPages + j + k, slotIndex + k));
 
 			swap_file* swapFile = find_swap_file(slotIndex);
 
@@ -937,7 +937,7 @@ VMAnonymousCache::Write(off_t offset, const generic_io_vec* vecs, size_t count,
 
 			swap_file_release(swapFile);
 
-			status = _SwapBlockBuild(pageIndex + totalPages, slotIndex, n);
+			status = _SwapBlockBuild(pageIndex + totalPages + j, slotIndex, n);
 			if (status != B_OK) {
 				locker.Lock();
 				fAllocatedSwapSize -= (off_t)pagesLeft * B_PAGE_SIZE;
