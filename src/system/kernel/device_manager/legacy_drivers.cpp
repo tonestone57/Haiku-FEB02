@@ -1109,14 +1109,26 @@ start_watching(const char* base, const char* sub)
 	KPath path(base);
 	path.Append(sub);
 
-	// TODO: create missing directories?
-	struct stat stat;
-	if (::stat(path.Path(), &stat) != 0) {
-		if (_kern_create_dir(-1, path.Path(), 0755) != B_OK)
-			return;
-		if (::stat(path.Path(), &stat) != 0)
-			return;
+	char* pathBuffer = path.LockBuffer();
+	if (pathBuffer != NULL) {
+		char* p = pathBuffer;
+		if (*p == '/')
+			p++;
+
+		while ((p = strchr(p, '/')) != NULL) {
+			*p = '\0';
+			_kern_create_dir(-1, pathBuffer, 0755);
+			*p = '/';
+			p++;
+		}
+		path.UnlockBuffer();
 	}
+
+	_kern_create_dir(-1, path.Path(), 0755);
+
+	struct stat stat;
+	if (::stat(path.Path(), &stat) != 0)
+		return;
 
 	add_node_listener(stat.st_dev, stat.st_ino, B_WATCH_DIRECTORY,
 		sDirectoryWatcher);
