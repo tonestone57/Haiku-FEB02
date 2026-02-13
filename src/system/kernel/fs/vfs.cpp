@@ -8083,8 +8083,6 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 			vnodesWriteLocker.Unlock();
 			entry.Wait(B_RELATIVE_TIMEOUT, 10000);
 
-			// TODO: if there is some kind of bug that prevents the ref counts
-			// from getting back to zero, this will fall into an endless loop...
 			if (++tries > 500) {
 				dprintf("fs_unmount: gave up waiting for vnodes to become unused\n");
 				vnodesWriteLocker.Lock();

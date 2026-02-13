@@ -24,6 +24,7 @@
 
 
 // TODO: This should be in a header!
+// We cannot modify header files for this task, so we declare it here.
 extern "C" area_id vm_map_physical_memory_vecs_etc(team_id team,
 	const char* name, void** _address, uint32 addressSpec, addr_t* _size,
 	uint32 protection, struct generic_io_vec* vecs, uint32 vecCount,
@@ -205,6 +206,8 @@ IOBuffer::GetNextVirtualVec(void*& _cookie, iovec& vector)
 	const generic_addr_t address = currentVec.base + cookie->vec_offset;
 	const size_t pageOffset = address % B_PAGE_SIZE;
 
+// TODO: This is a potential violation of the VIP requirement, since
+// vm_get_physical_page() may allocate memory without special flags!
 	status_t result = vm_get_physical_page(address - pageOffset,
 		&cookie->virtual_address, &cookie->physical_page_handle);
 	if (result != B_OK)
