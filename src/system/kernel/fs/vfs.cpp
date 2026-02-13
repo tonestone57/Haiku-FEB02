@@ -56,6 +56,7 @@
 #include <util/AutoLock.h>
 #include <util/ThreadAutoLock.h>
 #include <util/DoublyLinkedList.h>
+#include <util/Vector.h>
 #include <condition_variable.h>
 #include <vfs.h>
 #include <vm/vm.h>
@@ -190,6 +191,103 @@ struct advisory_lock : public DoublyLinkedListLinkImpl<advisory_lock> {
 };
 
 typedef DoublyLinkedList<advisory_lock> LockList;
+
+struct LockDependency {
+	team_id waiter;
+	team_id holder;
+};
+
+static mutex sLockDependencyLock = MUTEX_INITIALIZER("vfs_lock_dependency");
+static Vector<LockDependency>* sLockDependencies;
+
+static status_t
+AddLockDependencies(team_id waiter, const Vector<team_id>& holders)
+{
+	MutexLocker locker(sLockDependencyLock);
+
+	if (sLockDependencies == NULL) {
+		sLockDependencies = new(std::nothrow) Vector<LockDependency>();
+		if (sLockDependencies == NULL)
+			return B_NO_MEMORY;
+	}
+
+	for (int32 i = 0; i < holders.Count(); i++) {
+		LockDependency dep;
+		dep.waiter = waiter;
+		dep.holder = holders[i];
+		sLockDependencies->PushBack(dep);
+	}
+
+	Vector<team_id> stack;
+	Vector<team_id> visited;
+
+	for (int32 i = 0; i < holders.Count(); i++) {
+		stack.PushBack(holders[i]);
+	}
+
+	bool cycleFound = false;
+	while (!stack.IsEmpty()) {
+		team_id current = stack[stack.Count() - 1];
+		stack.Erase(stack.Count() - 1);
+
+		if (current == waiter) {
+			cycleFound = true;
+			break;
+		}
+
+		bool alreadyVisited = false;
+		for (int32 v = 0; v < visited.Count(); v++) {
+			if (visited[v] == current) {
+				alreadyVisited = true;
+				break;
+			}
+		}
+		if (alreadyVisited)
+			continue;
+
+		visited.PushBack(current);
+
+		for (int32 d = 0; d < sLockDependencies->Count(); d++) {
+			if (sLockDependencies->ElementAt(d).waiter == current) {
+				stack.PushBack(sLockDependencies->ElementAt(d).holder);
+			}
+		}
+	}
+
+	if (cycleFound) {
+		for (int32 i = 0; i < holders.Count(); i++) {
+			for (int32 d = 0; d < sLockDependencies->Count(); d++) {
+				if (sLockDependencies->ElementAt(d).waiter == waiter
+					&& sLockDependencies->ElementAt(d).holder == holders[i]) {
+					sLockDependencies->Erase(d);
+					break;
+				}
+			}
+		}
+		return EDEADLK;
+	}
+
+	return B_OK;
+}
+
+static void
+RemoveLockDependencies(team_id waiter, const Vector<team_id>& holders)
+{
+	MutexLocker locker(sLockDependencyLock);
+	if (sLockDependencies == NULL)
+		return;
+
+	for (int32 i = 0; i < holders.Count(); i++) {
+		team_id holder = holders.ElementAt(i);
+		for (int32 d = 0; d < sLockDependencies->Count(); d++) {
+			if (sLockDependencies->ElementAt(d).waiter == waiter
+				&& sLockDependencies->ElementAt(d).holder == holder) {
+				sLockDependencies->Erase(d);
+				break;
+			}
+		}
+	}
+}
 
 } // namespace
 
@@ -1819,9 +1917,6 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 	void* boundTo = descriptor != NULL ? (void*)descriptor : (void*)context;
 	status_t status = B_OK;
 
-	// TODO: deadlock detection is complex and currently deferred.
-	// It would require building a dependency graph of locks.
-
 	struct advisory_locking* locking;
 
 	while (true) {
@@ -1836,6 +1931,7 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 		sem_id waitForLock = -1;
 
 		// test for collisions
+		Vector<team_id> conflictingTeams;
 		LockList::Iterator iterator = locking->locks.GetIterator();
 		while (iterator.HasNext()) {
 			struct advisory_lock* lock = iterator.Next();
@@ -1847,7 +1943,17 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 				if (!shared || !lock->shared) {
 					// we need to wait
 					waitForLock = locking->wait_sem;
-					break;
+					if (lock->team != team) {
+						bool found = false;
+						for (int32 i = 0; i < conflictingTeams.Count(); i++) {
+							if (conflictingTeams.ElementAt(i) == lock->team) {
+								found = true;
+								break;
+							}
+						}
+						if (!found)
+							conflictingTeams.PushBack(lock->team);
+					}
 				}
 			}
 		}
@@ -1862,8 +1968,17 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 			return descriptor != NULL ? B_WOULD_BLOCK : B_PERMISSION_DENIED;
 		}
 
+		status = AddLockDependencies(team, conflictingTeams);
+		if (status != B_OK) {
+			put_advisory_locking(locking);
+			return status;
+		}
+
 		status = switch_sem_etc(locking->lock, waitForLock, 1,
 			B_CAN_INTERRUPT, 0);
+
+		RemoveLockDependencies(team, conflictingTeams);
+
 		if (status != B_OK && status != B_BAD_SEM_ID)
 			return status;
 
