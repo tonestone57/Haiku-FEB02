@@ -91,7 +91,11 @@ Bitmap::SetRange(size_t index, size_t count)
 	size_t endBit = (index + count) % kBitsPerElement;
 
 	if (startWord == endWord) {
-		addr_t mask = ((addr_t(1) << count) - 1) << startBit;
+		addr_t mask;
+		if (count == kBitsPerElement)
+			mask = ~(addr_t)0;
+		else
+			mask = ((addr_t(1) << count) - 1) << startBit;
 		fBits[startWord] |= mask;
 	} else {
 		if (startBit > 0) {
@@ -123,7 +127,11 @@ Bitmap::ClearRange(size_t index, size_t count)
 	size_t endBit = (index + count) % kBitsPerElement;
 
 	if (startWord == endWord) {
-		addr_t mask = ((addr_t(1) << count) - 1) << startBit;
+		addr_t mask;
+		if (count == kBitsPerElement)
+			mask = ~(addr_t)0;
+		else
+			mask = ((addr_t(1) << count) - 1) << startBit;
 		fBits[startWord] &= ~mask;
 	} else {
 		if (startBit > 0) {

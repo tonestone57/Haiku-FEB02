@@ -10,7 +10,6 @@ This file lists potential bugs found in the kernel source code, categorized by s
 | `src/system/kernel/device_manager/IORequest.cpp` | 178, 198 | **VIP Violation / Priority Inversion** | `vm_map_physical_memory_vecs` and `vm_get_physical_page` are called without VIP flags even if the IORequest is VIP. This violates the VIP requirement and can lead to deadlocks during swap operations. |
 | `src/system/kernel/vm/vm.cpp` | 2606 | **Security / Correctness** | TODO: "B_FULL_LOCK means that all pages are locked. We are not...". The implementation might not be fully respecting `B_FULL_LOCK` semantics, potentially leading to page faults in critical sections. |
 | `src/system/kernel/device_manager/dma_resources.cpp` | 456 | **Logic Error** | `// TODO: !partialOperation || totalLength >= fBlockSize`. Potential logic error in DMA resource handling for partial operations. |
-| `src/system/kernel/UserTimer.cpp` | 1078 | **Race Condition** | TODO: "To avoid odd race conditions, we should check the current time of...". Implies existing race condition in timer handling. |
 | `src/system/kernel/timer.cpp` | 418 | **Logic Error** | FIXME: "Theoretically we should be able to skip this if (previous == NULL). But it seems adding that causes problems on some systems, possibly due to some other bug." |
 | `src/system/kernel/debug/debug.cpp` | 662 | **Code Smell / Hack** | "HACK ALERT!!! If we get a $ at the beginning of the line...". Hardcoded parser hack in debug output. |
 
@@ -24,8 +23,6 @@ This file lists potential bugs found in the kernel source code, categorized by s
 | `src/system/kernel/vm/vm.cpp` | 6709 | **Logic Error** | TODO: "fork() should automatically unlock memory in the child.". Missing feature that might lead to memory accounting issues or unexpected behavior in children. |
 | `src/system/kernel/slab/MemoryManager.cpp` | 557 | **Missing Feature** | TODO: "Support CACHE_UNLOCKED_PAGES!". |
 | `src/system/kernel/disk_device_manager/KDiskDeviceManager.cpp` | 674 | **Locking Issue** | TODO: "This won't do. Locking the DDM while scanning the partition is not a...". Performance/Concurrency issue. |
-| `src/system/kernel/disk_device_manager/KPartition.cpp` | 1631 | **Error Handling** | TODO: "handle this gracefully". Indicates unhandled error condition. |
-| `src/system/kernel/thread.cpp` | 2519 | **Assignment in Condition** | `if (UserTimer* timer = thread->UserTimerFor(USER_TIMER_REAL_TIME_ID))`. Valid C++ pattern but increases cognitive load and risk of typo (= vs ==). |
 
 ## Low Priority / Code Quality / Potential Issues
 
@@ -42,7 +39,6 @@ This file lists potential bugs found in the kernel source code, categorized by s
 | `src/system/kernel/device_manager/IOCache.cpp` | 675 | **Testing** | TODO: "_MapPages() cannot fail, so the fallback is never needed. Test which". |
 | `src/system/kernel/fs/vfs.cpp` | 1818, 1839 | **Concurrency** | TODOs regarding deadlock detection and lock joining. |
 | `src/system/kernel/port.cpp` | 692, 700 | **Resource Management** | TODOs for team limits and wait logic. |
-| `src/system/kernel/syscalls.cpp` | 285 | **Cleanup** | "TODO: we should only remove the syscall with the matching version". |
 | `src/system/kernel/sem.cpp` | 756 | **Cleanup** | "TODO: the B_CHECK_PERMISSION flag should be made private". |
 | `src/system/kernel/elf.cpp` | 678 | **Logic** | "TODO: Revise the default version case!". |
 | `src/system/kernel/thread.cpp` | 3978 | **Code Organization** | "TODO: the following two functions don't belong here". |
