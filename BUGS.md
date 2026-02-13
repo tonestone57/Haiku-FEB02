@@ -7,6 +7,8 @@ This file lists potential bugs found in the kernel source code, categorized by s
 | File | Line | Type | Description |
 |---|---|---|---|
 | `src/system/kernel/vm/vm.cpp` | 2606 | **Security / Correctness** | TODO: "B_FULL_LOCK means that all pages are locked. We are not...". The implementation might not be fully respecting `B_FULL_LOCK` semantics, potentially leading to page faults in critical sections. |
+| `src/system/kernel/timer.cpp` | 418 | **Logic Error** | FIXME: "Theoretically we should be able to skip this if (previous == NULL). But it seems adding that causes problems on some systems, possibly due to some other bug." |
+| `src/system/kernel/debug/debug.cpp` | 662 | **Code Smell / Hack** | "HACK ALERT!!! If we get a $ at the beginning of the line...". Hardcoded parser hack in debug output. |
 
 ## Medium Priority
 
