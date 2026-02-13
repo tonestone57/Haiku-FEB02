@@ -456,7 +456,7 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 		// restrictions.
 		TRACE("  buffer is virtual %s\n", buffer->IsUser() ? "user" : "kernel");
 		// TODO: Maybe enforce fBounceBufferSize >= 2 * fBlockSize.
-		if (true) {
+		{
 			generic_size_t transferLeft = totalLength;
 			vecs = fScratchVecs;
 
