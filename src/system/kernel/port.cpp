@@ -104,7 +104,7 @@ typedef DoublyLinkedList<port_message> MessageList;
 } // namespace
 
 
-static void put_port_message(port_message* message, team_id owner);
+static void put_port_message(port_message* message);
 
 
 namespace {
@@ -155,7 +155,7 @@ struct Port : public KernelReferenceable {
 	virtual ~Port()
 	{
 		while (port_message* message = messages.RemoveHead())
-			put_port_message(message, owner);
+			put_port_message(message);
 
 		mutex_destroy(&lock);
 	}
@@ -667,19 +667,12 @@ is_port_closed(Port* port)
 
 
 static void
-put_port_message(port_message* message, team_id owner)
+put_port_message(port_message* message)
 {
 	const size_t size = sizeof(port_message) + message->size;
 	free(message);
 
 	atomic_add(&sTotalSpaceCommited, -size);
-
-	Team* team = Team::Get(owner);
-	if (team != NULL) {
-		atomic_add(&team->port_space_committed, -size);
-		team->ReleaseReference();
-	}
-
 	if (sWaitingForSpace > 0)
 		sNoSpaceCondition.NotifyAll();
 }
@@ -693,44 +686,32 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 	const size_t size = sizeof(port_message) + bufferSize;
 
 	while (true) {
-		Team* team = Team::Get(port.owner);
-
 		int32 previouslyCommited = atomic_add(&sTotalSpaceCommited, size);
-		int32 teamPreviouslyCommited = 0;
-		if (team != NULL)
-			teamPreviouslyCommited = atomic_add(&team->port_space_committed, size);
 
-		while (previouslyCommited + size > kTotalSpaceLimit
-			|| (team != NULL && teamPreviouslyCommited + size > kTeamSpaceLimit)) {
+		while (previouslyCommited + size > kTotalSpaceLimit) {
+			// TODO: add per team limit
+
 			// We are not allowed to allocate more memory, as our
 			// space limit has been reached - just wait until we get
 			// some free space again.
 
 			atomic_add(&sTotalSpaceCommited, -size);
-			if (team != NULL)
-				atomic_add(&team->port_space_committed, -size);
 
-			if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0) {
-				if (team != NULL)
-					team->ReleaseReference();
+			// TODO: we don't want to wait - but does that also mean we
+			// shouldn't wait for free memory?
+			if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0)
 				return B_WOULD_BLOCK;
-			}
 
 			ConditionVariableEntry entry;
 			sNoSpaceCondition.Add(&entry);
 
 			port_id portID = port.id;
-
-			atomic_add(&sWaitingForSpace, 1);
 			mutex_unlock(&port.lock);
 
-			if (team != NULL) {
-				team->ReleaseReference();
-				team = NULL;
-			}
+			atomic_add(&sWaitingForSpace, 1);
 
-			if (atomic_get(&sTotalSpaceCommited) + size <= kTotalSpaceLimit)
-				sNoSpaceCondition.NotifyAll();
+			// TODO: right here the condition could be notified and we'd
+			//       miss it.
 
 			status_t status = entry.Wait(flags, timeout);
 
@@ -747,17 +728,9 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 			if (status == B_TIMED_OUT)
 				return B_TIMED_OUT;
 
-			team = Team::Get(port.owner);
-
 			previouslyCommited = atomic_add(&sTotalSpaceCommited, size);
-			teamPreviouslyCommited = 0;
-			if (team != NULL)
-				teamPreviouslyCommited = atomic_add(&team->port_space_committed, size);
 			continue;
 		}
-
-		if (team != NULL)
-			team->ReleaseReference();
 
 		// Quota is fulfilled, try to allocate the buffer
 		port_message* message = (port_message*)malloc(size);
@@ -772,13 +745,6 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 		// We weren't able to allocate and we'll start over,so we remove our
 		// size from the commited-counter again.
 		atomic_add(&sTotalSpaceCommited, -size);
-
-		team = Team::Get(port.owner);
-		if (team != NULL) {
-			atomic_add(&team->port_space_committed, -size);
-			team->ReleaseReference();
-		}
-
 		continue;
 	}
 }
@@ -1583,7 +1549,7 @@ read_port_etc(port_id id, int32* _code, void* buffer, size_t bufferSize,
 	size_t size = copy_port_message(message, _code, buffer, bufferSize,
 		userCopy);
 
-	put_port_message(message, portRef->owner);
+	put_port_message(message);
 	return size;
 }
 
@@ -1710,7 +1676,7 @@ writev_port_etc(port_id id, int32 msgCode, const iovec* msgVecs,
 				status_t status = user_memcpy(message->buffer + offset,
 					msgVecs[i].iov_base, bytes);
 				if (status != B_OK) {
-					put_port_message(message, portRef->owner);
+					put_port_message(message);
 					goto error;
 				}
 			} else
@@ -1792,15 +1758,9 @@ set_port_owner(port_id id, team_id newTeamID)
 
 		// Now that we have locked the team port lists, check the state again
 		if (portRef->state == Port::kActive) {
-			size_t totalSize = 0;
-			MessageList::Iterator it = portRef->messages.GetIterator();
-			while (port_message* message = it.Next())
-				totalSize += sizeof(port_message) + message->size;
-
 			Team* oldTeam = Team::Get(portRef->owner);
 			if (oldTeam != NULL) {
 				oldTeam->num_ports--;
-				atomic_add(&oldTeam->port_space_committed, -totalSize);
 				oldTeam->ReleaseReference();
 			}
 
@@ -1808,7 +1768,6 @@ set_port_owner(port_id id, team_id newTeamID)
 			list_add_item(&team->port_list, portRef.Get());
 			portRef->owner = team->id;
 			team->num_ports++;
-			atomic_add(&team->port_space_committed, totalSize);
 		} else {
 			// Port was already deleted. We haven't changed anything yet so
 			// we can cancel the operation.

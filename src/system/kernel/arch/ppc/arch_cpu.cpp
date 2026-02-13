@@ -290,9 +290,3 @@ ppc_set_fault_handler(addr_t *handlerLocation, addr_t handler)
 	*handlerLocation = handler;
 	return false;
 }
-
-void
-arch_cpu_sync_dcache(void* address, size_t length)
-{
-	// TODO: implement
-}

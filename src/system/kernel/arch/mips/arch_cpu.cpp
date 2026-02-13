@@ -27,9 +27,3 @@ arch_cpu_idle(void)
 {
 }
 
-
-void
-arch_cpu_sync_dcache(void* address, size_t length)
-{
-	// TODO: implement
-}

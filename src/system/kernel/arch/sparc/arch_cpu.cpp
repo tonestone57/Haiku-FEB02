@@ -97,9 +97,3 @@ arch_cpu_shutdown(bool reboot)
 {
 	return B_ERROR;
 }
-
-void
-arch_cpu_sync_dcache(void* address, size_t length)
-{
-	// TODO: implement
-}

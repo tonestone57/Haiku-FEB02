@@ -117,9 +117,3 @@ arch_cpu_user_TLB_invalidate(void)
 {
 	arch_cpu_global_TLB_invalidate();
 }
-
-void
-arch_cpu_sync_dcache(void* address, size_t length)
-{
-	// TODO: implement
-}
