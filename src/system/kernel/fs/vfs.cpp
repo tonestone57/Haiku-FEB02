@@ -8422,10 +8422,10 @@ fs_sync(dev_t device)
 			// do while holding fs_mount::lock.
 
 		// synchronize access to vnode list
+		struct vnode* vnode = NULL;
 		{
 			MutexLocker _(mount->lock);
 
-			struct vnode* vnode;
 			if (!marker.IsRemoved()) {
 				vnode = mount->vnodes.GetNext(&marker);
 				mount->vnodes.Remove(&marker);

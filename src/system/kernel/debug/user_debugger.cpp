@@ -1812,7 +1812,6 @@ debug_nub_thread(void *)
 				void *address = message.write_memory.address;
 				int32 size = message.write_memory.size;
 				const char *data = message.write_memory.data;
-				int32 realSize = (char*)&message + messageSize - data;
 				status_t result = B_OK;
 
 				// check the parameters

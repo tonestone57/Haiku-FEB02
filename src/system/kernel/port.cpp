@@ -104,7 +104,7 @@ typedef DoublyLinkedList<port_message> MessageList;
 } // namespace
 
 
-static void put_port_message(port_message* message);
+static void put_port_message(port_message* message, Team* ownerTeam = NULL);
 
 
 namespace {

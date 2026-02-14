@@ -2186,7 +2186,7 @@ get_next_loaded_module_name(uint32* _cookie, char* buffer, size_t* _bufferSize)
 		struct module* module = iterator.Next();
 		if (i >= offset) {
 			size_t nameLength = strlen(module->name);
-			size_t toCopy = bufferSize > 0 ? std::min(nameLength, bufferSize - 1) : 0;
+			size_t toCopy = bufferSize > 0 ? min_c(nameLength, bufferSize - 1) : 0;
 
 			if (bufferSize > 0) {
 				if (user_memcpy(buffer, module->name, toCopy) != B_OK)
