@@ -409,7 +409,7 @@ cancel_timer(timer* event)
 		// If not found, we assume this was a one-shot timer and has already
 		// fired.
 		if (current == NULL)
-			return true;
+			return false;
 
 		// invalidate CPU field
 		event->cpu = 0xffff;
@@ -422,7 +422,7 @@ cancel_timer(timer* event)
 				set_hardware_timer(cpuData.events->schedule_time);
 		}
 
-		return false;
+		return true;
 	}
 
 	// The timer hook is currently being executed. We clear the current
