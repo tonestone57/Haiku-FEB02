@@ -13,9 +13,6 @@
 #include <thread.h>
 
 
-#define B_CHECK_PERMISSION 0x04
-
-
 struct kernel_args;
 struct select_info;
 

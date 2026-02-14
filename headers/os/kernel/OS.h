@@ -201,6 +201,7 @@ enum {
 
 	/* release_sem_etc() only flags */
 	B_DO_NOT_RESCHEDULE			= 0x02,	/* thread is not rescheduled */
+	B_CHECK_PERMISSION			= 0x04,	/* check permission (system use only) */
 	B_RELEASE_ALL				= 0x08,	/* all waiting threads will be woken up,
 										   count will be zeroed */
 	B_RELEASE_IF_WAITING_ONLY	= 0x10	/* release count only if there are any
