@@ -1351,10 +1351,12 @@ insert_preloaded_image(preloaded_elf_image *preloadedImage, bool kernel)
 		int32 debugSymbolsSize = sizeof(elf_sym)
 			* preloadedImage->num_debug_symbols;
 		image->debug_symbols = (elf_sym*)malloc(debugSymbolsSize);
-		if (image->debug_symbols != NULL) {
-			memcpy(image->debug_symbols, preloadedImage->debug_symbols,
-				debugSymbolsSize);
+		if (image->debug_symbols == NULL) {
+			status = B_NO_MEMORY;
+			goto error1;
 		}
+		memcpy(image->debug_symbols, preloadedImage->debug_symbols,
+			debugSymbolsSize);
 	}
 	image->num_debug_symbols = preloadedImage->num_debug_symbols;
 

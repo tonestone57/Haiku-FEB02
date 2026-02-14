@@ -338,7 +338,7 @@ KDiskDevice::GetMediaStatus(status_t* mediaStatus)
 
 	// maybe the device driver doesn't implement this ioctl -- see, if getting
 	// the device geometry succeeds
-	if (error != B_OK) {
+	if (error == ENOTTY || error == EOPNOTSUPP) {
 		device_geometry geometry;
 		if (GetGeometry(&geometry) == B_OK) {
 			// if the device is not removable, we can ignore the failed ioctl

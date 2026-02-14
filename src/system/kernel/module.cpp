@@ -1946,13 +1946,34 @@ module_init_post_boot_device(bool bootingFromBootLoaderVolume)
 				sModuleImagesHash->RemoveUnchecked(image);
 
 				// set the new path
-				free(image->path);
 				size_t pathLen = pathBuffer.Length();
-				image->path = (char*)realloc(pathBuffer.DetachBuffer(),
+				char* newPath = (char*)realloc(pathBuffer.DetachBuffer(),
 					pathLen + 1);
-
-				image->next = imagesToReinsert;
-				imagesToReinsert = image;
+				if (newPath == NULL) {
+					// We can't update the path, but we can't really fail here
+					// as we are in the middle of reinitializing modules.
+					// Just keep the old path and don't reinsert (it wasn't removed).
+					// Wait, we already removed it from sModuleImagesHash.
+					// We must insert it back or it's lost.
+					// Actually, realloc(pathBuffer.DetachBuffer()) operates on the buffer
+					// from pathBuffer. If it fails, we lost the new path buffer (leaked?)
+					// but image->path is still valid (we haven't freed it yet).
+					// But wait, the search logic above: `free(image->path)` was BEFORE realloc in the original code.
+					// So I must move `free(image->path)` after realloc check.
+					dprintf("module_init_post_boot_device() failed to realloc "
+						"path buffer for module image %p, \"%s\"\n", image, image->path);
+					// We removed it from hash, so we should put it back.
+					// But we also haven't updated the path.
+					// The image->path is still the old relative one.
+					// We can reinsert it with the old path.
+					image->next = imagesToReinsert;
+					imagesToReinsert = image;
+				} else {
+					free(image->path);
+					image->path = newPath;
+					image->next = imagesToReinsert;
+					imagesToReinsert = image;
+				}
 			} else {
 				dprintf("module_init_post_boot_device() failed to normalize "
 					"path of module image %p, \"%s\"\n", image, image->path);
