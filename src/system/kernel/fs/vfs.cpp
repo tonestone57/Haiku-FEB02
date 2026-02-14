@@ -2213,8 +2213,11 @@ disconnect_mount_or_vnode_fds(struct fs_mount* mount,
 				interrupt = true;
 			}
 
-			if (interrupt)
-				thread_interrupt(thread, false);
+			if (interrupt) {
+				InterruptsSpinLocker schedulerLocker(thread->scheduler_lock);
+				if (thread->state != B_THREAD_SUSPENDED)
+					thread_interrupt(thread, false);
+			}
 		}
 	}
 }
