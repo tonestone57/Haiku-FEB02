@@ -1060,7 +1060,8 @@ _user_recvmsg(int socket, struct msghdr *userMessage, int flags)
 			return B_NO_MEMORY;
 
 		ancillaryDeleter.SetTo(ancillary);
-	}
+	} else
+		message.msg_control = NULL;
 
 	// recvmsg()
 	SyscallRestartWrapper<ssize_t> result;
@@ -1161,7 +1162,8 @@ _user_sendmsg(int socket, const struct msghdr *userMessage, int flags)
 				message.msg_controllen) != B_OK) {
 			return B_BAD_ADDRESS;
 		}
-	}
+	} else
+		message.msg_control = NULL;
 
 	// sendmsg()
 	SyscallRestartWrapper<ssize_t> result;

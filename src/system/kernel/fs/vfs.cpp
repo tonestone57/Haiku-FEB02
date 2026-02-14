@@ -7933,7 +7933,8 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 			status = B_NO_MEMORY;
 			goto err1;
 		}
-	}
+	} else
+		mount->device_name = NULL;
 
 	status = mount->entry_cache.Init();
 	if (status != B_OK)

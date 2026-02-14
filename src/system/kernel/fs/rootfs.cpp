@@ -183,7 +183,8 @@ rootfs_create_vnode(struct rootfs* fs, struct rootfs_vnode* parent,
 			free(vnode);
 			return NULL;
 		}
-	}
+	} else
+		vnode->name = NULL;
 
 	vnode->id = fs->next_vnode_id++;
 	vnode->stream.type = type;

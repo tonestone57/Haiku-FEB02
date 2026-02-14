@@ -351,9 +351,14 @@ get_boot_partitions(KMessage& bootVolume, PartitionStack& partitions)
 			break;
 	}
 
-	status_t status = bootMethod != NULL ? bootMethod->Init() : B_NO_MEMORY;
-	if (status != B_OK)
+	if (bootMethod == NULL)
+		return B_NO_MEMORY;
+
+	status_t status = bootMethod->Init();
+	if (status != B_OK) {
+		delete bootMethod;
 		return status;
+	}
 
 	KDiskDeviceManager::CreateDefault();
 	KDiskDeviceManager *manager = KDiskDeviceManager::Default();

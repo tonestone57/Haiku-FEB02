@@ -505,6 +505,14 @@ scheduler_on_thread_create(Thread* thread, bool idleThread)
 	thread->scheduler_data = new(std::nothrow) ThreadData(thread);
 	if (thread->scheduler_data == NULL)
 		return B_NO_MEMORY;
+
+	status_t error = thread->scheduler_data->InitCheck();
+	if (error != B_OK) {
+		delete thread->scheduler_data;
+		thread->scheduler_data = NULL;
+		return error;
+	}
+
 	return B_OK;
 }
 

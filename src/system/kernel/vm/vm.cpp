@@ -2762,6 +2762,9 @@ vm_delete_area(team_id team, area_id id, bool kernel)
 
 	cacheLocker.Unlock();
 
+	if (area == NULL)
+		return B_BAD_VALUE;
+
 	if (!kernel && (area->protection & B_KERNEL_AREA) != 0)
 		return B_NOT_ALLOWED;
 
@@ -4883,6 +4886,9 @@ vm_set_area_memory_type(area_id id, phys_addr_t physicalBase, uint32 type)
 	if (status != B_OK)
 		return status;
 
+	if (area == NULL)
+		return B_BAD_VALUE;
+
 	// nothing to do, if the type doesn't change
 	uint32 oldType = area->MemoryType();
 	if (type == oldType)
@@ -5849,6 +5855,9 @@ _get_area_info(area_id id, area_info* info, size_t size)
 	status_t status = locker.SetFromArea(id, area);
 	if (status != B_OK)
 		return status;
+
+	if (area == NULL)
+		return B_BAD_VALUE;
 
 	fill_area_info(area, info, size);
 	return B_OK;

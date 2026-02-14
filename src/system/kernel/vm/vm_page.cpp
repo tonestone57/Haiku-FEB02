@@ -2269,8 +2269,11 @@ PageWriterRun::Init(uint32 maxPages)
 
 	fWrappers = new(std::nothrow) PageWriteWrapper[maxPages];
 	fTransfers = new(std::nothrow) PageWriteTransfer[maxPages];
-	if (fWrappers == NULL || fTransfers == NULL)
+	if (fWrappers == NULL || fTransfers == NULL) {
+		delete[] fWrappers;
+		delete[] fTransfers;
 		return B_NO_MEMORY;
+	}
 
 	return B_OK;
 }
