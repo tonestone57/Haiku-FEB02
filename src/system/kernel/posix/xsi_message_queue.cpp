@@ -541,11 +541,13 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 		messageQueueLocker.SetTo(&messageQueue->Lock(), false);
 		messageQueueHashLocker.Unlock();
 		ipcHashLocker.Unlock();
-	} else
+	} else {
 		// Since we are going to delete the message queue object
 		// along with its mutex, we can't use a MutexLocker object,
 		// as the mutex itself won't exist on function exit
-		mutex_lock(&messageQueue->Lock());
+		if (mutex_lock(&messageQueue->Lock()) != B_OK)
+			return B_ERROR;
+	}
 
 	switch (command) {
 		case IPC_STAT: {

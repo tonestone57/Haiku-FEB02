@@ -379,7 +379,16 @@ struct realtime_sem_context {
 
 	~realtime_sem_context()
 	{
-		mutex_lock(&fLock);
+		if (mutex_lock(&fLock) != B_OK) {
+			// If we can't lock, we can't safely access the list.
+			// Since this is a destructor, we can't return an error.
+			// However, this usually means the object is being destroyed
+			// or system is in bad state. We try to proceed or leak?
+			// Given this is kernel, panic might be appropriate if we strictly follow locking rules,
+			// but leaking might be safer than crashing.
+			// Let's assume panic if lock fails as it implies memory corruption or deadlock.
+			panic("realtime_sem_context destructor: failed to acquire lock");
+		}
 
 		// delete all semaphores.
 		SemTable::Iterator it = fSemaphores.GetIterator();
