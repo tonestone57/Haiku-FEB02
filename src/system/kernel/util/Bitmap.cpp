@@ -206,7 +206,7 @@ Bitmap::GetLowestContiguousClear(size_t count, size_t fromIndex) const
 		if (index < 0)
 			return -1;
 
-		if (count > fSize || index > fSize - count)
+		if (count > fSize || (size_t)index > fSize - count)
 			return -1;
 
 		// Check if [index + 1, index + count) is clear

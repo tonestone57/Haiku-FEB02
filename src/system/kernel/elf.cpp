@@ -2260,6 +2260,7 @@ load_kernel_add_on(const char *path)
 		fileName++;
 
 	// Prevent someone else from trying to load this image
+	{
 	MutexLocker locker(sImageLoadMutex);
 
 	// make sure it's not loaded already. Search by vnode
@@ -2545,6 +2546,7 @@ error2:
 error1:
 	free(elfHeader);
 error:
+	}
 error0:
 	dprintf("Could not load kernel add-on \"%s\": %s\n", path,
 		strerror(status));

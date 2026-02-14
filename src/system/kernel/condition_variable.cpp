@@ -369,7 +369,7 @@ ConditionVariable::_Notify(const void* object, bool all, status_t result)
 		variable = sConditionVariableHash.Lookup(object);
 		if (variable == NULL)
 			return 0;
-		variableLocker.SetTo(variable->fLock);
+		variableLocker.SetTo(variable->fLock, false, false);
 	}
 
 	return variable->_NotifyLocked(all, result);

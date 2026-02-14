@@ -98,7 +98,7 @@ register_image(Team *team, extended_image_info *info, size_t size, bool locked)
 	{
 		MutexLocker locker;
 		if (!locked)
-			locker.SetTo(sImageMutex);
+			locker.SetTo(sImageMutex, false, false);
 
 		image->info.basic_info.id = id;
 

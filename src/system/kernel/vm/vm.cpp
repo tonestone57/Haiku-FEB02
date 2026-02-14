@@ -2659,9 +2659,9 @@ vm_clone_area(team_id team, const char* name, void** address,
 
 		for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
 				vm_page* page = it.Next();) {
-			if (page->cache_offset >= newArea->cache_offset / B_PAGE_SIZE
-				&& page->cache_offset < (newArea->cache_offset
-					+ newArea->Size()) / B_PAGE_SIZE) {
+			if (page->cache_offset >= (page_num_t)(newArea->cache_offset / B_PAGE_SIZE)
+				&& page->cache_offset < (page_num_t)((newArea->cache_offset
+					+ newArea->Size()) / B_PAGE_SIZE)) {
 				off_t offset = ((off_t)page->cache_offset * B_PAGE_SIZE)
 					- newArea->cache_offset;
 
