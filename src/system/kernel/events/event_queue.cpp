@@ -453,7 +453,9 @@ EventQueue::_DequeueEvents(event_wait_info* infos, int numInfos)
 				status = Select(tmp.object, tmp.type,
 					tmp.selected_events | tmp.behavior, tmp.user_data);
 			}
-			mutex_lock(&fQueueLock);
+			status_t lockStatus = mutex_lock(&fQueueLock);
+			if (lockStatus != B_OK)
+				return lockStatus;
 
 			if (status == B_OK) {
 				// Is the event still queued?

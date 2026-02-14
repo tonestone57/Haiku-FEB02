@@ -3603,12 +3603,20 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
 		// this will later be remapped read-only/executable by the
 		// ELF initialization code
+	if (image->text_region.id < 0) {
+		panic("create_preloaded_image_areas: failed to create text area for %s: %s",
+			image->name, strerror(image->text_region.id));
+	}
 
 	strlcpy(name + length, "_data", sizeof(name) - length);
 	address = (void*)ROUNDDOWN(image->data_region.start, B_PAGE_SIZE);
 	image->data_region.id = create_area(name, &address, B_EXACT_ADDRESS,
 		PAGE_ALIGN(image->data_region.size), B_ALREADY_WIRED,
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	if (image->data_region.id < 0) {
+		panic("create_preloaded_image_areas: failed to create data area for %s: %s",
+			image->name, strerror(image->data_region.id));
+	}
 }
 
 

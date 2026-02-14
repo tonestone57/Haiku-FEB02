@@ -376,8 +376,10 @@ KDiskDevice::_InitPartitionData()
 	fPartitionData.flags |= B_PARTITION_IS_DEVICE;
 
 	char name[B_FILE_NAME_LENGTH];
-	if (ioctl(fFD, B_GET_DEVICE_NAME, name, sizeof(name)) == B_OK)
+	if (ioctl(fFD, B_GET_DEVICE_NAME, name, sizeof(name)) == B_OK) {
 		fPartitionData.name = strdup(name);
+		// TODO: handle no memory (we can't really do anything about it here)
+	}
 }
 
 

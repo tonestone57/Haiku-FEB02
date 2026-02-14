@@ -8005,7 +8005,10 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 
 	// insert mount struct into list before we call FS's mount() function
 	// so that vnodes can be created for this mount
-	rw_lock_write_lock(&sMountLock);
+	status = rw_lock_write_lock(&sMountLock);
+	if (status != B_OK)
+		goto err1;
+
 	sMountsTable->Insert(mount);
 	rw_lock_write_unlock(&sMountLock);
 
@@ -8153,9 +8156,10 @@ err3:
 	if (coveredNode != NULL)
 		put_vnode(coveredNode);
 err2:
-	rw_lock_write_lock(&sMountLock);
-	sMountsTable->Remove(mount);
-	rw_lock_write_unlock(&sMountLock);
+	if (rw_lock_write_lock(&sMountLock) == B_OK) {
+		sMountsTable->Remove(mount);
+		rw_lock_write_unlock(&sMountLock);
+	}
 err1:
 	delete mount;
 
@@ -8382,9 +8386,10 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 	mount->root_vnode = NULL;
 
 	// remove the mount structure from the hash table
-	rw_lock_write_lock(&sMountLock);
-	sMountsTable->Remove(mount);
-	rw_lock_write_unlock(&sMountLock);
+	if (rw_lock_write_lock(&sMountLock) == B_OK) {
+		sMountsTable->Remove(mount);
+		rw_lock_write_unlock(&sMountLock);
+	}
 
 	mountOpLocker.Unlock();
 

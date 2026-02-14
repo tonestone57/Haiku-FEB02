@@ -180,6 +180,8 @@ PPCPagingMethodClassic::InitPostArea(kernel_args* args)
 	// create an area to cover the page table
 	fPageTableArea = create_area("page_table", (void **)&fPageTable, B_EXACT_ADDRESS,
 		fPageTableSize, B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	if (fPageTableArea < B_OK)
+		return fPageTableArea;
 
 	// init physical page mapper
 	status_t error = generic_vm_physical_page_mapper_init_post_area(args);
