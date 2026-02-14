@@ -1557,6 +1557,11 @@ BlockPrefetcher::ReadAsync(WriteLocker& cacheLocker)
 	}
 
 	IORequest* request = new IORequest;
+	if (request == NULL) {
+		_RemoveAllocated(fNumAllocated, fNumAllocated);
+		return B_NO_MEMORY;
+	}
+
 	status_t status = request->Init(fBlockNumber * blockSize, vecs, fNumAllocated,
 		fNumAllocated * blockSize, false, B_DELETE_IO_REQUEST);
 	if (status != B_OK) {
