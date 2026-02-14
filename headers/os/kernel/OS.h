@@ -194,8 +194,6 @@ typedef struct sem_info {
 enum {
 	B_CAN_INTERRUPT				= 0x01,	/* acquisition of the semaphore can be
 										   interrupted (system use only) */
-	B_CHECK_PERMISSION			= 0x04,	/* ownership will be checked (system use
-										   only) */
 	B_KILL_CAN_INTERRUPT		= 0x20,	/* acquisition of the semaphore can be
 										   interrupted by SIGKILL[THR], even
 										   if not B_CAN_INTERRUPT (system use

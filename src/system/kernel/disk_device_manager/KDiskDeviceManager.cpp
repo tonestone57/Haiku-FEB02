@@ -18,6 +18,7 @@
 
 #include <VectorMap.h>
 #include <VectorSet.h>
+#include <util/Vector.h>
 
 #include <DiskDeviceRoster.h>
 #include <KernelExport.h>
@@ -671,13 +672,8 @@ KDiskDeviceManager::WriteLockPartition(partition_id id)
 status_t
 KDiskDeviceManager::ScanPartition(KPartition* partition, int32 depth)
 {
-// TODO: This won't do. Locking the DDM while scanning the partition is not a
-// good idea. Even locking the device doesn't feel right. Marking the partition
-// busy and passing the disk system a temporary clone of the partition_data
-// should work as well.
 	if (DeviceWriteLocker deviceLocker = partition->Device()) {
-		if (ManagerLocker locker = this)
-			return _ScanPartition(partition, false, NULL, depth);
+		return _ScanPartition(partition, false, NULL, depth);
 	}
 
 	return B_ERROR;
@@ -1018,16 +1014,13 @@ KDiskDeviceManager::InitialDeviceScan()
 	while (KDiskDevice* device = RegisterNextDevice(&cookie)) {
 		PartitionRegistrar _(device, true);
 		if (DeviceWriteLocker deviceLocker = device) {
-			if (ManagerLocker locker = this) {
-				status_t error = _ScanPartition(device, false);
-				device->UnmarkBusy(true);
-				if (error != B_OK)
-					status = error;
-				// Even if we could not scan this partition, we want to try
-				// and scan the rest. Just because one partition is invalid
-				// or unscannable does not mean the ones after it are.
-			} else
-				return B_ERROR;
+			status_t error = _ScanPartition(device, false);
+			device->UnmarkBusy(true);
+			if (error != B_OK)
+				status = error;
+			// Even if we could not scan this partition, we want to try
+			// and scan the rest. Just because one partition is invalid
+			// or unscannable does not mean the ones after it are.
 		} else
 			return B_ERROR;
 	}
@@ -1116,14 +1109,11 @@ KDiskDeviceManager::RescanDiskSystems()
 	while (KDiskDevice* device = RegisterNextDevice(&cookie)) {
 		PartitionRegistrar _(device, true);
 		if (DeviceWriteLocker deviceLocker = device) {
-			if (ManagerLocker locker = this) {
-				status_t error = _ScanPartition(device, false, &addedSystems);
-				device->UnmarkBusy(true);
-				if (error != B_OK)
-					status = error;
-				// See comment in InitialDeviceScan().
-			} else
-				return B_ERROR;
+			status_t error = _ScanPartition(device, false, &addedSystems);
+			device->UnmarkBusy(true);
+			if (error != B_OK)
+				status = error;
+			// See comment in InitialDeviceScan().
 		} else
 			return B_ERROR;
 	}
@@ -1422,19 +1412,25 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 			return error;
 	}
 
-	DiskSystemMap* diskSystems = restrictScan;
-	if (diskSystems == NULL)
-		diskSystems = fDiskSystems;
+	Vector<KDiskSystem*> diskSystems;
+	{
+		ManagerLocker locker(this);
+		DiskSystemMap* sourceMap = restrictScan ? restrictScan : fDiskSystems;
+		for (DiskSystemMap::Iterator it = sourceMap->Begin();
+				it != sourceMap->End(); ++it) {
+			KDiskSystem* diskSystem = it->Value();
+			if (diskSystem->Load() == B_OK)
+				diskSystems.PushBack(diskSystem);
+		}
+	}
 
 	// find the disk system that returns the best priority for this partition
 	float bestPriority = partition->DiskSystemPriority();
 	KDiskSystem* bestDiskSystem = NULL;
 	void* bestCookie = NULL;
-	for (DiskSystemMap::Iterator iterator = diskSystems->Begin();
-			iterator != diskSystems->End(); iterator++) {
-		KDiskSystem* diskSystem = iterator->Value();
-		if (diskSystem->Load() != B_OK)
-			continue;
+
+	for (int32 i = 0; i < diskSystems.Count(); i++) {
+		KDiskSystem* diskSystem = diskSystems[i];
 
 		TRACE("  trying: %s\n", diskSystem->Name());
 
@@ -1445,10 +1441,9 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 
 		if (priority >= 0 && priority > bestPriority) {
 			// new best disk system
-			if (bestDiskSystem != NULL) {
+			if (bestDiskSystem != NULL)
 				bestDiskSystem->FreeIdentifyCookie(partition, bestCookie);
-				bestDiskSystem->Unload();
-			}
+
 			bestPriority = priority;
 			bestDiskSystem = diskSystem;
 			bestCookie = cookie;
@@ -1457,7 +1452,6 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 			// current favorite
 			if (priority >= 0)
 				diskSystem->FreeIdentifyCookie(partition, cookie);
-			diskSystem->Unload();
 		}
 	}
 
@@ -1474,14 +1468,14 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 			// TODO: Handle the error.
 			TRACE_ERROR("scanning failed: %s\n", strerror(error));
 		}
-
-		// now we can safely unload the disk system -- it has been loaded by
-		// the partition(s) and thus will not really be unloaded
-		bestDiskSystem->Unload();
 	} else {
 		// contents not recognized
 		// nothing to be done -- partitions are created as unrecognized
 	}
+
+	// Unload all disk systems we loaded
+	for (int32 i = 0; i < diskSystems.Count(); i++)
+		diskSystems[i]->Unload();
 
 	return error;
 }

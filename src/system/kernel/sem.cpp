@@ -753,8 +753,6 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		return B_BAD_SEM_ID;
 	}
 
-	// TODO: the B_CHECK_PERMISSION flag should be made private, as it
-	//	doesn't have any use outside the kernel
 	if ((flags & B_CHECK_PERMISSION) != 0
 		&& sSems[slot].u.used.owner == team_get_kernel_team_id()) {
 		dprintf("thread %" B_PRId32 " tried to acquire kernel semaphore "
@@ -903,8 +901,6 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 		return B_BAD_SEM_ID;
 	}
 
-	// ToDo: the B_CHECK_PERMISSION flag should be made private, as it
-	//	doesn't have any use outside the kernel
 	if ((flags & B_CHECK_PERMISSION) != 0
 		&& sSems[slot].u.used.owner == team_get_kernel_team_id()) {
 		dprintf("thread %" B_PRId32 " tried to release kernel semaphore.\n",

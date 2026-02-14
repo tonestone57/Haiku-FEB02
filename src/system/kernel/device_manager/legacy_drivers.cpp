@@ -1318,8 +1318,15 @@ LegacyDevice::UninitDevice()
 		return;
 
 	if (fDriver != NULL) {
-		if (--fDriver->devices_used == 0 && fDriver->devices.IsEmpty())
-			unload_driver(fDriver);
+		if (--fDriver->devices_used == 0) {
+			if (fDriver->binary_updated) {
+				// The driver binary has been updated, so we need to reload it.
+				// We can't do that here directly, though, as we're holding the
+				// lock.
+				atomic_add(&sDriverEventsPending, 1);
+			} else if (fDriver->devices.IsEmpty())
+				unload_driver(fDriver);
+		}
 		fDriver = NULL;
 	}
 }
@@ -1357,7 +1364,6 @@ LegacyDevice::Control(void* _cookie, int32 op, void* buffer, size_t length)
 void
 LegacyDevice::SetHooks(device_hooks* hooks)
 {
-	// TODO: setup compatibility layer!
 	fHooks = hooks;
 
 	fDeviceModule->close = hooks->close;

@@ -466,6 +466,7 @@ Team::Team(team_id id, bool kernel)
 	list_init(&sem_list);
 	list_init_etc(&port_list, port_team_link_offset());
 	num_ports = 0;
+	port_space_committed = 0;
 
 	user_data = 0;
 	user_data_area = -1;
