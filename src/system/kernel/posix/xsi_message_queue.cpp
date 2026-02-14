@@ -539,6 +539,8 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 	MutexLocker messageQueueLocker;
 	if (command != IPC_RMID) {
 		messageQueueLocker.SetTo(&messageQueue->Lock(), false);
+		if (!messageQueueLocker.IsLocked())
+			return B_ERROR;
 		messageQueueHashLocker.Unlock();
 		ipcHashLocker.Unlock();
 	} else {
@@ -723,6 +725,8 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 		return B_BAD_VALUE;
 	}
 	MutexLocker messageQueueLocker(messageQueue->Lock());
+	if (!messageQueueLocker.IsLocked())
+		return B_ERROR;
 	messageQueueHashLocker.Unlock();
 
 	if (messageSize > SSIZE_MAX) {
@@ -821,6 +825,8 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 		return B_BAD_VALUE;
 	}
 	MutexLocker messageQueueLocker(messageQueue->Lock());
+	if (!messageQueueLocker.IsLocked())
+		return B_ERROR;
 	messageQueueHashLocker.Unlock();
 
 	if (messageSize > MAX_XSI_MESSAGE_SIZE || messageSize > SSIZE_MAX) {

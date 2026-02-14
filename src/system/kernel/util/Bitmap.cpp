@@ -83,6 +83,9 @@ Bitmap::SetRange(size_t index, size_t count)
 	if (count == 0)
 		return;
 
+	if (index > fSize || count > fSize - index)
+		return;
+
 	ASSERT(index + count <= fSize);
 
 	size_t startWord = index / kBitsPerElement;
@@ -117,6 +120,9 @@ void
 Bitmap::ClearRange(size_t index, size_t count)
 {
 	if (count == 0)
+		return;
+
+	if (index > fSize || count > fSize - index)
 		return;
 
 	ASSERT(index + count <= fSize);
