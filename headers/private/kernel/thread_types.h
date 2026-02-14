@@ -767,7 +767,7 @@ Team::UserTimeUserTimerIterator() const
 inline sigset_t
 Thread::AllPendingSignals() const
 {
-	return fPendingSignals.AllSignals() | team->PendingSignals();
+	return fPendingSignals.AllSignals() | (team ? team->PendingSignals() : 0);
 }
 
 
