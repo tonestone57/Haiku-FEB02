@@ -190,7 +190,9 @@ dm_create_id(const char* name)
 {
 
 	// find generator, create new if not there
-	mutex_lock(&sLock);
+	status_t status = mutex_lock(&sLock);
+	if (status != B_OK)
+		return status;
 
 	id_generator* generator = get_generator(name);
 	if (generator == NULL)

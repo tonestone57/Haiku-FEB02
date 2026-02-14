@@ -718,6 +718,7 @@ heap_init_post_area()
 	area_id areaId = create_area("guarded heap", &address, B_EXACT_ADDRESS,
 		sGuardedHeapEarlySize, B_ALREADY_WIRED,
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	ASSERT_ALWAYS(areaId >= 0);
 	VMAreas::Lookup(areaId)->cache_offset = (addr_t)address;
 
 	return B_OK;
