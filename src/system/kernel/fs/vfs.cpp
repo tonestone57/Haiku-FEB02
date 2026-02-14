@@ -706,17 +706,19 @@ public:
 		: fThread(thread_get_current_thread())
 	{
 		ThreadLocker locker(fThread);
+		fPreviousBlockingFD = fThread->blocking_fd;
 		fThread->blocking_fd = descriptor;
 	}
 
 	~BlockingFDSetter()
 	{
 		ThreadLocker locker(fThread);
-		fThread->blocking_fd = NULL;
+		fThread->blocking_fd = fPreviousBlockingFD;
 	}
 
 private:
 	Thread*	fThread;
+	struct file_descriptor* fPreviousBlockingFD;
 };
 
 } // namespace
