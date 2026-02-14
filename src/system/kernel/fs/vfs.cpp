@@ -699,6 +699,26 @@ private:
 	bool	fKernel;
 };
 
+
+class BlockingFDSetter {
+public:
+	BlockingFDSetter(struct file_descriptor* descriptor)
+		: fThread(thread_get_current_thread())
+	{
+		ThreadLocker locker(fThread);
+		fThread->blocking_fd = descriptor;
+	}
+
+	~BlockingFDSetter()
+	{
+		ThreadLocker locker(fThread);
+		fThread->blocking_fd = NULL;
+	}
+
+private:
+	Thread*	fThread;
+};
+
 } // namespace
 
 
@@ -2165,6 +2185,34 @@ disconnect_mount_or_vnode_fds(struct fs_mount* mount,
 			}
 
 			put_fd(descriptor);
+		}
+
+		// Interrupt blocking I/O
+		for (Thread* thread = team->thread_list.Head(); thread != NULL;
+				thread = team->thread_list.GetNext(thread)) {
+			// Accessing blocking_fd is safe because we hold the team lock,
+			// which prevents the thread from being destroyed.
+			// To access the descriptor safely, we need to lock the thread,
+			// which ensures that the descriptor pointer is stable (or NULL)
+			// and the thread is waiting for the lock if it is about to clear it.
+			ThreadLocker threadLocker(thread);
+			struct file_descriptor* descriptor = thread->blocking_fd;
+			if (descriptor == NULL)
+				continue;
+
+			struct vnode* vnode = fd_vnode(descriptor);
+			bool interrupt = false;
+
+			if (vnodeToDisconnect != NULL) {
+				if (vnode == vnodeToDisconnect)
+					interrupt = true;
+			} else if ((vnode != NULL && vnode->mount == mount)
+				|| (vnode == NULL && descriptor->u.mount == mount)) {
+				interrupt = true;
+			}
+
+			if (interrupt)
+				thread_interrupt(thread, false);
 		}
 	}
 }
@@ -6010,6 +6058,8 @@ file_read(struct file_descriptor* descriptor, off_t pos, void* buffer,
 	if (pos != -1 && descriptor->pos == -1)
 		return ESPIPE;
 
+	BlockingFDSetter blockingFD(descriptor);
+
 	return FS_CALL(vnode, read, descriptor->cookie, pos, buffer, length);
 }
 
@@ -6029,6 +6079,8 @@ file_write(struct file_descriptor* descriptor, off_t pos, const void* buffer,
 
 	if (!HAS_FS_CALL(vnode, write))
 		return B_READ_ONLY_DEVICE;
+
+	BlockingFDSetter blockingFD(descriptor);
 
 	return FS_CALL(vnode, write, descriptor->cookie, pos, buffer, length);
 }
@@ -6064,6 +6116,8 @@ file_vector_io(struct file_descriptor* descriptor, off_t pos,
 		iovecs[i].length = vecs[i].iov_len;
 		length += vecs[i].iov_len;
 	}
+
+	BlockingFDSetter blockingFD(descriptor);
 
 	status_t status = (write ? vfs_write_pages : vfs_read_pages)(vnode,
 		descriptor->cookie, pos, iovecs, count, 0, &length);
@@ -6518,8 +6572,10 @@ common_ioctl(struct file_descriptor* descriptor, ulong op, void* buffer,
 {
 	struct vnode* vnode = descriptor->u.vnode;
 
-	if (HAS_FS_CALL(vnode, ioctl))
+	if (HAS_FS_CALL(vnode, ioctl)) {
+		BlockingFDSetter blockingFD(descriptor);
 		return FS_CALL(vnode, ioctl, descriptor->cookie, op, buffer, length);
+	}
 
 	return B_DEV_INVALID_IOCTL;
 }

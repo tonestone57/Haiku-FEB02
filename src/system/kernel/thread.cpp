@@ -285,6 +285,7 @@ Thread::Thread(const char* name, thread_id threadID, struct cpu_ent* cpu)
 	page_fault_waits_allowed(1),
 	team(NULL),
 	select_infos(NULL),
+	blocking_fd(NULL),
 	kernel_stack_area(-1),
 	kernel_stack_base(0),
 	user_stack_area(-1),

@@ -159,6 +159,9 @@ struct Port : public KernelReferenceable {
 		while (port_message* message = messages.RemoveHead())
 			put_port_message(message, owner_team);
 
+		if (owner_team != NULL)
+			owner_team->ReleaseReference();
+
 		mutex_destroy(&lock);
 	}
 };
@@ -1014,10 +1017,13 @@ create_port(int32 queueLength, const char* name)
 	// create a port
 	BReference<Port> port;
 	{
+		team->AcquireReference();
 		Port* newPort = new(std::nothrow) Port(team->id, team,
 			queueLength, name != NULL ? name : "unnamed port");
-		if (newPort == NULL)
+		if (newPort == NULL) {
+			team->ReleaseReference();
 			return B_NO_MEMORY;
+		}
 		port.SetTo(newPort, true);
 	}
 
@@ -1790,12 +1796,16 @@ set_port_owner(port_id id, team_id newTeamID)
 					port_message* message = it.Next();) {
 				committed += sizeof(port_message) + message->size;
 			}
-			if (portRef->owner_team)
+			if (portRef->owner_team) {
 				atomic_add(&portRef->owner_team->port_space_committed, -committed);
+				portRef->owner_team->ReleaseReference();
+			}
 			atomic_add(&team->port_space_committed, committed);
 
 			portRef->owner = team->id;
 			portRef->owner_team = team;
+			portRef->owner_team->AcquireReference();
+
 			team->num_ports++;
 		} else {
 			// Port was already deleted. We haven't changed anything yet so

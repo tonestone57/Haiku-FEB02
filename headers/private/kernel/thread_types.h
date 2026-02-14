@@ -301,6 +301,7 @@ struct Thread : TeamThreadIteratorEntry<thread_id>, KernelReferenceable {
 	} exit;
 
 	struct select_info *select_infos;	// protected by fLock
+	struct file_descriptor *blocking_fd; // protected by fLock
 
 	struct thread_debug_info debug_info;
 
