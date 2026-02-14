@@ -1413,7 +1413,6 @@ profiling_do_sample()
 
 		debugInfo.profile.sample_count += *returnAddresses + 1;
 	} else {
-		// fixed sample count per hit
 		if (stackDepth > 1 || !debugInfo.profile.profile_kernel) {
 			int32 count = arch_debug_get_stack_trace(returnAddresses,
 				stackDepth, skipIFrames, 0, flags);
