@@ -320,8 +320,19 @@ IOCache::_TransferRequestLine(IORequest* request, off_t lineOffset,
 	bool isVIP = (request->Flags() & B_VIP_IO_REQUEST) != 0;
 
 	if (missingPages > 0) {
-// TODO: If this is a read request and the missing pages range doesn't intersect
-// with the request, just satisfy the request and don't read anything at all.
+		// If this is a read request and the missing pages range doesn't
+		// intersect with the request, just satisfy the request and don't read
+		// anything at all.
+		if (request->IsRead()
+			&& (requestOffset >= (off_t)(lastMissing + 1) * B_PAGE_SIZE
+				|| requestOffset + (off_t)requestLength
+					<= (off_t)firstMissing * B_PAGE_SIZE)) {
+			// intersection is empty -- skip reading
+			missingPages = 0;
+		}
+	}
+
+	if (missingPages > 0) {
 		// There are pages of the cache line missing. We have to allocate fresh
 		// ones.
 

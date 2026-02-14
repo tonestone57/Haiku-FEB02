@@ -56,6 +56,7 @@
 #include <util/AutoLock.h>
 #include <util/ThreadAutoLock.h>
 #include <util/DoublyLinkedList.h>
+#include <util/Vector.h>
 #include <condition_variable.h>
 #include <vfs.h>
 #include <vm/vm.h>
@@ -190,6 +191,103 @@ struct advisory_lock : public DoublyLinkedListLinkImpl<advisory_lock> {
 };
 
 typedef DoublyLinkedList<advisory_lock> LockList;
+
+struct LockDependency {
+	team_id waiter;
+	team_id holder;
+};
+
+static mutex sLockDependencyLock = MUTEX_INITIALIZER("vfs_lock_dependency");
+static Vector<LockDependency>* sLockDependencies;
+
+static status_t
+AddLockDependencies(team_id waiter, const Vector<team_id>& holders)
+{
+	MutexLocker locker(sLockDependencyLock);
+
+	if (sLockDependencies == NULL) {
+		sLockDependencies = new(std::nothrow) Vector<LockDependency>();
+		if (sLockDependencies == NULL)
+			return B_NO_MEMORY;
+	}
+
+	for (int32 i = 0; i < holders.Count(); i++) {
+		LockDependency dep;
+		dep.waiter = waiter;
+		dep.holder = holders[i];
+		sLockDependencies->PushBack(dep);
+	}
+
+	Vector<team_id> stack;
+	Vector<team_id> visited;
+
+	for (int32 i = 0; i < holders.Count(); i++) {
+		stack.PushBack(holders[i]);
+	}
+
+	bool cycleFound = false;
+	while (!stack.IsEmpty()) {
+		team_id current = stack[stack.Count() - 1];
+		stack.Erase(stack.Count() - 1);
+
+		if (current == waiter) {
+			cycleFound = true;
+			break;
+		}
+
+		bool alreadyVisited = false;
+		for (int32 v = 0; v < visited.Count(); v++) {
+			if (visited[v] == current) {
+				alreadyVisited = true;
+				break;
+			}
+		}
+		if (alreadyVisited)
+			continue;
+
+		visited.PushBack(current);
+
+		for (int32 d = 0; d < sLockDependencies->Count(); d++) {
+			if (sLockDependencies->ElementAt(d).waiter == current) {
+				stack.PushBack(sLockDependencies->ElementAt(d).holder);
+			}
+		}
+	}
+
+	if (cycleFound) {
+		for (int32 i = 0; i < holders.Count(); i++) {
+			for (int32 d = 0; d < sLockDependencies->Count(); d++) {
+				if (sLockDependencies->ElementAt(d).waiter == waiter
+					&& sLockDependencies->ElementAt(d).holder == holders[i]) {
+					sLockDependencies->Erase(d);
+					break;
+				}
+			}
+		}
+		return EDEADLK;
+	}
+
+	return B_OK;
+}
+
+static void
+RemoveLockDependencies(team_id waiter, const Vector<team_id>& holders)
+{
+	MutexLocker locker(sLockDependencyLock);
+	if (sLockDependencies == NULL)
+		return;
+
+	for (int32 i = 0; i < holders.Count(); i++) {
+		team_id holder = holders.ElementAt(i);
+		for (int32 d = 0; d < sLockDependencies->Count(); d++) {
+			if (sLockDependencies->ElementAt(d).waiter == waiter
+				&& sLockDependencies->ElementAt(d).holder == holder) {
+				sLockDependencies->Erase(d);
+				break;
+			}
+		}
+	}
+}
 
 } // namespace
 
@@ -599,6 +697,26 @@ public:
 private:
 	int		fFD;
 	bool	fKernel;
+};
+
+
+class BlockingFDSetter {
+public:
+	BlockingFDSetter(struct file_descriptor* descriptor)
+		: fThread(thread_get_current_thread())
+	{
+		ThreadLocker locker(fThread);
+		fThread->blocking_fd = descriptor;
+	}
+
+	~BlockingFDSetter()
+	{
+		ThreadLocker locker(fThread);
+		fThread->blocking_fd = NULL;
+	}
+
+private:
+	Thread*	fThread;
 };
 
 } // namespace
@@ -1819,9 +1937,6 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 	void* boundTo = descriptor != NULL ? (void*)descriptor : (void*)context;
 	status_t status = B_OK;
 
-	// TODO: deadlock detection is complex and currently deferred.
-	// It would require building a dependency graph of locks.
-
 	struct advisory_locking* locking;
 
 	while (true) {
@@ -1836,6 +1951,7 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 		sem_id waitForLock = -1;
 
 		// test for collisions
+		Vector<team_id> conflictingTeams;
 		LockList::Iterator iterator = locking->locks.GetIterator();
 		while (iterator.HasNext()) {
 			struct advisory_lock* lock = iterator.Next();
@@ -1847,7 +1963,21 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 				if (!shared || !lock->shared) {
 					// we need to wait
 					waitForLock = locking->wait_sem;
-					break;
+					if (lock->team != team) {
+						bool found = false;
+						for (int32 i = 0; i < conflictingTeams.Count(); i++) {
+							if (conflictingTeams.ElementAt(i) == lock->team) {
+								found = true;
+								break;
+							}
+						}
+						if (!found) {
+							if (conflictingTeams.PushBack(lock->team) != B_OK) {
+								put_advisory_locking(locking);
+								return B_NO_MEMORY;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -1862,8 +1992,17 @@ acquire_advisory_lock(struct vnode* vnode, io_context* context,
 			return descriptor != NULL ? B_WOULD_BLOCK : B_PERMISSION_DENIED;
 		}
 
+		status = AddLockDependencies(team, conflictingTeams);
+		if (status != B_OK) {
+			put_advisory_locking(locking);
+			return status;
+		}
+
 		status = switch_sem_etc(locking->lock, waitForLock, 1,
 			B_CAN_INTERRUPT, 0);
+
+		RemoveLockDependencies(team, conflictingTeams);
+
 		if (status != B_OK && status != B_BAD_SEM_ID)
 			return status;
 
@@ -2028,14 +2167,52 @@ disconnect_mount_or_vnode_fds(struct fs_mount* mount,
 			// if this descriptor points at this mount, we
 			// need to disconnect it to be able to unmount
 			struct vnode* vnode = fd_vnode(descriptor);
+			bool disconnect = false;
+
 			if (vnodeToDisconnect != NULL) {
 				if (vnode == vnodeToDisconnect)
-					disconnect_fd(descriptor);
+					disconnect = true;
 			} else if ((vnode != NULL && vnode->mount == mount)
-				|| (vnode == NULL && descriptor->u.mount == mount))
+				|| (vnode == NULL && descriptor->u.mount == mount)) {
+				disconnect = true;
+			}
+
+			if (disconnect) {
 				disconnect_fd(descriptor);
+				if (context->select_infos[i] != NULL)
+					notify_select_events_list(context->select_infos[i],
+						(uint16)B_EVENT_DISCONNECTED);
+			}
 
 			put_fd(descriptor);
+		}
+
+		// Interrupt blocking I/O
+		for (Thread* thread = team->thread_list.Head(); thread != NULL;
+				thread = team->thread_list.GetNext(thread)) {
+			// Accessing blocking_fd is safe because we hold the team lock,
+			// which prevents the thread from being destroyed.
+			// To access the descriptor safely, we need to lock the thread,
+			// which ensures that the descriptor pointer is stable (or NULL)
+			// and the thread is waiting for the lock if it is about to clear it.
+			ThreadLocker threadLocker(thread);
+			struct file_descriptor* descriptor = thread->blocking_fd;
+			if (descriptor == NULL)
+				continue;
+
+			struct vnode* vnode = fd_vnode(descriptor);
+			bool interrupt = false;
+
+			if (vnodeToDisconnect != NULL) {
+				if (vnode == vnodeToDisconnect)
+					interrupt = true;
+			} else if ((vnode != NULL && vnode->mount == mount)
+				|| (vnode == NULL && descriptor->u.mount == mount)) {
+				interrupt = true;
+			}
+
+			if (interrupt)
+				thread_interrupt(thread, false);
 		}
 	}
 }
@@ -5881,6 +6058,8 @@ file_read(struct file_descriptor* descriptor, off_t pos, void* buffer,
 	if (pos != -1 && descriptor->pos == -1)
 		return ESPIPE;
 
+	BlockingFDSetter blockingFD(descriptor);
+
 	return FS_CALL(vnode, read, descriptor->cookie, pos, buffer, length);
 }
 
@@ -5900,6 +6079,8 @@ file_write(struct file_descriptor* descriptor, off_t pos, const void* buffer,
 
 	if (!HAS_FS_CALL(vnode, write))
 		return B_READ_ONLY_DEVICE;
+
+	BlockingFDSetter blockingFD(descriptor);
 
 	return FS_CALL(vnode, write, descriptor->cookie, pos, buffer, length);
 }
@@ -5935,6 +6116,8 @@ file_vector_io(struct file_descriptor* descriptor, off_t pos,
 		iovecs[i].length = vecs[i].iov_len;
 		length += vecs[i].iov_len;
 	}
+
+	BlockingFDSetter blockingFD(descriptor);
 
 	status_t status = (write ? vfs_write_pages : vfs_read_pages)(vnode,
 		descriptor->cookie, pos, iovecs, count, 0, &length);
@@ -6389,8 +6572,10 @@ common_ioctl(struct file_descriptor* descriptor, ulong op, void* buffer,
 {
 	struct vnode* vnode = descriptor->u.vnode;
 
-	if (HAS_FS_CALL(vnode, ioctl))
+	if (HAS_FS_CALL(vnode, ioctl)) {
+		BlockingFDSetter blockingFD(descriptor);
 		return FS_CALL(vnode, ioctl, descriptor->cookie, op, buffer, length);
+	}
 
 	return B_DEV_INVALID_IOCTL;
 }
