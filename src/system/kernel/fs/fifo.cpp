@@ -707,7 +707,9 @@ Inode::WaitForReadRequest(ReadRequest& request)
 		request.SetNotified(true);
 	}
 
-	rw_lock_read_lock(&fChangeLock);
+	status_t lockStatus = rw_lock_read_lock(&fChangeLock);
+	if (lockStatus != B_OK)
+		return lockStatus;
 
 	return status;
 }
