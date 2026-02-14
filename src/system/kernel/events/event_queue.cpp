@@ -200,6 +200,10 @@ void
 EventQueue::Closed()
 {
 	MutexLocker locker(&fQueueLock);
+	if (!locker.IsLocked()) {
+		// If we can't lock, we can't safely close. Panic seems appropriate.
+		panic("EventQueue::Closed: failed to lock queue");
+	}
 
 	fClosing = true;
 	locker.Unlock();
@@ -213,6 +217,8 @@ status_t
 EventQueue::Select(int32 object, uint16 type, uint32 events, void* userData)
 {
 	MutexLocker locker(&fQueueLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	select_event* event = _GetEvent(object, type);
 	if (event != NULL) {
@@ -279,6 +285,8 @@ status_t
 EventQueue::Query(int32 object, uint16 type, uint32* selectedEvents, void** userData)
 {
 	MutexLocker locker(&fQueueLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	select_event* event = _GetEvent(object, type);
 	if (event == NULL)
@@ -295,6 +303,8 @@ status_t
 EventQueue::Deselect(int32 object, uint16 type)
 {
 	MutexLocker locker(&fQueueLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	select_event* event = _GetEvent(object, type);
 	if (event == NULL)
@@ -355,6 +365,8 @@ EventQueue::_Notify(select_event* event, uint16 events)
 
 	{
 		MutexLocker _(&fQueueLock);
+		if (!_.IsLocked())
+			return;
 
 		// We need to recheck B_EVENT_DELETING now we have the lock.
 		if ((event->events & B_EVENT_DELETING) != 0)
@@ -385,6 +397,8 @@ EventQueue::Wait(event_wait_info* infos, int numInfos,
 		|| (timeout == B_INFINITE_TIMEOUT || timeout == 0));
 
 	MutexLocker queueLocker(&fQueueLock);
+	if (!queueLocker.IsLocked())
+		return B_ERROR;
 
 	ssize_t count = 0;
 	while (timeout == 0 || (system_time() < timeout)) {

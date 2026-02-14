@@ -637,7 +637,8 @@ get_locked_port(port_id id) GCC_2_NRV(portRef)
 #endif
 	{
 		ReadLocker portsLocker(sPortsLock);
-		portRef.SetTo(sPorts.Lookup(id));
+		if (portsLocker.IsLocked())
+			portRef.SetTo(sPorts.Lookup(id));
 	}
 
 	if (portRef != NULL && portRef->state == Port::kActive) {
@@ -660,7 +661,8 @@ get_port(port_id id) GCC_2_NRV(portRef)
 	BReference<Port> portRef;
 #endif
 	ReadLocker portsLocker(sPortsLock);
-	portRef.SetTo(sPorts.Lookup(id));
+	if (portsLocker.IsLocked())
+		portRef.SetTo(sPorts.Lookup(id));
 
 	return portRef;
 }
@@ -819,6 +821,8 @@ static void
 uninit_port(Port* port)
 {
 	MutexLocker locker(port->lock);
+	if (!locker.IsLocked())
+		return;
 
 	notify_port_select_events(port, B_EVENT_INVALID);
 	port->select_infos = NULL;
@@ -882,39 +886,43 @@ delete_owned_ports(Team* team)
 
 	const uint8 lockIndex = team->id % kTeamListLockCount;
 	MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
+	if (teamPortsListLocker.IsLocked()) {
 
-	// Try to logically delete all ports from the team's port list.
-	// On success, move the port to deletionList.
-	Port* port = (Port*)list_get_first_item(&team->port_list);
-	while (port != NULL) {
-		status_t status = delete_port_logical(port);
-			// Contains linearization point
+		// Try to logically delete all ports from the team's port list.
+		// On success, move the port to deletionList.
+		Port* port = (Port*)list_get_first_item(&team->port_list);
+		while (port != NULL) {
+			status_t status = delete_port_logical(port);
+				// Contains linearization point
 
-		Port* nextPort = (Port*)list_get_next_item(&team->port_list, port);
+			Port* nextPort = (Port*)list_get_next_item(&team->port_list, port);
 
-		if (status == B_OK) {
-			list_remove_link(&port->team_link);
-			list_add_item(&deletionList, port);
-			team->num_ports--;
+			if (status == B_OK) {
+				list_remove_link(&port->team_link);
+				list_add_item(&deletionList, port);
+				team->num_ports--;
+			}
+
+			port = nextPort;
 		}
 
-		port = nextPort;
+		teamPortsListLocker.Unlock();
 	}
-
-	teamPortsListLocker.Unlock();
 
 	// Remove all ports in deletionList from hashes
 	{
 		WriteLocker portsLocker(sPortsLock);
+		if (portsLocker.IsLocked()) {
 
-		for (Port* port = (Port*)list_get_first_item(&deletionList);
-			 port != NULL;
-			 port = (Port*)list_get_next_item(&deletionList, port)) {
+			for (Port* port = (Port*)list_get_first_item(&deletionList);
+				 port != NULL;
+				 port = (Port*)list_get_next_item(&deletionList, port)) {
 
-			sPorts.Remove(port);
-			sPortsByName.Remove(port);
-			port->ReleaseReference();
-				// joint reference for sPorts and sPortsByName
+				sPorts.Remove(port);
+				sPortsByName.Remove(port);
+				port->ReleaseReference();
+					// joint reference for sPorts and sPortsByName
+			}
 		}
 	}
 
@@ -1038,14 +1046,23 @@ create_port(int32 queueLength, const char* name)
 	{
 		const uint8 lockIndex = team->id % kTeamListLockCount;
 		MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
-		if (team->num_ports >= 4096) {
+		if (teamPortsListLocker.IsLocked()) {
+			if (team->num_ports >= 4096) {
+				atomic_add(&sUsedPorts, -1);
+				return B_NO_MORE_PORTS;
+			}
+		} else {
 			atomic_add(&sUsedPorts, -1);
-			return B_NO_MORE_PORTS;
+			return B_ERROR;
 		}
 	}
 
 	{
 		WriteLocker locker(sPortsLock);
+		if (!locker.IsLocked()) {
+			atomic_add(&sUsedPorts, -1);
+			return B_ERROR;
+		}
 
 		// allocate a port ID
 		do {
@@ -1069,9 +1086,21 @@ create_port(int32 queueLength, const char* name)
 	{
 		const uint8 lockIndex = port->owner % kTeamListLockCount;
 		MutexLocker teamPortsListLocker(sTeamListLock[lockIndex]);
-		port->AcquireReference();
-		list_add_item(&team->port_list, port);
-		team->num_ports++;
+		if (teamPortsListLocker.IsLocked()) {
+			port->AcquireReference();
+			list_add_item(&team->port_list, port);
+			team->num_ports++;
+		} else {
+			// Failed to add to team list. Rollback physical insertion.
+			WriteLocker locker(sPortsLock);
+			if (locker.IsLocked()) {
+				sPorts.Remove(port.Get());
+				sPortsByName.Remove(port.Get());
+				port->ReleaseReference();
+			}
+			atomic_add(&sUsedPorts, -1);
+			return B_ERROR;
+		}
 	}
 
 	// tracing, notifications, etc.

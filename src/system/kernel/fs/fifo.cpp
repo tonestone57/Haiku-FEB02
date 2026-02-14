@@ -531,6 +531,8 @@ Inode::Write(const void* _data, size_t* _length, bool nonBlocking,
 		dataSize);
 
 	ReadLocker changeLocker(ChangeLock());
+	if (!changeLocker.IsLocked())
+		return B_ERROR;
 
 	// A request up to VFS_FIFO_ATOMIC_WRITE_SIZE bytes shall not be
 	// interleaved with other writer's data.
@@ -806,6 +808,8 @@ status_t
 Inode::Open(int openMode)
 {
 	WriteLocker locker(ChangeLock());
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if ((openMode & O_ACCMODE) == O_WRONLY || (openMode & O_ACCMODE) == O_RDWR)
 		fWriterCount++;
@@ -852,6 +856,11 @@ void
 Inode::Close(file_cookie* cookie)
 {
 	WriteLocker locker(ChangeLock());
+	if (!locker.IsLocked()) {
+		// If we can't lock, we can't safely close. Panic seems appropriate as
+		// state corruption is likely.
+		panic("Inode::Close: failed to lock fifo");
+	}
 
 	int openMode = cookie->open_mode;
 	TRACE("Inode %p::Close(openMode = %" B_PRId32 ")\n", this, openMode);
@@ -891,6 +900,8 @@ status_t
 Inode::Select(uint8 event, selectsync* sync, int openMode)
 {
 	WriteLocker locker(ChangeLock());
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	bool writer = true;
 	select_sync_pool** pool;
@@ -928,6 +939,8 @@ status_t
 Inode::Deselect(uint8 event, selectsync* sync, int openMode)
 {
 	WriteLocker locker(ChangeLock());
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	select_sync_pool** pool;
 	if ((event == B_SELECT_READ && (openMode & O_RWMASK) == O_RDWR)
@@ -1142,6 +1155,8 @@ fifo_read(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 		inode, cookie, *_length, cookie->open_mode);
 
 	ReadLocker _(inode->ChangeLock());
+	if (!_.IsLocked())
+		return B_ERROR;
 
 	if (inode->WriterCount() == 0) {
 		// as long there is no writer, and the pipe is empty,
@@ -1218,6 +1233,8 @@ fifo_read_stat(fs_volume* volume, fs_vnode* vnode, struct ::stat* st)
 
 
 	ReadLocker _(fifo->ChangeLock());
+	if (!_.IsLocked())
+		return B_ERROR;
 
 	st->st_size = fifo->BytesAvailable();
 
@@ -1302,6 +1319,9 @@ fifo_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 op,
 		case B_SET_NONBLOCKING_IO:
 		{
 			WriteLocker locker(inode->ChangeLock());
+			if (!locker.IsLocked())
+				return B_ERROR;
+
 			cookie->SetNonBlocking(op == B_SET_NONBLOCKING_IO);
 			return B_OK;
 		}
@@ -1321,6 +1341,9 @@ fifo_set_flags(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 	TRACE("fifo_set_flags(vnode = %p, flags = %x)\n", _node, flags);
 
 	WriteLocker locker(inode->ChangeLock());
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	cookie->open_mode = (cookie->open_mode & ~(O_APPEND | O_NONBLOCK)) | flags;
 	return B_OK;
 }
