@@ -1214,7 +1214,7 @@ MemoryManager::_FreeChunk(Area* area, MetaChunk* metaChunk, Chunk* chunk,
 		mutex_unlock(&sLock);
 		_UnmapChunk(area->vmArea, chunkAddress, metaChunk->chunkSize, flags);
 		if (mutex_lock(&sLock) != B_OK)
-			return; // This is a void function, so we can't do much else
+			panic("MemoryManager::_FreeChunk: failed to re-acquire lock");
 	}
 
 	T(FreeChunk(metaChunk, chunk));
@@ -1475,7 +1475,7 @@ MemoryManager::_FreeArea(Area* area, bool areaRemoved, uint32 flags)
 	vm_unreserve_memory(memoryToUnreserve);
 
 	if (mutex_lock(&sLock) != B_OK)
-		return;
+		panic("MemoryManager::_FreeArea: failed to re-acquire lock");
 }
 
 
