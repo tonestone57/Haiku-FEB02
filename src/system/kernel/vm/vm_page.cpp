@@ -1602,6 +1602,8 @@ free_page(vm_page* page, bool clear)
 #endif
 
 	ReadLocker locker(sFreePageQueuesLock);
+	if (!locker.IsLocked())
+		panic("free_page: failed to lock sFreePageQueuesLock");
 
 	DEBUG_PAGE_ACCESS_END(page);
 
@@ -1777,6 +1779,8 @@ mark_page_range_in_use(page_num_t startPage, page_num_t length, bool wired)
 	}
 
 	WriteLocker locker(sFreePageQueuesLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	for (page_num_t i = 0; i < length; i++) {
 		vm_page *page = &sPages[startPage + i];
@@ -1852,6 +1856,10 @@ page_scrubber(void *unused)
 
 		// get some pages from the free queue, mostly sorted
 		ReadLocker locker(sFreePageQueuesLock);
+		if (!locker.IsLocked()) {
+			snooze(10000);
+			continue;
+		}
 
 		vm_page *page[SCRUB_SIZE];
 		int32 scrubCount = 0;
@@ -1880,7 +1888,8 @@ page_scrubber(void *unused)
 		for (int32 i = 0; i < scrubCount; i++)
 			clear_page(page[i]);
 
-		locker.Lock();
+		if (!locker.Lock())
+			panic("page_scrubber: failed to lock sFreePageQueuesLock");
 
 		// and put them into the clear queue
 		// process the array reversed when prepending to preserve sequential order
@@ -2696,6 +2705,9 @@ free_cached_pages(uint32 pagesToFree, bool dontWait)
 
 		if (free_cached_page(page, dontWait)) {
 			ReadLocker locker(sFreePageQueuesLock);
+			if (!locker.IsLocked())
+				panic("free_cached_pages: failed to lock sFreePageQueuesLock");
+
 			page->SetState(PAGE_STATE_FREE);
 			DEBUG_PAGE_ACCESS_END(page);
 			sFreePageQueue.PrependUnlocked(page);
@@ -3684,6 +3696,8 @@ vm_page_allocate_page(vm_page_reservation* reservation, uint32 flags)
 	}
 
 	ReadLocker locker(sFreePageQueuesLock);
+	if (!locker.IsLocked())
+		return NULL;
 
 	vm_page* page = queue->RemoveHeadUnlocked();
 	if (page == NULL) {
@@ -3697,6 +3711,8 @@ vm_page_allocate_page(vm_page_reservation* reservation, uint32 flags)
 			// write locker to make sure this doesn't happen again.
 			locker.Unlock();
 			WriteLocker writeLocker(sFreePageQueuesLock);
+			if (!writeLocker.IsLocked())
+				return NULL;
 
 			page = queue->RemoveHead();
 			if (page == NULL)
@@ -3708,7 +3724,8 @@ vm_page_allocate_page(vm_page_reservation* reservation, uint32 flags)
 			}
 
 			// downgrade to read lock
-			locker.Lock();
+			if (!locker.Lock())
+				return NULL;
 		}
 	}
 
@@ -3897,7 +3914,9 @@ allocate_page_run(page_num_t start, page_num_t length, uint32 flags,
 
 		if ((nextIndex - start) < length) {
 			// failed to allocate all cached pages -- free all that we've got
-			freeClearQueueLocker.Lock();
+			if (!freeClearQueueLocker.Lock())
+				panic("allocate_page_run: failed to lock sFreePageQueuesLock");
+
 			allocate_page_run_cleanup(freePages, clearPages);
 			freeClearQueueLocker.Unlock();
 
@@ -3994,6 +4013,10 @@ vm_page_allocate_page_run(uint32 flags, page_num_t length,
 	vm_page_reserve_pages(&reservation, length, priority);
 
 	WriteLocker freeClearQueueLocker(sFreePageQueuesLock);
+	if (!freeClearQueueLocker.IsLocked()) {
+		vm_page_unreserve_pages(&reservation);
+		return NULL;
+	}
 
 	// First we try to get a run with free pages only. If that fails, we also
 	// consider cached pages. If there are only few free pages and many cached
@@ -4060,7 +4083,8 @@ vm_page_allocate_page_run(uint32 flags, page_num_t length,
 
 			// apparently a cached page couldn't be allocated -- skip it and
 			// continue
-			freeClearQueueLocker.Lock();
+			if (!freeClearQueueLocker.Lock())
+				panic("vm_page_allocate_page_run: failed to lock");
 		}
 
 		start += i + 1;

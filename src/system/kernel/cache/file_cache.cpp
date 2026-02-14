@@ -199,7 +199,10 @@ void
 PrecacheIO::IOFinished(status_t status, bool partialTransfer,
 	generic_size_t bytesTransferred)
 {
-	fCache->Lock();
+	if (fCache->Lock() != B_OK) {
+		delete this;
+		return;
+	}
 
 	// Make successfully loaded pages accessible again (partially
 	// transferred pages are considered failed)
@@ -299,9 +302,8 @@ reserve_pages(file_cache_ref* ref, vm_page_reservation* reservation,
 {
 	if (low_resource_state(B_KERNEL_RESOURCE_PAGES) != B_NO_LOW_RESOURCE) {
 		VMCache* cache = ref->cache;
-		cache->Lock();
-
-		if (cache->consumers.IsEmpty() && cache->areas.IsEmpty()
+		if (cache->Lock() == B_OK) {
+			if (cache->consumers.IsEmpty() && cache->areas.IsEmpty()
 			&& access_is_sequential(ref)) {
 			// we are not mapped, and we're accessed sequentially
 
@@ -317,25 +319,26 @@ reserve_pages(file_cache_ref* ref, vm_page_reservation* reservation,
 				vm_page_write_modified_page_range(cache,
 					ref->LastAccessPageOffset(previous, true),
 					ref->LastAccessPageOffset(index, true));
-			} else {
-				// free some pages from our cache
-				// TODO: start with oldest
-				uint32 left = reservePages;
-				vm_page* page;
-				for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
-						(page = it.Next()) != NULL && left > 0;) {
-					if (page->State() == PAGE_STATE_CACHED && !page->busy) {
-						DEBUG_PAGE_ACCESS_START(page);
-						ASSERT(!page->IsMapped());
-						ASSERT(!page->modified);
-						cache->RemovePage(page);
-						vm_page_free(cache, page);
-						left--;
+				} else {
+					// free some pages from our cache
+					// TODO: start with oldest
+					uint32 left = reservePages;
+					vm_page* page;
+					for (VMCachePagesTree::Iterator it = cache->pages.GetIterator();
+							(page = it.Next()) != NULL && left > 0;) {
+						if (page->State() == PAGE_STATE_CACHED && !page->busy) {
+							DEBUG_PAGE_ACCESS_START(page);
+							ASSERT(!page->IsMapped());
+							ASSERT(!page->modified);
+							cache->RemovePage(page);
+							vm_page_free(cache, page);
+							left--;
+						}
 					}
 				}
 			}
+			cache->Unlock();
 		}
-		cache->Unlock();
 	}
 
 	vm_page_reserve_pages(reservation, reservePages, VM_PRIORITY_USER);
@@ -463,7 +466,8 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 		dprintf("file_cache: read pages failed: %s\n", strerror(status));
 
-		cache->Lock();
+		if (cache->Lock() != B_OK)
+			panic("read_into_cache: failed to lock cache");
 
 		for (int32 i = 0; i < pageIndex; i++) {
 			cache->NotifyPageEvents(pages[i], PAGE_EVENT_NOT_BUSY);
@@ -491,7 +495,8 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	}
 
 	reserve_pages(ref, reservation, reservePages, false);
-	cache->Lock();
+	if (cache->Lock() != B_OK)
+		panic("read_into_cache: failed to lock cache");
 
 	// make the pages accessible in the cache
 	for (int32 i = pageIndex; i-- > 0;) {
@@ -529,7 +534,8 @@ read_from_file(file_cache_ref* ref, void* cookie, off_t offset,
 	if (status == B_OK)
 		reserve_pages(ref, reservation, reservePages, false);
 
-	ref->cache->Lock();
+	if (ref->cache->Lock() != B_OK)
+		panic("read_from_file: failed to lock cache");
 
 	return status;
 }
@@ -702,7 +708,8 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	if (status == B_OK)
 		reserve_pages(ref, reservation, reservePages, true);
 
-	ref->cache->Lock();
+	if (ref->cache->Lock() != B_OK)
+		panic("write_to_cache: failed to lock cache");
 
 	// make the pages accessible in the cache
 	for (int32 i = pageIndex; i-- > 0;) {
@@ -786,7 +793,8 @@ write_to_file(file_cache_ref* ref, void* cookie, off_t offset, int32 pageOffset,
 	if (status == B_OK)
 		reserve_pages(ref, reservation, reservePages, true);
 
-	ref->cache->Lock();
+	if (ref->cache->Lock() != B_OK)
+		panic("write_to_file: failed to lock cache");
 
 	return status;
 }
@@ -852,6 +860,8 @@ do_cache_io(void* _cacheRef, void* cookie, off_t offset, addr_t buffer,
 		pagesUnreserver(&reservation);
 
 	AutoLocker<VMCache> locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	// Now that we have the lock, make sure the situation didn't change.
 	if ((pageOffset + offset) >= cache->virtual_end) {
@@ -939,7 +949,8 @@ do_cache_io(void* _cacheRef, void* cookie, off_t offset, addr_t buffer,
 						bytesInPage, userBuffer);
 				}
 
-				locker.Lock();
+				if (!locker.Lock())
+					panic("do_cache_io: failed to lock cache");
 
 				if (doWrite) {
 					DEBUG_PAGE_ACCESS_START(page);
@@ -1145,7 +1156,11 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 	vm_page_reservation reservation;
 	vm_page_reserve_pages(&reservation, pagesCount, VM_PRIORITY_USER);
 
-	cache->Lock();
+	if (cache->Lock() != B_OK) {
+		vm_page_unreserve_pages(&reservation);
+		cache->ReleaseRef();
+		return;
+	}
 
 	while (true) {
 		// check if this page is already in memory
@@ -1174,7 +1189,8 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 			// we must not have the cache locked during I/O
 			cache->Unlock();
 			io->ReadAsync();
-			cache->Lock();
+			if (cache->Lock() != B_OK)
+				panic("cache_prefetch_vnode: failed to lock cache");
 
 			bytesToRead = 0;
 		}
@@ -1368,6 +1384,8 @@ file_cache_enable(void* _cacheRef)
 	file_cache_ref* ref = (file_cache_ref*)_cacheRef;
 
 	AutoLocker<VMCache> _(ref->cache);
+	if (!_.IsLocked())
+		return;
 
 	if (ref->disabled_count == 0) {
 		panic("Unbalanced file_cache_enable()!");
@@ -1391,6 +1409,8 @@ file_cache_disable(void* _cacheRef)
 	file_cache_ref* ref = (file_cache_ref*)_cacheRef;
 
 	AutoLocker<VMCache> _(ref->cache);
+	if (!_.IsLocked())
+		return B_ERROR;
 
 	// If already disabled, there's nothing to do for us.
 	if (ref->disabled_count > 0) {
@@ -1413,6 +1433,8 @@ file_cache_is_enabled(void* _cacheRef)
 {
 	file_cache_ref* ref = (file_cache_ref*)_cacheRef;
 	AutoLocker<VMCache> _(ref->cache);
+	if (!_.IsLocked())
+		return false;
 
 	return ref->disabled_count == 0;
 }
@@ -1433,6 +1455,8 @@ file_cache_set_size(void* _cacheRef, off_t newSize)
 
 	VMCache* cache = ref->cache;
 	AutoLocker<VMCache> _(cache);
+	if (!_.IsLocked())
+		return B_ERROR;
 
 	status_t status = cache->Resize(newSize, VM_PRIORITY_USER);
 		// Note, the priority doesn't really matter, since this cache doesn't

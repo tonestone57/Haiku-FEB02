@@ -1079,7 +1079,11 @@ create_new_vnode_and_lock(dev_t mountID, ino_t vnodeID, struct vnode*& _vnode,
 
 	// look up the node -- it might have been added by someone else in the
 	// meantime
-	rw_lock_write_lock(&sVnodeLock);
+	if (rw_lock_write_lock(&sVnodeLock) != B_OK) {
+		object_cache_free(sVnodeCache, vnode, 0);
+		return B_ERROR;
+	}
+
 	struct vnode* existingVnode = lookup_vnode(mountID, vnodeID);
 	if (existingVnode != NULL) {
 		object_cache_free(sVnodeCache, vnode, 0);
@@ -1160,7 +1164,9 @@ free_vnode(struct vnode* vnode, bool reenter)
 
 	// The file system has removed the resources of the vnode now, so we can
 	// make it available again (by removing the busy vnode from the hash).
-	rw_lock_write_lock(&sVnodeLock);
+	if (rw_lock_write_lock(&sVnodeLock) != B_OK)
+		panic("free_vnode: failed to acquire sVnodeLock");
+
 	sVnodeTable->Remove(vnode);
 	rw_lock_write_unlock(&sVnodeLock);
 
@@ -2234,16 +2240,16 @@ get_root_vnode(bool kernel)
 		// Get current working directory from io context
 		struct io_context* context = get_current_io_context(kernel);
 
-		rw_lock_read_lock(&sIOContextRootLock);
+		if (rw_lock_read_lock(&sIOContextRootLock) == B_OK) {
+			struct vnode* root = context->root;
+			if (root != NULL)
+				inc_vnode_ref_count(root);
 
-		struct vnode* root = context->root;
-		if (root != NULL)
-			inc_vnode_ref_count(root);
+			rw_lock_read_unlock(&sIOContextRootLock);
 
-		rw_lock_read_unlock(&sIOContextRootLock);
-
-		if (root != NULL)
-			return root;
+			if (root != NULL)
+				return root;
+		}
 
 		// That should never happen.
 		dprintf("get_root_vnode(): IO context for team %" B_PRId32 " doesn't "
@@ -4910,6 +4916,9 @@ vfs_get_cwd(dev_t* _mountID, ino_t* _vnodeID)
 	const struct io_context* context = get_current_io_context(false);
 
 	ReadLocker locker(context->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	if (context->cwd == NULL)
 		return B_ERROR;
 
@@ -5556,7 +5565,9 @@ vfs_getrlimit(int resource, struct rlimit* rlp)
 		case RLIMIT_NOFILE:
 		{
 			struct io_context* context = get_current_io_context(false);
-			ReadLocker _(context->lock);
+			ReadLocker locker(context->lock);
+			if (!locker.IsLocked())
+				return B_ERROR;
 
 			rlp->rlim_cur = context->table_size;
 			rlp->rlim_max = MAX_FD_TABLE_SIZE;
@@ -5566,7 +5577,9 @@ vfs_getrlimit(int resource, struct rlimit* rlp)
 		case RLIMIT_NOVMON:
 		{
 			struct io_context* context = get_current_io_context(false);
-			ReadLocker _(context->lock);
+			ReadLocker locker(context->lock);
+			if (!locker.IsLocked())
+				return B_ERROR;
 
 			rlp->rlim_cur = context->max_monitors;
 			rlp->rlim_max = MAX_NODE_MONITORS;
@@ -8075,7 +8088,11 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 
 	// the root node is supposed to be owned by the file system - it must
 	// exist at this point
-	rw_lock_write_lock(&sVnodeLock);
+	if (rw_lock_write_lock(&sVnodeLock) != B_OK) {
+		status = B_ERROR;
+		goto err4;
+	}
+
 	mount->root_vnode = lookup_vnode(mount->id, rootID);
 	if (mount->root_vnode == NULL || mount->root_vnode->ref_count != 1) {
 		panic("fs_mount: file system does not own its root node!\n");
@@ -8104,7 +8121,9 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 
 	if (sRoot == NULL) {
 		sRoot = mount->root_vnode;
-		rw_lock_write_lock(&sIOContextRootLock);
+		if (rw_lock_write_lock(&sIOContextRootLock) != B_OK)
+			panic("fs_mount: failed to acquire sIOContextRootLock");
+
 		get_current_io_context(true)->root = sRoot;
 		rw_lock_write_unlock(&sIOContextRootLock);
 		inc_vnode_ref_count(sRoot);
@@ -8142,7 +8161,9 @@ err4:
 		// If the vnode was published, it might need to be removed from the hash
 		// and cache.
 		if (!vnode->IsUnpublished()) {
-			rw_lock_write_lock(&sVnodeLock);
+			if (rw_lock_write_lock(&sVnodeLock) != B_OK)
+				panic("fs_mount: failed to acquire sVnodeLock in cleanup");
+
 			sVnodeTable->Remove(vnode);
 			rw_lock_write_unlock(&sVnodeLock);
 		}
@@ -8607,7 +8628,8 @@ get_cwd(char* buffer, size_t size, bool kernel)
 
 	// Get current working directory from io context
 	const struct io_context* context = get_current_io_context(kernel);
-	rw_lock_read_lock(&context->lock);
+	if (rw_lock_read_lock(&context->lock) != B_OK)
+		return B_ERROR;
 
 	struct vnode* vnode = context->cwd;
 	if (vnode != NULL)
