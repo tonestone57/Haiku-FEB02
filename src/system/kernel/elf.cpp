@@ -2546,6 +2546,7 @@ error2:
 error1:
 	free(elfHeader);
 error:
+	;
 	}
 error0:
 	dprintf("Could not load kernel add-on \"%s\": %s\n", path,
