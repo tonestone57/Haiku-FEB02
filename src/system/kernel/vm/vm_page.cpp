@@ -2269,8 +2269,11 @@ PageWriterRun::Init(uint32 maxPages)
 
 	fWrappers = new(std::nothrow) PageWriteWrapper[maxPages];
 	fTransfers = new(std::nothrow) PageWriteTransfer[maxPages];
-	if (fWrappers == NULL || fTransfers == NULL)
+	if (fWrappers == NULL || fTransfers == NULL) {
+		delete[] fWrappers;
+		delete[] fTransfers;
 		return B_NO_MEMORY;
+	}
 
 	return B_OK;
 }
@@ -3557,6 +3560,8 @@ vm_page_init_post_thread(kernel_args *args)
 
 	thread_id thread = spawn_kernel_thread(&page_scrubber, "page scrubber",
 		B_LOWEST_ACTIVE_PRIORITY, NULL);
+	if (thread < 0)
+		panic("vm_page_init_post_thread: failed to spawn page scrubber thread");
 	resume_thread(thread);
 
 	// start page writer
@@ -3565,6 +3570,8 @@ vm_page_init_post_thread(kernel_args *args)
 
 	thread = spawn_kernel_thread(&page_writer, "page writer",
 		B_NORMAL_PRIORITY + 1, NULL);
+	if (thread < 0)
+		panic("vm_page_init_post_thread: failed to spawn page writer thread");
 	resume_thread(thread);
 
 	// start page daemon
@@ -3573,6 +3580,8 @@ vm_page_init_post_thread(kernel_args *args)
 
 	thread = spawn_kernel_thread(&page_daemon, "page daemon",
 		B_NORMAL_PRIORITY, NULL);
+	if (thread < 0)
+		panic("vm_page_init_post_thread: failed to spawn page daemon thread");
 	resume_thread(thread);
 
 	return B_OK;

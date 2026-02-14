@@ -183,7 +183,8 @@ rootfs_create_vnode(struct rootfs* fs, struct rootfs_vnode* parent,
 			free(vnode);
 			return NULL;
 		}
-	}
+	} else
+		vnode->name = NULL;
 
 	vnode->id = fs->next_vnode_id++;
 	vnode->stream.type = type;
@@ -524,8 +525,11 @@ rootfs_get_vnode(fs_volume* _volume, ino_t id, fs_vnode* _vnode, int* _type,
 
 	TRACE(("rootfs_getvnode: asking for vnode %lld, r %d\n", id, reenter));
 
-	if (!reenter)
-		rw_lock_read_lock(&fs->lock);
+	if (!reenter) {
+		status_t status = rw_lock_read_lock(&fs->lock);
+		if (status != B_OK)
+			return status;
+	}
 
 	vnode = fs->vnode_list_hash->Lookup(id);
 
@@ -567,8 +571,11 @@ rootfs_remove_vnode(fs_volume* _volume, fs_vnode* _vnode, bool reenter)
 	TRACE(("rootfs_remove_vnode: remove %p (0x%Lx), r %d\n", vnode, vnode->id,
 		reenter));
 
-	if (!reenter)
-		rw_lock_write_lock(&fs->lock);
+	if (!reenter) {
+		status_t status = rw_lock_write_lock(&fs->lock);
+		if (status != B_OK)
+			return status;
+	}
 
 	if (vnode->dir_next) {
 		// can't remove node if it's linked to the dir

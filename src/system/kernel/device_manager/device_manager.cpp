@@ -713,7 +713,10 @@ publish_device(device_node *node, const char *path, const char *moduleName)
 		attr->name = strdup(buf);
 		attr->type = B_STRING_TYPE;
 		attr->value.string = strdup(path);
-		node->Attributes().Add(attr);
+		if (attr->name != NULL && attr->value.string != NULL)
+			node->Attributes().Add(attr);
+		else
+			delete attr;
 	}
 
 	attr = new(std::nothrow) device_attr_private();
@@ -723,7 +726,10 @@ publish_device(device_node *node, const char *path, const char *moduleName)
 		attr->name = strdup(buf);
 		attr->type = B_STRING_TYPE;
 		attr->value.string = strdup(moduleName);
-		node->Attributes().Add(attr);
+		if (attr->name != NULL && attr->value.string != NULL)
+			node->Attributes().Add(attr);
+		else
+			delete attr;
 	}
 
 	return B_OK;
@@ -1259,7 +1265,10 @@ device_node::device_node(const char* moduleName, const device_attr* attrs)
 		attr->name = strdup("device/driver");
 		attr->type = B_STRING_TYPE;
 		attr->value.string = strdup(fModuleName);
-		fAttributes.Add(attr);
+		if (attr->name != NULL && attr->value.string != NULL)
+			fAttributes.Add(attr);
+		else
+			delete attr;
 	}
 
 	get_attr_uint32(this, B_DEVICE_FLAGS, &fFlags, false);

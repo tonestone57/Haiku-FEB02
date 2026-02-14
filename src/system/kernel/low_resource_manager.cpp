@@ -444,6 +444,8 @@ low_resource_manager_init_post_thread(void)
 
 	thread_id thread = spawn_kernel_thread(&low_resource_manager,
 		"low resource manager", B_LOW_PRIORITY, NULL);
+	if (thread < 0)
+		return thread;
 	resume_thread(thread);
 
 	add_debugger_command("low_resource", &dump_handlers,

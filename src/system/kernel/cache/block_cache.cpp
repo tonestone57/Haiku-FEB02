@@ -1281,8 +1281,10 @@ BlockWriter::Write(cache_transaction* transaction, bool canUnlock)
 
 	bigtime_t finish = system_time();
 
-	if (canUnlock)
-		rw_lock_write_lock(&fCache->lock);
+	if (canUnlock) {
+		if (rw_lock_write_lock(&fCache->lock) != B_OK)
+			panic("BlockWriter::Write: failed to re-acquire cache lock");
+	}
 
 	if (fStatus == B_OK && fCount >= 8) {
 		fCache->last_block_write = finish;
@@ -1557,6 +1559,11 @@ BlockPrefetcher::ReadAsync(WriteLocker& cacheLocker)
 	}
 
 	IORequest* request = new IORequest;
+	if (request == NULL) {
+		_RemoveAllocated(fNumAllocated, fNumAllocated);
+		return B_NO_MEMORY;
+	}
+
 	status_t status = request->Init(fBlockNumber * blockSize, vecs, fNumAllocated,
 		fNumAllocated * blockSize, false, B_DELETE_IO_REQUEST);
 	if (status != B_OK) {
@@ -4005,7 +4012,9 @@ block_cache_get_etc(void* _cache, off_t blockNumber, const void** _block)
 	cached_block* block;
 	{
 #else
-	rw_lock_read_lock(&cache->lock);
+	if (rw_lock_read_lock(&cache->lock) != B_OK)
+		return B_ERROR;
+
 	cached_block* block = cache->hash.Lookup(blockNumber);
 	if (block != NULL && !block->busy_reading) {
 		// Block exists and is read in: quick way out.
@@ -4096,7 +4105,8 @@ block_cache_put(void* _cache, off_t blockNumber)
 {
 	block_cache* cache = (block_cache*)_cache;
 	WriteLocker locker(&cache->lock, false, false);
-	rw_lock_read_lock(&cache->lock);
+	if (rw_lock_read_lock(&cache->lock) != B_OK)
+		return;
 
 	put_cached_block(cache, blockNumber, &locker);
 

@@ -338,7 +338,7 @@ KDiskDevice::GetMediaStatus(status_t* mediaStatus)
 
 	// maybe the device driver doesn't implement this ioctl -- see, if getting
 	// the device geometry succeeds
-	if (error != B_OK) {
+	if (error == ENOTTY || error == EOPNOTSUPP) {
 		device_geometry geometry;
 		if (GetGeometry(&geometry) == B_OK) {
 			// if the device is not removable, we can ignore the failed ioctl
@@ -376,8 +376,13 @@ KDiskDevice::_InitPartitionData()
 	fPartitionData.flags |= B_PARTITION_IS_DEVICE;
 
 	char name[B_FILE_NAME_LENGTH];
-	if (ioctl(fFD, B_GET_DEVICE_NAME, name, sizeof(name)) == B_OK)
+	if (ioctl(fFD, B_GET_DEVICE_NAME, name, sizeof(name)) == B_OK) {
 		fPartitionData.name = strdup(name);
+		if (fPartitionData.name == NULL) {
+			OUT("KDiskDevice::_InitPartitionData: failed to duplicate name\n");
+			// TODO: handle no memory (we can't really do anything about it here)
+		}
+	}
 }
 
 

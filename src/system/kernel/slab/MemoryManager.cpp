@@ -1213,7 +1213,8 @@ MemoryManager::_FreeChunk(Area* area, MetaChunk* metaChunk, Chunk* chunk,
 	if (!alreadyUnmapped) {
 		mutex_unlock(&sLock);
 		_UnmapChunk(area->vmArea, chunkAddress, metaChunk->chunkSize, flags);
-		mutex_lock(&sLock);
+		if (mutex_lock(&sLock) != B_OK)
+			panic("MemoryManager::_FreeChunk: failed to re-acquire lock");
 	}
 
 	T(FreeChunk(metaChunk, chunk));
@@ -1354,7 +1355,8 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 			&areaBase, B_ANY_KERNEL_BLOCK_ADDRESS, SLAB_AREA_SIZE,
 			areaCreationFlags);
 		if (areaID < 0) {
-			mutex_lock(&sLock);
+			if (mutex_lock(&sLock) != B_OK)
+				return B_ERROR;
 			return areaID;
 		}
 
@@ -1373,7 +1375,8 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 			pagesNeededToMap * B_PAGE_SIZE, flags & ~CACHE_UNLOCKED_PAGES);
 		if (error != B_OK) {
 			delete_area(areaID);
-			mutex_lock(&sLock);
+			if (mutex_lock(&sLock) != B_OK)
+				return B_ERROR;
 			return error;
 		}
 
@@ -1385,7 +1388,8 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 			SLAB_AREA_SIZE, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA,
 			SLAB_AREA_SIZE);
 		if (areaBase == NULL) {
-			mutex_lock(&sLock);
+			if (mutex_lock(&sLock) != B_OK)
+				return B_ERROR;
 			return B_NO_MEMORY;
 		}
 		area = _AreaForAddress((addr_t)areaBase);
@@ -1470,7 +1474,8 @@ MemoryManager::_FreeArea(Area* area, bool areaRemoved, uint32 flags)
 	delete_area(area->vmArea->id);
 	vm_unreserve_memory(memoryToUnreserve);
 
-	mutex_lock(&sLock);
+	if (mutex_lock(&sLock) != B_OK)
+		panic("MemoryManager::_FreeArea: failed to re-acquire lock");
 }
 
 

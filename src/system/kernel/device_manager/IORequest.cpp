@@ -956,8 +956,8 @@ IORequest::Wait(uint32 flags, bigtime_t timeout)
 
 	// Make sure the notifier has released the lock, so that we don't access
 	// the object while it is still using it.
-	mutex_lock(&fLock);
-	mutex_unlock(&fLock);
+	if (mutex_lock(&fLock) == B_OK)
+		mutex_unlock(&fLock);
 
 	if (error != B_OK)
 		return error;
@@ -972,6 +972,9 @@ IORequest::NotifyFinished()
 	TRACE("IORequest::NotifyFinished(): request: %p\n", this);
 
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
+
 	ASSERT(fStatus != 1);
 
 	if (fStatus == B_OK && !fPartialTransfer && RemainingBytes() > 0) {
@@ -989,6 +992,9 @@ IORequest::NotifyFinished()
 			// Iteration failed, which means we're responsible for notifying the
 			// requests finished.
 			locker.Lock();
+			if (!locker.IsLocked())
+				return;
+
 			fStatus = error;
 			fPartialTransfer = true;
 		}
@@ -1062,6 +1068,8 @@ void
 IORequest::SetStatusAndNotify(status_t status)
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
 
 	if (fStatus != 1)
 		return;
@@ -1081,6 +1089,8 @@ IORequest::OperationFinished(IOOperation* operation)
 		operation, operation->Status(), this);
 
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
 
 	fChildren.Remove(operation);
 	operation->SetParent(NULL);
@@ -1119,6 +1129,8 @@ IORequest::SubRequestFinished(IORequest* request, status_t status,
 		"): request: %p\n", request, status, partialTransfer, transferEndOffset, this);
 
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
 
 	if (status != B_OK || partialTransfer) {
 		if (fTransferSize > transferEndOffset)
@@ -1147,7 +1159,9 @@ IORequest::SubRequestFinished(IORequest* request, status_t status,
 void
 IORequest::SetUnfinished()
 {
-	MutexLocker _(fLock);
+	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
 	ResetStatus();
 }
 
@@ -1159,7 +1173,9 @@ IORequest::SetTransferredBytes(bool partialTransfer,
 	TRACE("%p->IORequest::SetTransferredBytes(%d, %" B_PRIuGENADDR ")\n", this,
 		partialTransfer, transferredBytes);
 
-	MutexLocker _(fLock);
+	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
 
 	fPartialTransfer = partialTransfer;
 	fTransferSize = transferredBytes;
@@ -1215,6 +1231,9 @@ void
 IORequest::AddOperation(IOOperation* operation)
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
+
 	TRACE("IORequest::AddOperation(%p): request: %p\n", operation, this);
 	fChildren.Add(operation);
 	fPendingChildren++;
@@ -1225,6 +1244,9 @@ void
 IORequest::RemoveOperation(IOOperation* operation)
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return;
+
 	fChildren.Remove(operation);
 	operation->SetParent(NULL);
 }

@@ -1312,6 +1312,10 @@ insert_preloaded_image(preloaded_elf_image *preloadedImage, bool kernel)
 		return B_NO_MEMORY;
 
 	image->name = strdup(preloadedImage->name);
+	if (image->name == NULL) {
+		status = B_NO_MEMORY;
+		goto error1;
+	}
 	image->dynamic_section = preloadedImage->dynamic_section.start;
 
 	image->text_region.id = preloadedImage->text_region.id;
@@ -1347,10 +1351,12 @@ insert_preloaded_image(preloaded_elf_image *preloadedImage, bool kernel)
 		int32 debugSymbolsSize = sizeof(elf_sym)
 			* preloadedImage->num_debug_symbols;
 		image->debug_symbols = (elf_sym*)malloc(debugSymbolsSize);
-		if (image->debug_symbols != NULL) {
-			memcpy(image->debug_symbols, preloadedImage->debug_symbols,
-				debugSymbolsSize);
+		if (image->debug_symbols == NULL) {
+			status = B_NO_MEMORY;
+			goto error1;
 		}
+		memcpy(image->debug_symbols, preloadedImage->debug_symbols,
+			debugSymbolsSize);
 	}
 	image->num_debug_symbols = preloadedImage->num_debug_symbols;
 
@@ -2296,9 +2302,13 @@ load_kernel_add_on(const char *path)
 		goto error1;
 	}
 	image->vnode = vnode;
+	vnode = NULL;
 	image->elf_header = elfHeader;
 	image->name = strdup(path);
-	vnode = NULL;
+	if (image->name == NULL) {
+		status = B_NO_MEMORY;
+		goto error2;
+	}
 
 	programHeaders = (elf_phdr *)malloc(elfHeader->e_phnum
 		* elfHeader->e_phentsize);

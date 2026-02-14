@@ -541,7 +541,8 @@ IOSchedulerSimple::_NextActiveRequestOwner(RequestOwner*& owner,
 			finisherLocker.Unlock();
 			mutex_unlock(&fLock);
 			_Finisher();
-			mutex_lock(&fLock);
+			if (mutex_lock(&fLock) != B_OK)
+				return false;
 			continue;
 		}
 
@@ -554,7 +555,8 @@ IOSchedulerSimple::_NextActiveRequestOwner(RequestOwner*& owner,
 
 		entry.Wait(B_CAN_INTERRUPT);
 		_Finisher();
-		mutex_lock(&fLock);
+		if (mutex_lock(&fLock) != B_OK)
+			return false;
 	}
 }
 

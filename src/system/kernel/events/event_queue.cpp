@@ -174,7 +174,8 @@ EventQueue::~EventQueue()
 
 		mutex_unlock(&fQueueLock);
 		_DeselectEvent(event);
-		mutex_lock(&fQueueLock);
+		if (mutex_lock(&fQueueLock) != B_OK)
+			panic("EventQueue::~EventQueue: failed to re-acquire lock");
 
 		iter.Remove();
 		if ((event->events & B_EVENT_QUEUED) != 0)
@@ -453,7 +454,9 @@ EventQueue::_DequeueEvents(event_wait_info* infos, int numInfos)
 				status = Select(tmp.object, tmp.type,
 					tmp.selected_events | tmp.behavior, tmp.user_data);
 			}
-			mutex_lock(&fQueueLock);
+			status_t lockStatus = mutex_lock(&fQueueLock);
+			if (lockStatus != B_OK)
+				return lockStatus;
 
 			if (status == B_OK) {
 				// Is the event still queued?
@@ -623,10 +626,11 @@ _user_event_queue_create(int openFlags)
 		return fd;
 	}
 
-	rw_lock_write_lock(&context->lock);
-	fd_set_close_on_exec(context, fd, (openFlags & O_CLOEXEC) != 0);
-	fd_set_close_on_fork(context, fd, (openFlags & O_CLOFORK) != 0);
-	rw_lock_write_unlock(&context->lock);
+	if (rw_lock_write_lock(&context->lock) == B_OK) {
+		fd_set_close_on_exec(context, fd, (openFlags & O_CLOEXEC) != 0);
+		fd_set_close_on_fork(context, fd, (openFlags & O_CLOFORK) != 0);
+		rw_lock_write_unlock(&context->lock);
+	}
 
 	deleter.Detach();
 	return fd;
