@@ -8159,7 +8159,8 @@ err2:
 	if (rw_lock_write_lock(&sMountLock) == B_OK) {
 		sMountsTable->Remove(mount);
 		rw_lock_write_unlock(&sMountLock);
-	}
+	} else
+		panic("fs_mount: failed to lock mount table for removal");
 err1:
 	delete mount;
 
@@ -8389,7 +8390,8 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 	if (rw_lock_write_lock(&sMountLock) == B_OK) {
 		sMountsTable->Remove(mount);
 		rw_lock_write_unlock(&sMountLock);
-	}
+	} else
+		panic("fs_unmount: failed to lock mount table for removal");
 
 	mountOpLocker.Unlock();
 
