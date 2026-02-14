@@ -349,11 +349,13 @@ user_mutex_prepare_to_lock(UserMutexEntry* entry, int32* mutex, bool isWired)
 		// possibly unset waiting flag
 		if ((oldValue & B_USER_MUTEX_WAITING) == 0) {
 			rw_lock_read_unlock(&entry->lock);
-			rw_lock_write_lock(&entry->lock);
-			if (entry->condition.EntriesCount() == 0)
-				user_atomic_and(mutex, ~(int32)B_USER_MUTEX_WAITING, isWired);
-			rw_lock_write_unlock(&entry->lock);
-			rw_lock_read_lock(&entry->lock);
+			if (rw_lock_write_lock(&entry->lock) == B_OK) {
+				if (entry->condition.EntriesCount() == 0)
+					user_atomic_and(mutex, ~(int32)B_USER_MUTEX_WAITING, isWired);
+				rw_lock_write_unlock(&entry->lock);
+			}
+			if (rw_lock_read_lock(&entry->lock) != B_OK)
+				panic("user_mutex_prepare_to_lock: failed to re-acquire read lock");
 		}
 		return true;
 	}
