@@ -357,7 +357,9 @@ FileMap::_Insert(uint32 index, size_t count)
 void
 FileMap::Invalidate(off_t offset, off_t size)
 {
-	MutexLocker _(fLock);
+	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		panic("FileMap::Invalidate(): failed to lock");
 
 	if (offset == 0 && (size < 0 || size >= fSize)) {
 		_Free();
@@ -462,7 +464,9 @@ FileMap::Invalidate(off_t offset, off_t size)
 void
 FileMap::SetSize(off_t size)
 {
-	MutexLocker _(fLock);
+	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		panic("FileMap::SetSize(): failed to lock");
 
 	if (size < fSize)
 		_InvalidateAfter(size);
@@ -519,7 +523,9 @@ FileMap::SetMode(uint32 mode)
 	if (mode != FILE_MAP_CACHE_ALL && mode != FILE_MAP_CACHE_ON_DEMAND)
 		return B_BAD_VALUE;
 
-	MutexLocker _(fLock);
+	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if ((mode == FILE_MAP_CACHE_ALL && fCacheAll)
 		|| (mode == FILE_MAP_CACHE_ON_DEMAND && !fCacheAll))
@@ -545,7 +551,9 @@ FileMap::Translate(off_t offset, size_t size, file_io_vec* vecs, size_t* _count,
 	if (offset < 0)
 		return B_BAD_VALUE;
 
-	MutexLocker _(fLock);
+	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	size_t maxVecs = *_count;
 	size_t padLastVec = 0;
