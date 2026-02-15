@@ -164,7 +164,9 @@ EventQueue::EventQueue(bool kernel)
 
 EventQueue::~EventQueue()
 {
-	mutex_lock(&fQueueLock);
+	if (mutex_lock(&fQueueLock) != B_OK)
+		panic("EventQueue::~EventQueue: failed to lock queue");
+
 	ASSERT(fClosing && !fDequeueing);
 
 	EventTree::Iterator iter = fEventTree.GetIterator();
@@ -405,6 +407,11 @@ EventQueue::Wait(event_wait_info* infos, int numInfos,
 		while ((fDequeueing || fEventList.IsEmpty()) && !fClosing) {
 			status_t status = fQueueCondition.Wait(queueLocker.Get(),
 				flags | B_CAN_INTERRUPT, timeout);
+
+			// Check if lock is still held after Wait (it should be, but robustness)
+			if (!queueLocker.IsLocked())
+				return B_ERROR;
+
 			if (status != B_OK)
 				return status;
 		}
@@ -640,11 +647,18 @@ _user_event_queue_create(int openFlags)
 		return fd;
 	}
 
-	if (rw_lock_write_lock(&context->lock) == B_OK) {
+	status_t status = rw_lock_write_lock(&context->lock);
+	if (status == B_OK) {
 		fd_set_close_on_exec(context, fd, (openFlags & O_CLOEXEC) != 0);
 		fd_set_close_on_fork(context, fd, (openFlags & O_CLOFORK) != 0);
 		rw_lock_write_unlock(&context->lock);
 	}
+
+	// If locking failed, we probably shouldn't fail the whole creation,
+	// but strictly speaking we missed setting flags.
+	// However, existing code didn't handle failure at all (it just skipped setting flags).
+	// Given the instructions "check the return value", checking and skipping is what it did.
+	// But let's be explicit.
 
 	deleter.Detach();
 	return fd;

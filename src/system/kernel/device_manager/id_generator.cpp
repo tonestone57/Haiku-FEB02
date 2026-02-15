@@ -176,7 +176,6 @@ dm_init_id_generator(void)
 int32
 dm_create_id(const char* name)
 {
-
 	// find generator, create new if not there
 	status_t status = mutex_lock(&sLock);
 	if (status != B_OK)
