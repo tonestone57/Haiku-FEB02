@@ -765,8 +765,8 @@ get_port_message(int32 code, size_t bufferSize, uint32 flags, bigtime_t timeout,
 			return B_OK;
 		}
 
-		// We weren't able to allocate and we'll start over,so we remove our
-		// size from the commited-counter again.
+		// We weren't able to allocate, so we remove our size from the
+		// commited-counter again and fail.
 		atomic_add(&sTotalSpaceCommited, -size);
 		if (port.owner_team != NULL)
 			atomic_add(&port.owner_team->port_space_committed, -(int32)size);
