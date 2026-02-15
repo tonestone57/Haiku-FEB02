@@ -92,8 +92,9 @@ ARMPagingMethod32Bit::PhysicalPageSlotPool::InitInitial(kernel_args* args)
 	addr_t virtualBase = vm_allocate_early(args, 1024 * B_PAGE_SIZE, 0, 0,
 		kPageTableAlignment);
 	if (virtualBase == 0) {
-		panic("LargeMemoryPhysicalPageMapper::Init(): Failed to reserve "
-			"physical page pool space in virtual address space!");
+		panic("ARMPagingMethod32Bit::PhysicalPageSlotPool::InitInitial(): "
+			"Failed to reserve physical page pool space in virtual address "
+			"space!");
 		return B_ERROR;
 	}
 
@@ -128,8 +129,8 @@ ARMPagingMethod32Bit::PhysicalPageSlotPool::InitInitialPostArea(
 		B_EXACT_ADDRESS, areaSize, B_ALREADY_WIRED,
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
 	if (area < 0) {
-		panic("LargeMemoryPhysicalPageMapper::InitPostArea(): Failed to "
-			"create area for physical page pool.");
+		panic("ARMPagingMethod32Bit::PhysicalPageSlotPool::InitInitial"
+			"PostArea(): Failed to create area for physical page pool.");
 		return area;
 	}
 	fDataArea = area;
@@ -140,8 +141,8 @@ ARMPagingMethod32Bit::PhysicalPageSlotPool::InitInitialPostArea(
 		"physical page pool space", &temp, B_EXACT_ADDRESS,
 		1024 * B_PAGE_SIZE, 0);
 	if (area < B_OK) {
-		panic("LargeMemoryPhysicalPageMapper::InitPostArea(): Failed to "
-			"create area for physical page pool space.");
+		panic("ARMPagingMethod32Bit::PhysicalPageSlotPool::InitInitial"
+			"PostArea(): Failed to create area for physical page pool space.");
 		return area;
 	}
 	fVirtualArea = area;

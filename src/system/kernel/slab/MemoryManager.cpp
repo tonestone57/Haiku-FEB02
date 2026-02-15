@@ -1417,7 +1417,14 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 		metaChunk->freeChunks = NULL;
 	}
 
-	mutex_lock(&sLock);
+	status = mutex_lock(&sLock);
+	if (status != B_OK) {
+		if (vmArea != NULL)
+			delete_area(vmArea->id);
+		vm_unreserve_memory(area->reserved_memory_for_mapping);
+		return status;
+	}
+
 	_area = area;
 
 	T(AllocateArea(area, flags));

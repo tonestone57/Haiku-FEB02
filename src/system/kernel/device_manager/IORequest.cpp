@@ -893,6 +893,10 @@ IORequest::CreateSubRequest(off_t parentOffset, off_t offset,
 	subRequest->SetParent(this);
 
 	MutexLocker _(fLock);
+	if (!_.IsLocked()) {
+		delete subRequest;
+		return B_ERROR;
+	}
 
 	fChildren.Add(subRequest);
 	fPendingChildren++;
@@ -943,6 +947,8 @@ status_t
 IORequest::Wait(uint32 flags, bigtime_t timeout)
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if (IsFinished() && fIsNotified)
 		return Status();

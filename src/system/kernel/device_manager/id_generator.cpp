@@ -92,16 +92,13 @@ create_generator(const char* name)
 }
 
 
-/*! Allocate ID */
+/*! Allocate ID. sLock must be held. */
 static int32
-create_id_internal(id_generator* generator)
+create_id_locked(id_generator* generator)
 {
 	uint32 id;
 
 	TRACE(("create_id_internal(name: %s)\n", generator->name));
-
-	// see above: we use global instead of local lock
-	MutexLocker _(sLock);
 
 	// simple bit search
 	for (id = 0; id < GENERATOR_MAX_ID; ++id) {
@@ -162,15 +159,6 @@ release_generator_locked(id_generator *generator)
 }
 
 
-/*! Decrease ref_count, deleting generator if not used anymore */
-static void
-release_generator(id_generator *generator)
-{
-	MutexLocker _(sLock);
-	release_generator_locked(generator);
-}
-
-
 //	#pragma mark - Private kernel API
 
 
@@ -198,15 +186,16 @@ dm_create_id(const char* name)
 	if (generator == NULL)
 		generator = create_generator(name);
 
-	mutex_unlock(&sLock);
-
-	if (generator == NULL)
+	if (generator == NULL) {
+		mutex_unlock(&sLock);
 		return B_NO_MEMORY;
+	}
 
 	// get ID
-	int32 id = create_id_internal(generator);
+	int32 id = create_id_locked(generator);
 
-	release_generator(generator);
+	release_generator_locked(generator);
+	mutex_unlock(&sLock);
 
 	TRACE(("dm_create_id: name: %s, id: %ld\n", name, id));
 	return id;
@@ -219,7 +208,10 @@ dm_free_id(const char* name, uint32 id)
 {
 	TRACE(("dm_free_id(name: %s, id: %ld)\n", name, id));
 
-	MutexLocker locker(sLock);
+	status_t status = mutex_lock(&sLock);
+	if (status != B_OK)
+		return status;
+	MutexLocker locker(sLock, true);
 
 	id_generator* generator = get_generator(name);
 

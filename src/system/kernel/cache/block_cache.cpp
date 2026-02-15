@@ -2143,6 +2143,8 @@ put_cached_block(block_cache* cache, cached_block* block, WriteLocker* writeLock
 
 		rw_lock_read_unlock(&cache->lock);
 		writeLocker->Lock();
+		if (!writeLocker->IsLocked())
+			panic("put_cached_block: failed to lock cache");
 	}
 
 	if (block->ref_count < 1) {
@@ -3139,6 +3141,8 @@ cache_start_transaction(void* _cache)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if (cache->last_transaction && cache->last_transaction->open) {
 		panic("last transaction (%" B_PRId32 ") still open!\n",
@@ -3171,6 +3175,9 @@ cache_sync_transaction(void* _cache, int32 id)
 
 	do {
 		TransactionLocker locker(cache);
+		if (!locker.IsLocked())
+			return B_ERROR;
+
 		hadBusy = false;
 
 		BlockWriter writer(cache);
@@ -3217,6 +3224,8 @@ cache_end_transaction(void* _cache, int32 id,
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	TRACE(("cache_end_transaction(id = %" B_PRId32 ")\n", id));
 
@@ -3283,6 +3292,8 @@ cache_abort_transaction(void* _cache, int32 id)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	TRACE(("cache_abort_transaction(id = %" B_PRId32 ")\n", id));
 
@@ -3336,6 +3347,8 @@ cache_detach_sub_transaction(void* _cache, int32 id,
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	TRACE(("cache_detach_sub_transaction(id = %" B_PRId32 ")\n", id));
 
@@ -3439,6 +3452,8 @@ cache_abort_sub_transaction(void* _cache, int32 id)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	TRACE(("cache_abort_sub_transaction(id = %" B_PRId32 ")\n", id));
 
@@ -3524,6 +3539,8 @@ cache_start_sub_transaction(void* _cache, int32 id)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	TRACE(("cache_start_sub_transaction(id = %" B_PRId32 ")\n", id));
 
@@ -3589,6 +3606,8 @@ cache_add_transaction_listener(void* _cache, int32 id, int32 events,
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cache_transaction* transaction = lookup_transaction(cache, id);
 	if (transaction == NULL)
@@ -3604,6 +3623,8 @@ cache_remove_transaction_listener(void* _cache, int32 id,
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cache_transaction* transaction = lookup_transaction(cache, id);
 	if (transaction == NULL)
@@ -3636,6 +3657,8 @@ cache_next_block_in_transaction(void* _cache, int32 id, bool mainOnly,
 	cached_block* block = (cached_block*)*_cookie;
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cache_transaction* transaction = lookup_transaction(cache, id);
 	if (transaction == NULL || !transaction->open)
@@ -3678,6 +3701,8 @@ cache_blocks_in_transaction(void* _cache, int32 id)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cache_transaction* transaction = lookup_transaction(cache, id);
 	if (transaction == NULL)
@@ -3696,6 +3721,8 @@ cache_blocks_in_main_transaction(void* _cache, int32 id)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cache_transaction* transaction = lookup_transaction(cache, id);
 	if (transaction == NULL)
@@ -3713,6 +3740,8 @@ cache_blocks_in_sub_transaction(void* _cache, int32 id)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cache_transaction* transaction = lookup_transaction(cache, id);
 	if (transaction == NULL)
@@ -3729,6 +3758,8 @@ cache_has_block_in_transaction(void* _cache, int32 id, off_t blockNumber)
 {
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return false;
 
 	cached_block* block = cache->hash.Lookup(blockNumber);
 
@@ -3815,6 +3846,8 @@ block_cache_sync(void* _cache)
 	// transaction or no transaction only
 
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	BlockWriter writer(cache);
 	BlockTable::Iterator iterator(&cache->hash);
@@ -3852,6 +3885,9 @@ block_cache_sync_etc(void* _cache, off_t blockNumber, size_t numBlocks)
 	}
 
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	BlockWriter writer(cache);
 
 	for (; numBlocks > 0; numBlocks--, blockNumber++) {
@@ -3933,6 +3969,8 @@ block_cache_make_writable(void* _cache, off_t blockNumber, int32 transaction)
 {
 	block_cache* cache = (block_cache*)_cache;
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if (cache->read_only) {
 		panic("tried to make block writable on a read-only cache!");
@@ -3958,6 +3996,8 @@ block_cache_get_writable_etc(void* _cache, off_t blockNumber,
 {
 	block_cache* cache = (block_cache*)_cache;
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	TRACE(("block_cache_get_writable_etc(block = %" B_PRIdOFF ", transaction = %" B_PRId32 ")\n",
 		blockNumber, transaction));
@@ -3986,6 +4026,8 @@ block_cache_get_empty(void* _cache, off_t blockNumber, int32 transaction)
 {
 	block_cache* cache = (block_cache*)_cache;
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked())
+		return NULL;
 
 	TRACE(("block_cache_get_empty(block = %" B_PRIdOFF ", transaction = %" B_PRId32 ")\n",
 		blockNumber, transaction));
@@ -4032,6 +4074,8 @@ block_cache_get_etc(void* _cache, off_t blockNumber, const void** _block)
 		rw_lock_read_unlock(&cache->lock);
 #endif
 		writeLocker.Lock();
+		if (!writeLocker.IsLocked())
+			return B_ERROR;
 
 		bool allocated;
 		status_t status = get_cached_block(cache, blockNumber, &allocated, true,
@@ -4083,6 +4127,8 @@ block_cache_set_dirty(void* _cache, off_t blockNumber, bool dirty,
 {
 	block_cache* cache = (block_cache*)_cache;
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	cached_block* block = cache->hash.Lookup(blockNumber);
 	if (block == NULL)
@@ -4131,6 +4177,10 @@ block_cache_prefetch(void* _cache, off_t blockNumber, size_t* _numBlocks)
 
 	block_cache* cache = reinterpret_cast<block_cache*>(_cache);
 	WriteLocker locker(&cache->lock);
+	if (!locker.IsLocked()) {
+		*_numBlocks = 0;
+		return B_ERROR;
+	}
 
 	size_t numBlocks = *_numBlocks;
 	*_numBlocks = 0;

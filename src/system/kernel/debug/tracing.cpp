@@ -1090,6 +1090,8 @@ private:
 		if (depth > 32)
 			return NULL;
 
+		int originalFilterCount = fFilterCount;
+
 		const char* token = _NextToken();
 		if (!token) {
 			// unexpected end of expression
@@ -1126,7 +1128,7 @@ private:
 			if ((filter->fSubFilters.first = _ParseExpression(depth + 1)) != NULL)
 				return filter;
 			filter->~TraceFilter();
-			fFilterCount--;
+			fFilterCount = originalFilterCount;
 			return NULL;
 		} else if (strcmp(token, "and") == 0) {
 			TraceFilter* filter = new(&fFilters[fFilterCount++]) AndTraceFilter;
@@ -1135,7 +1137,7 @@ private:
 				return filter;
 			}
 			filter->~TraceFilter();
-			fFilterCount--;
+			fFilterCount = originalFilterCount;
 			return NULL;
 		} else if (strcmp(token, "or") == 0) {
 			TraceFilter* filter = new(&fFilters[fFilterCount++]) OrTraceFilter;
@@ -1144,7 +1146,7 @@ private:
 				return filter;
 			}
 			filter->~TraceFilter();
-			fFilterCount--;
+			fFilterCount = originalFilterCount;
 			return NULL;
 		} else if (strcmp(token, "thread") == 0) {
 			const char* arg = _NextToken();
