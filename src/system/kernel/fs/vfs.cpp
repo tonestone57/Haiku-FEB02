@@ -3276,7 +3276,8 @@ resolve_covered_parent(struct vnode* parent, dev_t* _device, ino_t* _node,
 
 	// ".." is guaranteed not to be clobbered by this call
 	VnodePutter vnode;
-	status_t status = vnode_path_to_vnode(parent, (char*)"..", false,
+	char dotDot[] = "..";
+	status_t status = vnode_path_to_vnode(parent, dotDot, false,
 		ioContext, vnode, NULL);
 	if (status == B_OK) {
 		*_device = vnode->device;
@@ -4541,6 +4542,7 @@ vfs_get_cookie_from_fd(int fd, void** _cookie)
 		return B_FILE_ERROR;
 
 	*_cookie = descriptor->cookie;
+	put_fd(descriptor);
 	return B_OK;
 }
 
@@ -5283,7 +5285,8 @@ void
 vfs_exec_io_context(io_context* context)
 {
 	for (uint32 i = 0; i < context->table_size; i++) {
-		rw_lock_write_lock(&context->lock);
+		if (rw_lock_write_lock(&context->lock) != B_OK)
+			panic("vfs_exec_io_context: failed to lock io_context");
 
 		struct file_descriptor* descriptor = context->fds[i];
 		bool remove = false;
@@ -9769,7 +9772,8 @@ _user_open_parent_dir(int fd, char* userName, size_t nameLength)
 		return B_BAD_ADDRESS;
 
 	// open the parent dir
-	int parentFD = dir_open(fd, (char*)"..", kernel);
+	char dotDot[] = "..";
+	int parentFD = dir_open(fd, dotDot, kernel);
 	if (parentFD < 0)
 		return parentFD;
 	FDCloser fdCloser(parentFD, kernel);

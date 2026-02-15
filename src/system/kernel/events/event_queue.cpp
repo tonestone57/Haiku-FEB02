@@ -536,6 +536,10 @@ EventQueue::_DequeueEvents(event_wait_info* infos, int numInfos)
 		// from anywhere they could be found before dropping the lock.
 	}
 
+	status_t status = mutex_lock(&fQueueLock);
+	if (status != B_OK)
+		return status;
+
 	return count;
 }
 
@@ -706,7 +710,10 @@ _user_event_queue_select(int queue, event_wait_info* userInfos, int numInfos)
 		}
 
 		if (error != B_OK) {
-			user_memcpy(&userInfos[i].events, &error, sizeof(userInfos[i].events));
+			if (user_memcpy(&userInfos[i].events, &error,
+					sizeof(userInfos[i].events)) != B_OK) {
+				return B_BAD_ADDRESS;
+			}
 			result = B_ERROR;
 		}
 	}
