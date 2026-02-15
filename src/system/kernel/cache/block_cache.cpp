@@ -1170,13 +1170,15 @@ BlockWriter::Add(cached_block* block, cache_transaction* transaction)
 
 	if (fCount >= fCapacity) {
 		// Enlarge array if necessary
-		cached_block** newBlocks;
+		cached_block** newBlocks = NULL;
 		size_t newCapacity = max_c(256, fCapacity * 2);
-		if (fBlocks == fBuffer)
-			newBlocks = (cached_block**)malloc(newCapacity * sizeof(void*));
-		else {
-			newBlocks = (cached_block**)realloc(fBlocks,
-				newCapacity * sizeof(void*));
+		if (newCapacity >= fCapacity && newCapacity <= SIZE_MAX / sizeof(void*)) {
+			if (fBlocks == fBuffer)
+				newBlocks = (cached_block**)malloc(newCapacity * sizeof(void*));
+			else {
+				newBlocks = (cached_block**)realloc(fBlocks,
+					newCapacity * sizeof(void*));
+			}
 		}
 
 		if (newBlocks == NULL) {
@@ -1491,6 +1493,11 @@ BlockPrefetcher::Allocate()
 {
 	TRACE(("BlockPrefetcher::Allocate: looking up %" B_PRIuSIZE " blocks, starting with %"
 		B_PRIdOFF "\n", fNumRequested, fBlockNumber));
+
+	if (fNumRequested > SIZE_MAX / sizeof(cached_block*)
+		|| fNumRequested > SIZE_MAX / sizeof(generic_io_vec)) {
+		return B_NO_MEMORY;
+	}
 
 	fBlocks = new(std::nothrow) cached_block*[fNumRequested];
 	fDestVecs = new(std::nothrow) generic_io_vec[fNumRequested];

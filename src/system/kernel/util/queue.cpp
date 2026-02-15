@@ -9,6 +9,7 @@
 #include <queue.h>
 #include <malloc.h>
 #include <errno.h>
+#include <limits.h>
 
 typedef struct queue_element {
 	void *next;
@@ -112,6 +113,9 @@ fixed_queue_init(fixed_queue *q, int size)
 {
 	if (size <= 0)
 		return EINVAL;
+
+	if (size > (int)(INT_MAX / sizeof(void *)))
+		return ENOMEM;
 
 	q->table = (void**)malloc(size * sizeof(void *));
 	if (!q->table)

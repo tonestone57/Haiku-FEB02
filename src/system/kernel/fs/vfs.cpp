@@ -4542,6 +4542,7 @@ vfs_get_cookie_from_fd(int fd, void** _cookie)
 		return B_FILE_ERROR;
 
 	*_cookie = descriptor->cookie;
+	put_fd(descriptor);
 	return B_OK;
 }
 

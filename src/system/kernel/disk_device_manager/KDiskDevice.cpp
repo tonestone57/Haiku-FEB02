@@ -45,6 +45,7 @@ KDiskDevice::KDiskDevice(partition_id id)
 KDiskDevice::~KDiskDevice()
 {
 	Unset();
+	free(fPublishedName);
 }
 
 
