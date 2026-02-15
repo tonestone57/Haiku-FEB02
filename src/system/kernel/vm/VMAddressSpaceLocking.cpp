@@ -556,9 +556,20 @@ MultiAddressSpaceLocker::AddAreaCacheAndLock(area_id areaID,
 		VMCache* oldCache = cache;
 		cache = vm_area_get_locked_cache(area);
 
-		// If neither the area's cache has changed nor its area list we're
-		// done.
-		if (cache == oldCache && firstArea == cache->areas.First()) {
+		// If the area's cache hasn't changed, check whether we missed any
+		// address spaces (e.g. because new areas have been added to the cache).
+		bool missingAddressSpace = false;
+		if (cache == oldCache) {
+			for (VMArea* current = cache->areas.First(); current != NULL;
+					current = cache->areas.GetNext(current)) {
+				if (_IndexOfAddressSpace(current->address_space) < 0) {
+					missingAddressSpace = true;
+					break;
+				}
+			}
+		}
+
+		if (cache == oldCache && !missingAddressSpace) {
 			_area = area;
 			if (_cache != NULL)
 				*_cache = cache;

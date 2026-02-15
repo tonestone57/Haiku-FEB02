@@ -180,21 +180,19 @@ dm_create_id(const char* name)
 	status_t status = mutex_lock(&sLock);
 	if (status != B_OK)
 		return status;
+	MutexLocker locker(sLock, true);
 
 	id_generator* generator = get_generator(name);
 	if (generator == NULL)
 		generator = create_generator(name);
 
-	if (generator == NULL) {
-		mutex_unlock(&sLock);
+	if (generator == NULL)
 		return B_NO_MEMORY;
-	}
 
 	// get ID
 	int32 id = create_id_locked(generator);
 
 	release_generator_locked(generator);
-	mutex_unlock(&sLock);
 
 	TRACE(("dm_create_id: name: %s, id: %ld\n", name, id));
 	return id;
