@@ -9770,7 +9770,8 @@ _user_open_parent_dir(int fd, char* userName, size_t nameLength)
 		return B_BAD_ADDRESS;
 
 	// open the parent dir
-	int parentFD = dir_open(fd, (char*)"..", kernel);
+	char dotDot[] = "..";
+	int parentFD = dir_open(fd, dotDot, kernel);
 	if (parentFD < 0)
 		return parentFD;
 	FDCloser fdCloser(parentFD, kernel);
