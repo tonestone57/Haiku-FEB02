@@ -1027,7 +1027,8 @@ public:
 
 		// TODO: this is *very* slow
 		char buffer[64];
-		user_strlcpy(buffer, (const char*)fValue, sizeof(buffer));
+		if (user_strlcpy(buffer, (const char*)fValue, sizeof(buffer)) < B_OK)
+			return false;
 		return strstr(out.DumpEntry(entry), buffer) != NULL;
 	}
 };
