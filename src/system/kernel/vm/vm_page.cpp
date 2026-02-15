@@ -3501,9 +3501,13 @@ vm_page_init_post_area(kernel_args *args)
 	void *dummy;
 
 	dummy = sPages;
-	create_area("page structures", &dummy, B_EXACT_ADDRESS,
+	area_id area = create_area("page structures", &dummy, B_EXACT_ADDRESS,
 		PAGE_ALIGN(sNumPages * sizeof(vm_page)), B_ALREADY_WIRED,
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	if (area < B_OK) {
+		panic("vm_page_init_post_area: failed to create area for page "
+			"structures");
+	}
 
 	add_debugger_command("list_pages", &dump_page_list,
 		"List physical pages");

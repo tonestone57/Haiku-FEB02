@@ -303,14 +303,19 @@ generic_vm_physical_page_mapper_init_post_area(kernel_args *args)
 	TRACE(("generic_vm_physical_page_mapper_init_post_area: entry\n"));
 
 	temp = (void *)paddr_desc;
-	create_area("physical_page_mapping_descriptors", &temp, B_EXACT_ADDRESS,
-		ROUNDUP(sizeof(paddr_chunk_desc) * 1024, B_PAGE_SIZE),
+	area_id area = create_area("physical_page_mapping_descriptors", &temp,
+		B_EXACT_ADDRESS, ROUNDUP(sizeof(paddr_chunk_desc) * 1024, B_PAGE_SIZE),
 		B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	if (area < B_OK)
+		return area;
 
 	temp = (void *)virtual_pmappings;
-	create_area("iospace_virtual_chunk_descriptors", &temp, B_EXACT_ADDRESS,
+	area = create_area("iospace_virtual_chunk_descriptors", &temp,
+		B_EXACT_ADDRESS,
 		ROUNDUP(sizeof(paddr_chunk_desc *) * num_virtual_chunks, B_PAGE_SIZE),
 		B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	if (area < B_OK)
+		return area;
 
 	TRACE(("generic_vm_physical_page_mapper_init_post_area: creating iospace\n"));
 	temp = (void *)sIOSpaceBase;
