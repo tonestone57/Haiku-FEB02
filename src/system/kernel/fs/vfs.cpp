@@ -3276,7 +3276,8 @@ resolve_covered_parent(struct vnode* parent, dev_t* _device, ino_t* _node,
 
 	// ".." is guaranteed not to be clobbered by this call
 	VnodePutter vnode;
-	status_t status = vnode_path_to_vnode(parent, (char*)"..", false,
+	char dotDot[] = "..";
+	status_t status = vnode_path_to_vnode(parent, dotDot, false,
 		ioContext, vnode, NULL);
 	if (status == B_OK) {
 		*_device = vnode->device;
