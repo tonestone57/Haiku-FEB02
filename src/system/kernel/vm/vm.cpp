@@ -3608,7 +3608,7 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		// ELF initialization code
 	if (image->text_region.id < 0) {
 		panic("create_preloaded_image_areas: failed to create text area for %s: %s",
-			image->name, strerror(image->text_region.id));
+			image->name.Pointer(), strerror(image->text_region.id));
 	}
 
 	strlcpy(name + length, "_data", sizeof(name) - length);
@@ -3618,7 +3618,7 @@ create_preloaded_image_areas(struct preloaded_image* _image)
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
 	if (image->data_region.id < 0) {
 		panic("create_preloaded_image_areas: failed to create data area for %s: %s",
-			image->name, strerror(image->data_region.id));
+			image->name.Pointer(), strerror(image->data_region.id));
 	}
 }
 

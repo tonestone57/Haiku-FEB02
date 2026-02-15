@@ -102,6 +102,13 @@ ThreadData::ThreadData(Thread* thread)
 }
 
 
+status_t
+ThreadData::InitCheck()
+{
+	return B_OK;
+}
+
+
 void
 ThreadData::Init()
 {

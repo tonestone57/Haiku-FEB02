@@ -1417,7 +1417,7 @@ MemoryManager::_AllocateArea(uint32 flags, Area*& _area)
 		metaChunk->freeChunks = NULL;
 	}
 
-	status = mutex_lock(&sLock);
+	status_t status = mutex_lock(&sLock);
 	if (status != B_OK) {
 		if (vmArea != NULL)
 			delete_area(vmArea->id);
