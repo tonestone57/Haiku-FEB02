@@ -530,15 +530,13 @@ EventQueue::_DequeueEvents(event_wait_info* infos, int numInfos)
 			_DeselectEvent(event);
 			delete event;
 		}
-		mutex_lock(&fQueueLock);
+		status_t status = mutex_lock(&fQueueLock);
+		if (status != B_OK)
+			return status;
 
 		// We don't need to notify waiters, as we removed the events
 		// from anywhere they could be found before dropping the lock.
 	}
-
-	status_t status = mutex_lock(&fQueueLock);
-	if (status != B_OK)
-		return status;
 
 	return count;
 }

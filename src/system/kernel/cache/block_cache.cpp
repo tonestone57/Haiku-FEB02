@@ -749,7 +749,11 @@ public:
 		bool isSub = transaction->has_sub_transaction;
 		fNumBlocks = isSub ? transaction->sub_num_blocks
 			: transaction->num_blocks;
-		fBlocks = (off_t*)alloc_tracing_buffer(fNumBlocks * sizeof(off_t));
+		if (fNumBlocks > SIZE_MAX / sizeof(off_t))
+			fBlocks = NULL;
+		else
+			fBlocks = (off_t*)alloc_tracing_buffer(fNumBlocks * sizeof(off_t));
+
 		if (fBlocks != NULL) {
 			cached_block* block = transaction->first_block;
 			for (int32 i = 0; block != NULL && i < fNumBlocks;
