@@ -3649,8 +3649,13 @@ allocate_kernel_args(kernel_args* args)
 		const addr_range& range = args->kernel_args_range[i];
 		void* address = (void*)(addr_t)range.start;
 
-		create_area("_kernel args_", &address, B_EXACT_ADDRESS,
-			range.size, B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+		area_id area = create_area("_kernel args_", &address, B_EXACT_ADDRESS,
+			range.size, B_ALREADY_WIRED,
+			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+		if (area < B_OK) {
+			panic("allocate_kernel_args: failed to create area for kernel "
+				"args");
+		}
 	}
 }
 
@@ -4005,8 +4010,10 @@ vm_init(kernel_args* args)
 
 #if USE_DEBUG_HEAP_FOR_MALLOC
 	address = (void*)ROUNDDOWN(heapBase, B_PAGE_SIZE);
-	create_area("kernel heap", &address, B_EXACT_ADDRESS, heapSize,
-		B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	area_id heapArea = create_area("kernel heap", &address, B_EXACT_ADDRESS,
+		heapSize, B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+	if (heapArea < B_OK)
+		panic("vm_init: failed to create area for kernel heap");
 #endif
 
 	allocate_kernel_args(args);
@@ -4023,8 +4030,11 @@ vm_init(kernel_args* args)
 
 		snprintf(name, sizeof(name), "idle thread %" B_PRIu32 " kstack", i + 1);
 		address = (void*)args->cpu_kstack[i].start;
-		create_area(name, &address, B_EXACT_ADDRESS, args->cpu_kstack[i].size,
-			B_ALREADY_WIRED, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+		area_id stackArea = create_area(name, &address, B_EXACT_ADDRESS,
+			args->cpu_kstack[i].size, B_ALREADY_WIRED,
+			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
+		if (stackArea < B_OK)
+			panic("vm_init: failed to create area for idle thread kstack");
 	}
 
 	void* lastPage = (void*)ROUNDDOWN(~(addr_t)0, B_PAGE_SIZE);

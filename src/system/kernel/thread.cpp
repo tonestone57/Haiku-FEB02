@@ -472,6 +472,9 @@ Thread::operator delete(void* pointer, size_t size)
 status_t
 Thread::Init(bool idleThread)
 {
+	if (fLock.name == NULL)
+		return B_NO_MEMORY;
+
 	status_t error = scheduler_on_thread_create(this, idleThread);
 	if (error != B_OK)
 		return error;
