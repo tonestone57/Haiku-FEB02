@@ -561,7 +561,8 @@ Team::Create(team_id id, const char* name, bool kernel)
 		team->SetName(name);
 
 	// check initialization
-	if (team->job_control_entry == NULL || team->fQueuedSignalsCounter == NULL)
+	if (team->job_control_entry == NULL || team->fQueuedSignalsCounter == NULL
+		|| team->fLock.name == NULL)
 		return NULL;
 
 	// finish initialization (arch specifics)
