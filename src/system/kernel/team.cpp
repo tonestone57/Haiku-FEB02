@@ -1139,6 +1139,10 @@ ProcessGroup::~ProcessGroup()
 
 	// If the group is in the orphaned check list, remove it.
 	MutexLocker orphanedCheckLocker(sOrphanedCheckLock);
+	if (!orphanedCheckLocker.IsLocked()) {
+		panic("ProcessGroup::~ProcessGroup(): failed to lock orphaned check "
+			"lock");
+	}
 
 	if (fInOrphanedCheckList)
 		sOrphanedCheckProcessGroups.Remove(this);
@@ -1230,6 +1234,10 @@ void
 ProcessGroup::ScheduleOrphanedCheck()
 {
 	MutexLocker orphanedCheckLocker(sOrphanedCheckLock);
+	if (!orphanedCheckLocker.IsLocked()) {
+		panic("ProcessGroup::ScheduleOrphanedCheck(): failed to lock orphaned "
+			"check lock");
+	}
 
 	if (!fInOrphanedCheckList) {
 		sOrphanedCheckProcessGroups.Add(this);
@@ -1843,7 +1851,7 @@ load_image_internal(char**& _flatArgs, size_t flatArgsSize, int32 argCount,
 	char** flatArgs = _flatArgs;
 	thread_id thread;
 	status_t status;
-	struct team_arg* teamArgs;
+	struct team_arg* teamArgs = NULL;
 	struct team_loading_info loadingInfo;
 	ConditionVariableEntry loadingWaitEntry;
 	io_context* parentIOContext = NULL;
@@ -2916,6 +2924,10 @@ orphaned_process_group_check()
 	while (true) {
 		// remove the head from the list
 		MutexLocker orphanedCheckLocker(sOrphanedCheckLock);
+		if (!orphanedCheckLocker.IsLocked()) {
+			panic("orphaned_process_group_check(): failed to lock orphaned check "
+				"lock");
+		}
 
 		ProcessGroup* group = sOrphanedCheckProcessGroups.RemoveHead();
 		if (group == NULL)
@@ -3838,6 +3850,8 @@ bool
 AssociatedDataOwner::AddData(AssociatedData* data)
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return false;
 
 	if (data->Owner() != NULL)
 		return false;
@@ -3854,6 +3868,8 @@ bool
 AssociatedDataOwner::RemoveData(AssociatedData* data)
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		return false;
 
 	if (data->Owner() != this)
 		return false;
@@ -3873,6 +3889,8 @@ void
 AssociatedDataOwner::PrepareForDeletion()
 {
 	MutexLocker locker(fLock);
+	if (!locker.IsLocked())
+		panic("AssociatedDataOwner::PrepareForDeletion(): failed to lock");
 
 	// move all data to a temporary list and unset the owner
 	DataList list;

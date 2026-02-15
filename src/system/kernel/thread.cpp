@@ -1351,11 +1351,14 @@ send_data_etc(thread_id id, int32 code, const void *buffer, size_t bufferSize,
 	void* data;
 	if (bufferSize > 0) {
 		data = malloc(bufferSize);
-		if (data == NULL)
+		if (data == NULL) {
+			release_sem(cachedSem);
 			return B_NO_MEMORY;
+		}
 		if (IS_USER_ADDRESS(buffer)) {
 			if (user_memcpy(data, buffer, bufferSize) != B_OK) {
 				free(data);
+				release_sem(cachedSem);
 				return B_BAD_DATA;
 			}
 		} else {

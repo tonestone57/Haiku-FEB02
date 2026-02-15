@@ -250,6 +250,8 @@ static struct elf_image_info *
 find_image_by_vnode(void *vnode)
 {
 	MutexLocker locker(sImageMutex);
+	if (!locker.IsLocked())
+		return NULL;
 
 	ImageHash::Iterator iterator(sImagesHash);
 	while (iterator.HasNext()) {
@@ -1619,7 +1621,9 @@ get_image_symbol(image_id id, const char *name, int32 symbolClass,
 
 	TRACE(("get_image_symbol(%s)\n", name));
 
-	MutexLocker _(sImageMutex);
+	MutexLocker locker(sImageMutex);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	image = find_image(id);
 	if (image == NULL)
@@ -2268,6 +2272,10 @@ load_kernel_add_on(const char *path)
 	// Prevent someone else from trying to load this image
 	{
 	MutexLocker locker(sImageLoadMutex);
+	if (!locker.IsLocked()) {
+		status = B_ERROR;
+		goto error0;
+	}
 
 	// make sure it's not loaded already. Search by vnode
 	image = find_image_by_vnode(vnode);
@@ -2533,7 +2541,11 @@ load_kernel_add_on(const char *path)
 
 	free(programHeaders);
 	{
-		MutexLocker _(sImageMutex);
+		MutexLocker locker(sImageMutex);
+		if (!locker.IsLocked()) {
+			status = B_ERROR;
+			goto error2;
+		}
 		status = register_elf_image(image);
 	}
 	if (status != B_OK)
@@ -2573,8 +2585,10 @@ error0:
 status_t
 unload_kernel_add_on(image_id id)
 {
-	MutexLocker _(sImageLoadMutex);
-	MutexLocker _2(sImageMutex);
+	MutexLocker locker(sImageLoadMutex);
+	MutexLocker locker2(sImageMutex);
+	if (!locker.IsLocked() || !locker2.IsLocked())
+		return B_ERROR;
 
 	elf_image_info *image = find_image(id);
 	if (image == NULL)
@@ -2595,7 +2609,10 @@ elf_get_kernel_image()
 status_t
 elf_get_image_info_for_address(addr_t address, image_info* info)
 {
-	MutexLocker _(sImageMutex);
+	MutexLocker locker(sImageMutex);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	struct elf_image_info* elfInfo = find_image_at_address(address);
 	if (elfInfo == NULL)
 		return B_ENTRY_NOT_FOUND;
@@ -2669,9 +2686,13 @@ elf_create_memory_image(const char* imageName, addr_t text, size_t textSize,
 	status_t status;
 	image_id imageID;
 	{
-		MutexLocker _(sImageMutex);
-		status = register_elf_image(image);
-		imageID = image->id;
+		MutexLocker locker(sImageMutex);
+		if (!locker.IsLocked())
+			status = B_ERROR;
+		else {
+			status = register_elf_image(image);
+			imageID = image->id;
+		}
 	}
 
 	if (status == B_OK) {
@@ -2689,7 +2710,9 @@ status_t
 elf_add_memory_image_symbol(image_id id, const char* name, addr_t address,
 	size_t size, int32 type)
 {
-	MutexLocker _(sImageMutex);
+	MutexLocker locker(sImageMutex);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	// get the image
 	struct elf_image_info* image = find_image(id);
@@ -2790,7 +2813,10 @@ elf_read_kernel_image_symbols(image_id id, elf_sym* symbolTable,
 	}
 
 	// find the image
-	MutexLocker _(sImageMutex);
+	MutexLocker locker(sImageMutex);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	struct elf_image_info* image = find_image(id);
 	if (image == NULL)
 		return B_ENTRY_NOT_FOUND;

@@ -1383,8 +1383,8 @@ file_cache_enable(void* _cacheRef)
 {
 	file_cache_ref* ref = (file_cache_ref*)_cacheRef;
 
-	AutoLocker<VMCache> _(ref->cache);
-	if (!_.IsLocked())
+	AutoLocker<VMCache> locker(ref->cache);
+	if (!locker.IsLocked())
 		return;
 
 	if (ref->disabled_count == 0) {
@@ -1408,8 +1408,8 @@ file_cache_disable(void* _cacheRef)
 
 	file_cache_ref* ref = (file_cache_ref*)_cacheRef;
 
-	AutoLocker<VMCache> _(ref->cache);
-	if (!_.IsLocked())
+	AutoLocker<VMCache> locker(ref->cache);
+	if (!locker.IsLocked())
 		return B_ERROR;
 
 	// If already disabled, there's nothing to do for us.
@@ -1432,8 +1432,8 @@ extern "C" bool
 file_cache_is_enabled(void* _cacheRef)
 {
 	file_cache_ref* ref = (file_cache_ref*)_cacheRef;
-	AutoLocker<VMCache> _(ref->cache);
-	if (!_.IsLocked())
+	AutoLocker<VMCache> locker(ref->cache);
+	if (!locker.IsLocked())
 		return false;
 
 	return ref->disabled_count == 0;
@@ -1454,8 +1454,8 @@ file_cache_set_size(void* _cacheRef, off_t newSize)
 		return B_OK;
 
 	VMCache* cache = ref->cache;
-	AutoLocker<VMCache> _(cache);
-	if (!_.IsLocked())
+	AutoLocker<VMCache> locker(cache);
+	if (!locker.IsLocked())
 		return B_ERROR;
 
 	status_t status = cache->Resize(newSize, VM_PRIORITY_USER);

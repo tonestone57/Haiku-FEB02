@@ -213,7 +213,10 @@ VMAddressSpace::Create(team_id teamID, addr_t base, size_t size, bool kernel,
 	}
 
 	// add the aspace to the global hash table
-	rw_lock_write_lock(&sAddressSpaceTableLock);
+	if (rw_lock_write_lock(&sAddressSpaceTableLock) != B_OK) {
+		delete addressSpace;
+		return B_ERROR;
+	}
 	sAddressSpaceTable.InsertUnchecked(addressSpace);
 	rw_lock_write_unlock(&sAddressSpaceTableLock);
 
@@ -263,7 +266,8 @@ VMAddressSpace::GetCurrent()
 /*static*/ VMAddressSpace*
 VMAddressSpace::Get(team_id teamID)
 {
-	rw_lock_read_lock(&sAddressSpaceTableLock);
+	if (rw_lock_read_lock(&sAddressSpaceTableLock) != B_OK)
+		return NULL;
 	VMAddressSpace* addressSpace = sAddressSpaceTable.Lookup(teamID);
 	if (addressSpace)
 		addressSpace->Get();
@@ -303,7 +307,8 @@ VMAddressSpace::DebugGet(team_id teamID)
 /*static*/ void
 VMAddressSpace::_DeleteIfUnreferenced(team_id id)
 {
-	rw_lock_write_lock(&sAddressSpaceTableLock);
+	if (rw_lock_write_lock(&sAddressSpaceTableLock) != B_OK)
+		panic("VMAddressSpace::_DeleteIfUnreferenced(): failed to lock table");
 
 	bool remove = false;
 	VMAddressSpace* addressSpace = sAddressSpaceTable.Lookup(id);

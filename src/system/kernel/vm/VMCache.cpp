@@ -242,7 +242,8 @@ vm_cache_init_post_heap()
 VMCache*
 vm_cache_acquire_locked_page_cache(vm_page* page, bool dontWait)
 {
-	rw_lock_read_lock(&sCacheListLock);
+	if (rw_lock_read_lock(&sCacheListLock) != B_OK)
+		return NULL;
 
 	while (true) {
 		VMCacheRef* cacheRef = page->CacheRef();
@@ -345,7 +346,11 @@ VMCache::Init(const char* name, uint32 cacheType, uint32 allocationFlags)
 	}
 
 #if DEBUG_CACHE_LIST
-	rw_lock_write_lock(&sCacheListLock);
+	if (rw_lock_write_lock(&sCacheListLock) != B_OK) {
+		object_cache_delete(gCacheRefObjectCache, fCacheRef);
+		mutex_destroy(&fLock);
+		return B_ERROR;
+	}
 
 	if (gDebugCacheList != NULL)
 		gDebugCacheList->debug_previous = this;
@@ -396,7 +401,8 @@ VMCache::Delete()
 	// We lock and unlock the sCacheListLock, even if the DEBUG_CACHE_LIST is
 	// not enabled. This synchronization point is needed for
 	// vm_cache_acquire_locked_page_cache().
-	rw_lock_write_lock(&sCacheListLock);
+	if (rw_lock_write_lock(&sCacheListLock) != B_OK)
+		panic("VMCache::Delete(): Failed to lock sCacheListLock");
 
 #if DEBUG_CACHE_LIST
 	if (debug_previous)
@@ -593,7 +599,9 @@ VMCache::MoveAllPages(VMCache* fromCache)
 	fromCache->fWiredPagesCount = 0;
 
 	// swap the VMCacheRefs
-	rw_lock_write_lock(&sCacheListLock);
+	if (rw_lock_write_lock(&sCacheListLock) != B_OK)
+		panic("VMCache::MoveAllPages(): Failed to lock sCacheListLock");
+
 	std::swap(fCacheRef, fromCache->fCacheRef);
 	fCacheRef->cache = this;
 	fromCache->fCacheRef->cache = fromCache;

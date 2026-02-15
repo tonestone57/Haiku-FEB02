@@ -2860,7 +2860,9 @@ dump_block_data(int argc, char** argv)
 static block_cache*
 get_next_locked_block_cache(block_cache* last)
 {
-	MutexLocker _(sCachesLock);
+	MutexLocker locker(sCachesLock);
+	if (!locker.IsLocked())
+		return NULL;
 
 	block_cache* cache;
 	if (last != NULL) {
@@ -2995,8 +2997,9 @@ block_notifier_and_writer(void* /*data*/)
 			}
 		}
 
-		MutexLocker _(sCachesMemoryUseLock);
-		sUsedMemory = usedMemory;
+		MutexLocker locker(sCachesMemoryUseLock);
+		if (locker.IsLocked())
+			sUsedMemory = usedMemory;
 	}
 
 	// never can get here
@@ -3038,6 +3041,8 @@ static void
 wait_for_notifications(block_cache* cache)
 {
 	MutexLocker locker(sCachesLock);
+	if (!locker.IsLocked())
+		return;
 
 	if (find_thread(NULL) == sNotifierWriterThread) {
 		// We're the notifier thread, don't wait, but flush all pending
@@ -3128,7 +3133,9 @@ block_cache_init(void)
 size_t
 block_cache_used_memory(void)
 {
-	MutexLocker _(sCachesMemoryUseLock);
+	MutexLocker locker(sCachesMemoryUseLock);
+	if (!locker.IsLocked())
+		return 0;
 	return sUsedMemory;
 }
 
@@ -3830,7 +3837,11 @@ block_cache_create(int fd, off_t numBlocks, size_t blockSize, bool readOnly)
 		return NULL;
 	}
 
-	MutexLocker _(sCachesLock);
+	MutexLocker locker(sCachesLock);
+	if (!locker.IsLocked()) {
+		delete cache;
+		return NULL;
+	}
 	sCaches.Add(cache);
 
 	return cache;
@@ -3921,6 +3932,8 @@ block_cache_discard(void* _cache, off_t blockNumber, size_t numBlocks)
 	// TODO: this could be a nice place to issue the ATA trim command
 	block_cache* cache = (block_cache*)_cache;
 	TransactionLocker locker(cache);
+	if (!locker.IsLocked())
+		return;
 
 	BlockWriter writer(cache);
 

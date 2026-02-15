@@ -1201,6 +1201,9 @@ _user_getsockopt(int socket, int level, int option, void *userValue,
 	if (user_memcpy(userValue, value, length) != B_OK)
 		return B_BAD_ADDRESS;
 
+	if (user_memcpy(_length, &length, sizeof(socklen_t)) != B_OK)
+		return B_BAD_ADDRESS;
+
 	return B_OK;
 }
 

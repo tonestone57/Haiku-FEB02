@@ -1040,7 +1040,15 @@ handle_signals(Thread* thread)
 
 		if (handler.sa_handler == SIG_IGN) {
 			// signal is to be ignored
-			// TODO: apply zombie cleaning on SIGCHLD
+			if (signal->Number() == SIGCHLD) {
+				teamLocker.Lock();
+				while (job_control_entry* entry
+						= team->dead_children.entries.RemoveHead()) {
+					team->dead_children.count--;
+					delete entry;
+				}
+				teamLocker.Unlock();
+			}
 
 			// notify the debugger
 			if (debugSignal)
@@ -1061,6 +1069,16 @@ handle_signals(Thread* thread)
 			bool killTeam = false;
 			switch (signal->Number()) {
 				case SIGCHLD:
+					if ((handler.sa_flags & SA_NOCLDWAIT) != 0) {
+						teamLocker.Lock();
+						while (job_control_entry* entry
+								= team->dead_children.entries.RemoveHead()) {
+							team->dead_children.count--;
+							delete entry;
+						}
+						teamLocker.Unlock();
+					}
+					// fall through
 				case SIGWINCH:
 				case SIGURG:
 					// notify the debugger

@@ -204,6 +204,8 @@ static status_t
 AddLockDependencies(team_id waiter, const Vector<team_id>& holders)
 {
 	MutexLocker locker(sLockDependencyLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if (sLockDependencies == NULL) {
 		sLockDependencies = new(std::nothrow) Vector<LockDependency>();
@@ -274,6 +276,9 @@ static void
 RemoveLockDependencies(team_id waiter, const Vector<team_id>& holders)
 {
 	MutexLocker locker(sLockDependencyLock);
+	if (!locker.IsLocked())
+		return;
+
 	if (sLockDependencies == NULL)
 		return;
 
@@ -852,6 +857,8 @@ get_mount(dev_t id, struct fs_mount** _mount)
 
 	ReadLocker nodeLocker(sVnodeLock);
 	ReadLocker mountLocker(sMountLock);
+	if (!nodeLocker.IsLocked() || !mountLocker.IsLocked())
+		return B_ERROR;
 
 	mount = find_mount(id);
 	if (mount == NULL)
@@ -982,18 +989,25 @@ get_file_system_name_for_layer(const char* fsNames, int32 layer,
 }
 
 
-static void
+static status_t
 add_vnode_to_mount_list(struct vnode* vnode, struct fs_mount* mount)
 {
-	MutexLocker _(mount->lock);
+	MutexLocker locker(mount->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	mount->vnodes.Add(vnode);
+	return B_OK;
 }
 
 
 static void
 remove_vnode_from_mount_list(struct vnode* vnode, struct fs_mount* mount)
 {
-	MutexLocker _(mount->lock);
+	MutexLocker locker(mount->lock);
+	if (!locker.IsLocked())
+		panic("remove_vnode_from_mount_list: failed to lock mount");
+
 	mount->vnodes.Remove(vnode);
 	mount->unused_condition.NotifyAll();
 }
@@ -1104,7 +1118,13 @@ create_new_vnode_and_lock(dev_t mountID, ino_t vnodeID, struct vnode*& _vnode,
 
 	// add the vnode to the mount's node list and the hash table
 	sVnodeTable->Insert(vnode);
-	add_vnode_to_mount_list(vnode, vnode->mount);
+	if (add_vnode_to_mount_list(vnode, vnode->mount) != B_OK) {
+		sVnodeTable->Remove(vnode);
+		rw_lock_read_unlock(&sMountLock);
+		rw_lock_write_unlock(&sVnodeLock);
+		object_cache_free(sVnodeCache, vnode, 0);
+		return B_ERROR;
+	}
 
 	rw_lock_read_unlock(&sMountLock);
 
@@ -1200,6 +1220,9 @@ static status_t
 dec_vnode_ref_count(struct vnode* vnode, bool alwaysFree, bool reenter)
 {
 	ReadLocker locker(sVnodeLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	AutoLocker<Vnode> nodeLocker(vnode);
 
 	const int32 oldRefCount = atomic_add(&vnode->ref_count, -1);
@@ -2619,7 +2642,9 @@ path_to_vnode(char* path, bool traverseLink, VnodePutter& _vnode,
 	} else {
 		const struct io_context* context = get_current_io_context(kernel);
 
-		rw_lock_read_lock(&context->lock);
+		if (rw_lock_read_lock(&context->lock) != B_OK)
+			return B_ERROR;
+
 		start = context->cwd;
 		if (start != NULL)
 			inc_vnode_ref_count(start);
@@ -3149,10 +3174,11 @@ get_new_fd(struct fd_ops* ops, struct fs_mount* mount, struct vnode* vnode,
 		return B_NO_MORE_FDS;
 	}
 
-	rw_lock_write_lock(&context->lock);
-	fd_set_close_on_exec(context, fd, (openMode & O_CLOEXEC) != 0);
-	fd_set_close_on_fork(context, fd, (openMode & O_CLOFORK) != 0);
-	rw_lock_write_unlock(&context->lock);
+	if (rw_lock_write_lock(&context->lock) == B_OK) {
+		fd_set_close_on_exec(context, fd, (openMode & O_CLOEXEC) != 0);
+		fd_set_close_on_fork(context, fd, (openMode & O_CLOFORK) != 0);
+		rw_lock_write_unlock(&context->lock);
+	}
 
 	return fd;
 }
@@ -3928,6 +3954,8 @@ resize_monitor_table(struct io_context* context, const int newSize)
 		return B_BAD_VALUE;
 
 	WriteLocker locker(context->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if ((size_t)newSize < context->num_monitors)
 		return B_BUSY;
@@ -3998,6 +4026,8 @@ publish_vnode(fs_volume* volume, ino_t vnodeID, void* privateNode,
 	int32 tries = BUSY_VNODE_RETRIES;
 restart:
 	WriteLocker locker(sVnodeLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	struct vnode* vnode = lookup_vnode(volume->id, vnodeID);
 
@@ -4126,6 +4156,8 @@ extern "C" status_t
 acquire_vnode(fs_volume* volume, ino_t vnodeID)
 {
 	ReadLocker nodeLocker(sVnodeLock);
+	if (!nodeLocker.IsLocked())
+		return B_ERROR;
 
 	struct vnode* vnode = lookup_vnode(volume->id, vnodeID);
 	if (vnode == NULL) {
@@ -4148,7 +4180,9 @@ put_vnode(fs_volume* volume, ino_t vnodeID)
 {
 	struct vnode* vnode;
 
-	rw_lock_read_lock(&sVnodeLock);
+	if (rw_lock_read_lock(&sVnodeLock) != B_OK)
+		return B_ERROR;
+
 	vnode = lookup_vnode(volume->id, vnodeID);
 	rw_lock_read_unlock(&sVnodeLock);
 
@@ -4166,6 +4200,8 @@ extern "C" status_t
 remove_vnode(fs_volume* volume, ino_t vnodeID)
 {
 	ReadLocker locker(sVnodeLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	struct vnode* vnode = lookup_vnode(volume->id, vnodeID);
 	if (vnode == NULL)
@@ -4205,7 +4241,8 @@ unremove_vnode(fs_volume* volume, ino_t vnodeID)
 {
 	struct vnode* vnode;
 
-	rw_lock_read_lock(&sVnodeLock);
+	if (rw_lock_read_lock(&sVnodeLock) != B_OK)
+		return B_ERROR;
 
 	vnode = lookup_vnode(volume->id, vnodeID);
 	if (vnode) {
@@ -4222,6 +4259,8 @@ extern "C" status_t
 get_vnode_removed(fs_volume* volume, ino_t vnodeID, bool* _removed)
 {
 	ReadLocker _(sVnodeLock);
+	if (!_.IsLocked())
+		return B_ERROR;
 
 	if (struct vnode* vnode = lookup_vnode(volume->id, vnodeID)) {
 		if (_removed != NULL)
@@ -4423,6 +4462,9 @@ entry_cache_add(dev_t mountID, ino_t dirID, const char* name, ino_t nodeID)
 	// lookup mount -- the caller is required to make sure that the mount
 	// won't go away
 	ReadLocker locker(sMountLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	struct fs_mount* mount = find_mount(mountID);
 	if (mount == NULL)
 		return B_BAD_VALUE;
@@ -4438,6 +4480,9 @@ entry_cache_add_missing(dev_t mountID, ino_t dirID, const char* name)
 	// lookup mount -- the caller is required to make sure that the mount
 	// won't go away
 	ReadLocker locker(sMountLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	struct fs_mount* mount = find_mount(mountID);
 	if (mount == NULL)
 		return B_BAD_VALUE;
@@ -4453,6 +4498,9 @@ entry_cache_remove(dev_t mountID, ino_t dirID, const char* name)
 	// lookup mount -- the caller is required to make sure that the mount
 	// won't go away
 	ReadLocker locker(sMountLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
+
 	struct fs_mount* mount = find_mount(mountID);
 	if (mount == NULL)
 		return B_BAD_VALUE;
@@ -5369,6 +5417,8 @@ vfs_resize_fd_table(struct io_context* context, uint32 newSize)
 	TIOC(ResizeIOContext(context, newSize));
 
 	WriteLocker locker(context->lock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	uint32 oldSize = context->table_size;
 	int oldCloseOnExitBitmapSize = (oldSize + 7) / 8;
@@ -5493,6 +5543,8 @@ vfs_get_mount_point(dev_t mountID, dev_t* _mountPointMountID,
 {
 	ReadLocker nodeLocker(sVnodeLock);
 	ReadLocker mountLocker(sMountLock);
+	if (!nodeLocker.IsLocked() || !mountLocker.IsLocked())
+		return B_ERROR;
 
 	struct fs_mount* mount = find_mount(mountID);
 	if (mount == NULL)
@@ -5527,6 +5579,8 @@ vfs_bind_mount_directory(dev_t mountID, ino_t nodeID, dev_t coveredMountID,
 
 	// establish the covered/covering links
 	WriteLocker locker(sVnodeLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	if (vnode->covers != NULL || coveredVnode->covered_by != NULL
 		|| vnode->mount->unmounting || coveredVnode->mount->unmounting) {
@@ -6484,7 +6538,9 @@ fix_dirent(struct vnode* parent, struct dirent* entry,
 	}
 
 	// resolve covered vnodes
-	ReadLocker _(&sVnodeLock);
+	ReadLocker locker(&sVnodeLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	struct vnode* vnode = lookup_vnode(entry->d_dev, entry->d_ino);
 	if (vnode != NULL && vnode->covered_by != NULL) {
@@ -8405,7 +8461,8 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 	}
 
 	// Re-add the root to the mount list, so it can be freed.
-	add_vnode_to_mount_list(mount->root_vnode, mount);
+	if (add_vnode_to_mount_list(mount->root_vnode, mount) != B_OK)
+		panic("fs_unmount: failed to re-add root vnode to mount list");
 	mount->root_vnode = NULL;
 
 	// remove the mount structure from the hash table
@@ -8461,7 +8518,11 @@ fs_sync(dev_t device)
 		// synchronize access to vnode list
 		struct vnode* vnode = NULL;
 		{
-			MutexLocker _(mount->lock);
+			MutexLocker locker(mount->lock);
+			if (!locker.IsLocked()) {
+				locker.Unlock();
+				break;
+			}
 
 			if (!marker.IsRemoved()) {
 				vnode = mount->vnodes.GetNext(&marker);
@@ -8579,7 +8640,8 @@ fs_next_device(int32* _cookie)
 	struct fs_mount* mount = NULL;
 	dev_t device = *_cookie;
 
-	rw_lock_read_lock(&sMountLock);
+	if (rw_lock_read_lock(&sMountLock) != B_OK)
+		return B_ERROR;
 
 	// Since device IDs are assigned sequentially, this algorithm
 	// does work good enough. It makes sure that the device list
@@ -8675,7 +8737,9 @@ set_cwd(int fd, char* path, bool kernel)
 
 	// Get current io context and lock
 	context = get_current_io_context(kernel);
-	rw_lock_write_lock(&context->lock);
+	status = rw_lock_write_lock(&context->lock);
+	if (status != B_OK)
+		return status;
 
 	// save the old current working directory first
 	oldDirectory = context->cwd;
@@ -8789,6 +8853,8 @@ _kern_get_next_fd_info(team_id teamID, uint32* _cookie, fd_info* info,
 	// now that we have a team reference, its I/O context won't go away
 	const io_context* context = team->io_context;
 	ReadLocker contextLocker(context->lock);
+	if (!contextLocker.IsLocked())
+		return B_ERROR;
 
 	uint32 slot = *_cookie;
 

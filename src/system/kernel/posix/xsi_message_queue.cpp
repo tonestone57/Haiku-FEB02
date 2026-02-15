@@ -522,6 +522,9 @@ _user_xsi_msgctl(int messageQueueID, int command, struct msqid_ds *buffer)
 	TRACE(("xsi_msgctl: messageQueueID = %d, command = %d\n", messageQueueID, command));
 	MutexLocker ipcHashLocker(sIpcLock);
 	MutexLocker messageQueueHashLocker(sXsiMessageQueueLock);
+	if (!ipcHashLocker.IsLocked() || !messageQueueHashLocker.IsLocked())
+		return B_ERROR;
+
 	XsiMessageQueue *messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 	if (messageQueue == NULL) {
 		TRACE(("xsi_msgctl: message queue id %d not valid\n", messageQueueID));
@@ -668,7 +671,10 @@ _user_xsi_msgget(key_t key, int flags)
 			}
 			int messageQueueID = ipcKey->MessageQueueID();
 
-			MutexLocker _(sXsiMessageQueueLock);
+			MutexLocker locker(sXsiMessageQueueLock);
+			if (!locker.IsLocked())
+				return B_ERROR;
+
 			messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 			if (!messageQueue->HasReadPermission()) {
 				TRACE(("xsi_msgget: calling process has not permission "
@@ -696,7 +702,12 @@ _user_xsi_msgget(key_t key, int flags)
 		}
 		atomic_add(&sXsiMessageQueueCount, 1);
 
-		MutexLocker _(sXsiMessageQueueLock);
+		MutexLocker locker(sXsiMessageQueueLock);
+		if (!locker.IsLocked()) {
+			delete messageQueue;
+			return B_ERROR;
+		}
+
 		messageQueue->SetID();
 		if (isPrivate)
 			messageQueue->SetIpcKey((key_t)-1);
@@ -718,6 +729,9 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 	TRACE(("xsi_msgrcv: messageQueueID = %d, messageSize = %ld\n",
 		messageQueueID, messageSize));
 	MutexLocker messageQueueHashLocker(sXsiMessageQueueLock);
+	if (!messageQueueHashLocker.IsLocked())
+		return B_ERROR;
+
 	XsiMessageQueue *messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 	if (messageQueue == NULL) {
 		TRACE(("xsi_msgrcv: message queue id %d not valid\n",
@@ -760,7 +774,9 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 				= messageQueue->BlockAndUnlock(&queueEntry, &messageQueueLocker);
 			TRACE(("xsi_msgrcv: thread %d back to life\n", (int)thread_get_current_thread_id()));
 
-			messageQueueHashLocker.Lock();
+			if (messageQueueHashLocker.Lock() != B_OK)
+				return B_ERROR;
+
 			messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 			if (result == EIDRM || messageQueue == NULL || (messageQueue != NULL
 				&& sequenceNumber != messageQueue->SequenceNumber())) {
@@ -775,7 +791,10 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 				messageQueue->Dequeue(&queueEntry);
 				return B_INTERRUPTED;
 			} else {
-				messageQueueLocker.Lock();
+				if (messageQueueLocker.Lock() != B_OK) {
+					messageQueueHashLocker.Unlock();
+					return B_ERROR;
+				}
 				messageQueueHashLocker.Unlock();
 			}
 		} else if (message == NULL) {
@@ -818,6 +837,9 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 	TRACE(("xsi_msgsnd: messageQueueID = %d, messageSize = %ld\n",
 		messageQueueID, messageSize));
 	MutexLocker messageQueueHashLocker(sXsiMessageQueueLock);
+	if (!messageQueueHashLocker.IsLocked())
+		return B_ERROR;
+
 	XsiMessageQueue *messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 	if (messageQueue == NULL) {
 		TRACE(("xsi_msgsnd: message queue id %d not valid\n",
@@ -874,7 +896,11 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 			result = messageQueue->BlockAndUnlock(&queueEntry, &messageQueueLocker);
 			TRACE(("xsi_msgsnd: thread %d back to life\n", (int)thread_get_current_thread_id()));
 
-			messageQueueHashLocker.Lock();
+			if (messageQueueHashLocker.Lock() != B_OK) {
+				delete message;
+				return B_ERROR;
+			}
+
 			messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
 			if (result == EIDRM || messageQueue == NULL || (messageQueue != NULL
 				&& sequenceNumber != messageQueue->SequenceNumber())) {
@@ -893,7 +919,11 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 				notSent = false;
 				result = B_INTERRUPTED;
 			} else {
-				messageQueueLocker.Lock();
+				if (messageQueueLocker.Lock() != B_OK) {
+					messageQueueHashLocker.Unlock();
+					delete message;
+					return B_ERROR;
+				}
 				messageQueueHashLocker.Unlock();
 			}
 		} else if (goToSleep) {

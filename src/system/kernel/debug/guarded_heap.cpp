@@ -142,12 +142,13 @@ guarded_heap_allocate_meta(guarded_heap& heap, size_t size, uint32 flags)
 		mutex_unlock(&heap.lock);
 
 		void* meta = NULL;
-		create_area("guarded heap meta", &meta, B_ANY_KERNEL_ADDRESS, growSize, B_FULL_LOCK,
+		area_id area = create_area("guarded heap meta", &meta, B_ANY_KERNEL_ADDRESS, growSize, B_FULL_LOCK,
 			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA);
-		if (meta == NULL)
-			panic("guarded_heap: failed to allocate meta area");
+		if (area < 0)
+			panic("guarded_heap: failed to allocate meta area: %s", strerror(area));
 
-		mutex_lock(&heap.lock);
+		if (mutex_lock(&heap.lock) != B_OK)
+			panic("guarded_heap_allocate_meta: failed to re-acquire heap lock");
 
 		heap.meta_allocator.AddChunk(meta, growSize);
 		heap.acquiring_meta = -1;
@@ -195,6 +196,14 @@ guarded_heap_add_area(guarded_heap& heap, size_t minimumPages, uint32 flags)
 
 	VMArea* area = addressSpace->CreateArea("guarded heap area", B_LAZY_LOCK,
 		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA, flags | HEAP_PRIORITY_VIP);
+	if (area == NULL) {
+		aspaceLocker.Unlock();
+		mutex_lock(&heap.lock);
+		heap.acquiring_pages = -1;
+		heap.memory_added_condition.NotifyAll();
+		return false;
+	}
+
 	VMAreas::Insert(area);
 
 	heap.cache->Lock();
@@ -212,7 +221,8 @@ guarded_heap_add_area(guarded_heap& heap, size_t minimumPages, uint32 flags)
 	area->cache_offset = area->Base();
 
 	aspaceLocker.Unlock();
-	mutex_lock(&heap.lock);
+	if (mutex_lock(&heap.lock) != B_OK)
+		panic("guarded_heap_add_area: failed to re-acquire heap lock");
 
 	chunk->base = area->Base();
 	chunk->pages_count = area->Size() / B_PAGE_SIZE;
@@ -243,6 +253,8 @@ guarded_heap_allocate(guarded_heap& heap, size_t size, size_t alignment,
 	uint32 flags)
 {
 	MutexLocker locker(heap.lock);
+	if (!locker.IsLocked())
+		panic("guarded_heap_allocate: failed to lock heap");
 
 	if (alignment == 0)
 		alignment = 1;
@@ -395,6 +407,8 @@ guarded_heap_free(guarded_heap& heap, void* address, uint32 flags)
 		return;
 
 	MutexLocker locker(heap.lock);
+	if (!locker.IsLocked())
+		panic("guarded_heap_free: failed to lock heap");
 
 	GuardedHeapChunk* chunk = guarded_heap_find_chunk(heap.live_chunks, (addr_t)address);
 	if (chunk == NULL) {
@@ -485,6 +499,8 @@ static void*
 guarded_heap_realloc(guarded_heap& heap, void* address, size_t newSize, uint32 flags)
 {
 	MutexLocker locker(heap.lock);
+	if (!locker.IsLocked())
+		panic("guarded_heap_realloc: failed to lock heap");
 
 	GuardedHeapChunk* chunk = guarded_heap_find_chunk(heap.live_chunks, (addr_t)address);
 	if (chunk == NULL) {
@@ -747,6 +763,9 @@ heap_init_post_sem()
 	sGuardedHeap.cache->Unlock();
 
 	MutexLocker locker(sGuardedHeap.lock);
+	if (!locker.IsLocked())
+		panic("heap_init_post_sem: failed to lock heap");
+
 	sGuardedHeap.cache->Lock();
 
 	// Adjust all page protections, and free all guard and unused pages.
