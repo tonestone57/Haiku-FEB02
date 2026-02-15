@@ -1035,6 +1035,12 @@ create_port(int32 queueLength, const char* name)
 			team->ReleaseReference();
 			return B_NO_MEMORY;
 		}
+
+		if (newPort->lock.name == NULL) {
+			delete newPort;
+			return B_NO_MEMORY;
+		}
+
 		port.SetTo(newPort, true);
 	}
 
