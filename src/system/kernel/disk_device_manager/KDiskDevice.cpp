@@ -38,7 +38,7 @@ KDiskDevice::KDiskDevice(partition_id id)
 
 	Unset();
 	fDevice = this;
-	fPublishedName = (char*)"raw";
+	fPublishedName = strdup("raw");
 }
 
 
