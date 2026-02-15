@@ -536,6 +536,10 @@ EventQueue::_DequeueEvents(event_wait_info* infos, int numInfos)
 		// from anywhere they could be found before dropping the lock.
 	}
 
+	status_t status = mutex_lock(&fQueueLock);
+	if (status != B_OK)
+		return status;
+
 	return count;
 }
 

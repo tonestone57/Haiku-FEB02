@@ -5284,7 +5284,8 @@ void
 vfs_exec_io_context(io_context* context)
 {
 	for (uint32 i = 0; i < context->table_size; i++) {
-		rw_lock_write_lock(&context->lock);
+		if (rw_lock_write_lock(&context->lock) != B_OK)
+			panic("vfs_exec_io_context: failed to lock io_context");
 
 		struct file_descriptor* descriptor = context->fds[i];
 		bool remove = false;

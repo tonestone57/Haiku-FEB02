@@ -1662,8 +1662,12 @@ _user_system_profiler_next_buffer(size_t bytesRead, uint64* _droppedEvents)
 	uint64 droppedEvents = 0;
 	status_t error = profiler->NextBuffer(bytesRead,
 		_droppedEvents != NULL ? &droppedEvents : NULL);
-	if (error == B_OK && _droppedEvents != NULL)
-		user_memcpy(_droppedEvents, &droppedEvents, sizeof(droppedEvents));
+	if (error == B_OK && _droppedEvents != NULL) {
+		if (user_memcpy(_droppedEvents, &droppedEvents, sizeof(droppedEvents))
+				!= B_OK) {
+			return B_BAD_ADDRESS;
+		}
+	}
 
 	return error;
 }

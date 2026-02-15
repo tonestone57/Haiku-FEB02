@@ -1171,6 +1171,8 @@ heap_create_allocator(const char *name, addr_t base, size_t size,
 		// allocate seperately on the heap
 		heap = (heap_allocator *)malloc(sizeof(heap_allocator)
 			+ sizeof(heap_bin) * MAX_BIN_COUNT);
+		if (heap == NULL)
+			return NULL;
 	} else {
 		// use up the first part of the area
 		heap = (heap_allocator *)base;
