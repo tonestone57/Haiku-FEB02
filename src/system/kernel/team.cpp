@@ -3044,11 +3044,15 @@ team_init(kernel_args* args)
 	ProcessSession* session = new(std::nothrow) ProcessSession(1);
 	if (session == NULL)
 		panic("Could not create initial session.\n");
+	if (session->InitCheck() != B_OK)
+		panic("Could not create initial session lock.\n");
 	BReference<ProcessSession> sessionReference(session, true);
 
 	ProcessGroup* group = new(std::nothrow) ProcessGroup(1);
 	if (group == NULL)
 		panic("Could not create initial process group.\n");
+	if (group->InitCheck() != B_OK)
+		panic("Could not create initial process group lock.\n");
 	BReference<ProcessGroup> groupReference(group, true);
 
 	group->Publish(session);
@@ -4322,6 +4326,10 @@ _user_setpgid(pid_t processID, pid_t groupID)
 			group = new(std::nothrow) ProcessGroup(groupID);
 			if (group == NULL)
 				return B_NO_MEMORY;
+			if (group->InitCheck() != B_OK) {
+				delete group;
+				return B_NO_MEMORY;
+			}
 
 			newGroup = true;
 		}
@@ -4454,12 +4462,20 @@ _user_setsid(void)
 	ProcessGroup* group = new(std::nothrow) ProcessGroup(team->id);
 	if (group == NULL)
 		return B_NO_MEMORY;
+	if (group->InitCheck() != B_OK) {
+		delete group;
+		return B_NO_MEMORY;
+	}
 	BReference<ProcessGroup> groupReference(group, true);
 	AutoLocker<ProcessGroup> groupLocker(group);
 
 	ProcessSession* session = new(std::nothrow) ProcessSession(group->id);
 	if (session == NULL)
 		return B_NO_MEMORY;
+	if (session->InitCheck() != B_OK) {
+		delete session;
+		return B_NO_MEMORY;
+	}
 	BReference<ProcessSession> sessionReference(session, true);
 
 	// lock the team's current process group, parent, and the team itself

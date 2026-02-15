@@ -664,6 +664,9 @@ public:
 			void				Unlock()
 									{ mutex_unlock(&fLock); }
 
+			status_t			InitCheck() const
+									{ return fLock.name != NULL ? B_OK : B_NO_MEMORY; }
+
 private:
 			mutex				fLock;
 };
@@ -691,6 +694,9 @@ public:
 									{ return mutex_trylock(&fLock) == B_OK; }
 			void				Unlock()
 									{ mutex_unlock(&fLock); }
+
+			status_t			InitCheck() const
+									{ return fLock.name != NULL ? B_OK : B_NO_MEMORY; }
 
 			ProcessSession*		Session() const
 									{ return fSession; }
