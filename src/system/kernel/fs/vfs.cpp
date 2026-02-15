@@ -3226,7 +3226,7 @@ normalize_path(char* path, size_t pathSize, bool traverseLink, bool kernel)
 			}
 
 			// get the directory path
-			error = dir_vnode_to_path(dir.Get(), path, B_PATH_NAME_LENGTH, kernel);
+			error = dir_vnode_to_path(dir.Get(), path, pathSize, kernel);
 			if (error != B_OK)
 				return error;
 
@@ -3246,11 +3246,11 @@ normalize_path(char* path, size_t pathSize, bool traverseLink, bool kernel)
 
 		// read link
 		if (HAS_FS_CALL(fileVnode, read_symlink)) {
-			size_t bufferSize = B_PATH_NAME_LENGTH - 1;
+			size_t bufferSize = pathSize - 1;
 			error = FS_CALL(fileVnode.Get(), read_symlink, path, &bufferSize);
 			if (error != B_OK)
 				return error;
-			if (bufferSize < B_PATH_NAME_LENGTH)
+			if (bufferSize < pathSize)
 				path[bufferSize] = '\0';
 		} else
 			return B_BAD_VALUE;
