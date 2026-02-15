@@ -979,6 +979,11 @@ device_attr_private::device_attr_private()
 
 device_attr_private::device_attr_private(const device_attr& attr)
 {
+	name = NULL;
+	type = 0;
+	value.raw.data = NULL;
+	value.raw.length = 0;
+
 	CopyFrom(attr);
 }
 
@@ -1255,6 +1260,14 @@ device_node::device_node(const char* moduleName, const device_attr* attrs)
 			= new(std::nothrow) device_attr_private(*attrs);
 		if (attr == NULL)
 			break;
+
+		if (attr->InitCheck() != B_OK) {
+			delete attr;
+			// memory allocation failure - mark node as invalid
+			free((char*)fModuleName);
+			fModuleName = NULL;
+			break;
+		}
 
 		fAttributes.Add(attr);
 		attrs++;

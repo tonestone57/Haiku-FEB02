@@ -200,7 +200,9 @@ public:
 	status_t OpenNamedSem(const char* name, int openFlags, mode_t mode,
 		uint32 semCount, NamedSem*& _sem, bool& _created)
 	{
-		MutexLocker _(fLock);
+		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return B_ERROR;
 
 		NamedSem* sem = fNamedSemaphores.Lookup(name);
 		if (sem != NULL) {
@@ -251,7 +253,9 @@ public:
 
 	status_t UnlinkNamedSem(const char* name)
 	{
-		MutexLocker _(fLock);
+		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return B_ERROR;
 
 		NamedSem* sem = fNamedSemaphores.Lookup(name);
 		if (sem == NULL)
@@ -416,7 +420,9 @@ struct realtime_sem_context {
 			return NULL;
 		ObjectDeleter<realtime_sem_context> contextDeleter(context);
 
-		MutexLocker _(fLock);
+		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return NULL;
 
 		context->fNextPrivateSemID = fNextPrivateSemID;
 
@@ -448,7 +454,11 @@ struct realtime_sem_context {
 		if (error != B_OK)
 			return error;
 
-		MutexLocker _(fLock);
+		MutexLocker locker(fLock);
+		if (!locker.IsLocked()) {
+			sem->ReleaseReference();
+			return B_ERROR;
+		}
 
 		TeamSemInfo* teamSem = fSemaphores.Lookup(sem->ID());
 		if (teamSem != NULL) {
@@ -498,7 +508,9 @@ struct realtime_sem_context {
 	{
 		deleteUserSem = NULL;
 
-		MutexLocker _(fLock);
+		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return B_ERROR;
 
 		TeamSemInfo* sem = fSemaphores.Lookup(id);
 		if (sem == NULL)
@@ -518,6 +530,8 @@ struct realtime_sem_context {
 	status_t AcquireSem(sem_id id, uint32 flags, bigtime_t timeout)
 	{
 		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return B_ERROR;
 
 		TeamSemInfo* sem = fSemaphores.Lookup(id);
 		if (sem == NULL)
@@ -534,6 +548,8 @@ struct realtime_sem_context {
 	status_t ReleaseSem(sem_id id)
 	{
 		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return B_ERROR;
 
 		TeamSemInfo* sem = fSemaphores.Lookup(id);
 		if (sem == NULL)
@@ -550,6 +566,8 @@ struct realtime_sem_context {
 	status_t GetSemCount(sem_id id, int& _count)
 	{
 		MutexLocker locker(fLock);
+		if (!locker.IsLocked())
+			return B_ERROR;
 
 		TeamSemInfo* sem = fSemaphores.Lookup(id);
 		if (sem == NULL)

@@ -284,7 +284,8 @@ swap_file_release(swap_file* swapFile)
 static swap_addr_t
 swap_slot_alloc(uint32 count)
 {
-	mutex_lock(&sSwapFileListLock);
+	if (mutex_lock(&sSwapFileListLock) != B_OK)
+		return SWAP_SLOT_NONE;
 
 	if (sSwapFileList.IsEmpty()) {
 		mutex_unlock(&sSwapFileListLock);
@@ -355,6 +356,9 @@ static swap_file*
 find_swap_file(swap_addr_t slotIndex)
 {
 	MutexLocker locker(sSwapFileListLock);
+	if (!locker.IsLocked())
+		panic("find_swap_file: failed to lock sSwapFileListLock");
+
 	return find_swap_file_locked(slotIndex);
 }
 
@@ -365,7 +369,9 @@ swap_slot_dealloc(swap_addr_t slotIndex, uint32 count)
 	if (slotIndex == SWAP_SLOT_NONE)
 		return;
 
-	mutex_lock(&sSwapFileListLock);
+	if (mutex_lock(&sSwapFileListLock) != B_OK)
+		return;
+
 	swap_file* swapFile = find_swap_file_locked(slotIndex);
 	slotIndex -= swapFile->first_slot;
 	radix_bitmap_dealloc(swapFile->bmp, slotIndex, count);
@@ -376,7 +382,9 @@ swap_slot_dealloc(swap_addr_t slotIndex, uint32 count)
 static off_t
 swap_space_reserve(off_t amount)
 {
-	mutex_lock(&sAvailSwapSpaceLock);
+	if (mutex_lock(&sAvailSwapSpaceLock) != B_OK)
+		return 0;
+
 	if (sAvailSwapSpace >= amount)
 		sAvailSwapSpace -= amount;
 	else {
@@ -392,7 +400,9 @@ swap_space_reserve(off_t amount)
 static void
 swap_space_unreserve(off_t amount)
 {
-	mutex_lock(&sAvailSwapSpaceLock);
+	if (mutex_lock(&sAvailSwapSpaceLock) != B_OK)
+		return;
+
 	sAvailSwapSpace += amount;
 	mutex_unlock(&sAvailSwapSpaceLock);
 }
@@ -402,6 +412,8 @@ static void
 swap_hash_resizer(void*, int)
 {
 	WriteLocker locker(sSwapHashLock);
+	if (!locker.IsLocked())
+		return;
 
 	size_t size;
 	void* allocation;
@@ -568,6 +580,8 @@ VMAnonymousCache::_FreeSwapPageRange(off_t fromOffset, off_t toOffset)
 		pageIndex < toIndex && fAllocatedSwapSize > 0; pageIndex++) {
 
 		WriteLocker locker(sSwapHashLock);
+		if (!locker.IsLocked())
+			continue;
 
 		// Get the swap slot index for the page.
 		swap_addr_t blockIndex = pageIndex & SWAP_BLOCK_MASK;
@@ -677,6 +691,8 @@ VMAnonymousCache::Adopt(VMCache* _source, off_t offset, off_t size,
 	swap_block* swapBlock = NULL;
 
 	WriteLocker locker(sSwapHashLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	while (sourcePageIndex < sourceEndPageIndex
 			&& source->fAllocatedSwapSize > 0) {
@@ -1153,6 +1169,8 @@ VMAnonymousCache::_SwapBlockBuild(off_t startPageIndex,
 	swap_addr_t startSlotIndex, uint32 count)
 {
 	WriteLocker locker(sSwapHashLock);
+	if (!locker.IsLocked())
+		return B_ERROR;
 
 	uint32 left = count;
 	for (uint32 i = 0, j = 0; i < count; i += j) {
@@ -1208,6 +1226,8 @@ void
 VMAnonymousCache::_SwapBlockFree(off_t startPageIndex, uint32 count)
 {
 	WriteLocker locker(sSwapHashLock);
+	if (!locker.IsLocked())
+		return;
 
 	uint32 left = count;
 	for (uint32 i = 0, j = 0; i < count; i += j) {
@@ -1237,6 +1257,8 @@ swap_addr_t
 VMAnonymousCache::_SwapBlockGetAddress(off_t pageIndex)
 {
 	ReadLocker locker(sSwapHashLock);
+	if (!locker.IsLocked())
+		return SWAP_SLOT_NONE;
 
 	swap_hash_key key = { this, pageIndex };
 	swap_block* swap = sSwapHashTable.Lookup(key);
@@ -1365,6 +1387,8 @@ VMAnonymousCache::_MergeSwapPages(VMAnonymousCache* source)
 		offset += B_PAGE_SIZE * SWAP_BLOCK_PAGES) {
 
 		WriteLocker locker(sSwapHashLock);
+		if (!locker.IsLocked())
+			continue;
 
 		off_t swapBlockPageIndex = offset >> PAGE_SHIFT;
 		swap_hash_key key = { source, swapBlockPageIndex };
@@ -1573,7 +1597,12 @@ swap_file_add(const char* path)
 	}
 
 	// set slot index and add this file to swap file list
-	mutex_lock(&sSwapFileListLock);
+	if (mutex_lock(&sSwapFileListLock) != B_OK) {
+		radix_bitmap_destroy(swap->bmp);
+		delete swap;
+		close(fd);
+		return B_ERROR;
+	}
 
 	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
 			swap_file* existingSwap = it.Next();) {
@@ -1615,6 +1644,10 @@ swap_file_delete(const char* path)
 		return status;
 
 	MutexLocker locker(sSwapFileListLock);
+	if (!locker.IsLocked()) {
+		vfs_put_vnode(node);
+		return B_ERROR;
+	}
 
 	swap_file* swapFile = NULL;
 	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
@@ -1893,7 +1926,9 @@ swap_free_page_swap_space(vm_page* page)
 uint32
 swap_available_pages()
 {
-	mutex_lock(&sAvailSwapSpaceLock);
+	if (mutex_lock(&sAvailSwapSpaceLock) != B_OK)
+		return 0;
+
 	uint32 avail = sAvailSwapSpace >> PAGE_SHIFT;
 	mutex_unlock(&sAvailSwapSpaceLock);
 
@@ -1904,7 +1939,8 @@ swap_available_pages()
 uint32
 swap_total_swap_pages()
 {
-	mutex_lock(&sSwapFileListLock);
+	if (mutex_lock(&sSwapFileListLock) != B_OK)
+		return 0;
 
 	uint32 totalSwapSlots = 0;
 	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
@@ -1926,10 +1962,12 @@ swap_get_info(system_info* info)
 {
 #if ENABLE_SWAP_SUPPORT
 	MutexLocker locker(sSwapFileListLock);
-	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
-		swap_file* swapFile = it.Next();) {
-		info->max_swap_pages += swapFile->last_slot - swapFile->first_slot;
-		info->free_swap_pages += swapFile->bmp->free_slots;
+	if (locker.IsLocked()) {
+		for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
+			swap_file* swapFile = it.Next();) {
+			info->max_swap_pages += swapFile->last_slot - swapFile->first_slot;
+			info->free_swap_pages += swapFile->bmp->free_slots;
+		}
 	}
 #else
 	info->max_swap_pages = 0;
