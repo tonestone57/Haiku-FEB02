@@ -34,6 +34,7 @@ public:
 
 			void		Init();
 			void		Init(CoreEntry* core);
+			status_t	InitCheck();
 
 			void		Dump() const;
 
