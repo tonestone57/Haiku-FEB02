@@ -2189,10 +2189,7 @@ bool BrowserWindow::_CheckBookmarkExists(BDirectory& directory,
 	const BString& bookmarkName, const BString& url) const
 {
 	BEntry entry;
-	while (directory.GetNextEntry(&entry) == B_OK) {
-		char entryName[B_FILE_NAME_LENGTH];
-		if (entry.GetName(entryName) != B_OK || bookmarkName != entryName)
-			continue;
+	if (directory.FindEntry(bookmarkName.String(), &entry) == B_OK) {
 		BString storedURL;
 		BFile file(&entry, B_READ_ONLY);
 		if (_ReadURLAttr(file, storedURL)) {
