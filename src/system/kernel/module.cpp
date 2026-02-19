@@ -1406,17 +1406,17 @@ ModuleNotificationService::_AddModuleNode(dev_t device, ino_t node, int fd,
 
 	ino_t directory;
 	vfs_vnode_to_node_ref(vnode, &device, &directory);
+	vfs_put_vnode(vnode);
 
 	KPath path;
 	status = path.InitCheck();
 	if (status == B_OK) {
 		status = vfs_entry_ref_to_path(device, directory, name, true,
 			path.LockBuffer(), path.BufferSize());
+		path.UnlockBuffer();
 	}
 	if (status != B_OK)
 		return status;
-
-	path.UnlockBuffer();
 
 	return _AddNode(device, node, path.Path(), B_WATCH_STAT, fModuleWatcher);
 }

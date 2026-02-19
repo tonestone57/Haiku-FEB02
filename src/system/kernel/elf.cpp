@@ -2257,7 +2257,7 @@ load_kernel_add_on(const char *path)
 	if (fd < 0)
 		return fd;
 
-	struct vnode *vnode;
+	struct vnode *vnode = NULL;
 	status = vfs_get_vnode_from_fd(fd, true, &vnode);
 	if (status < B_OK)
 		goto error0;
