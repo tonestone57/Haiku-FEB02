@@ -213,6 +213,9 @@ FileMap::_MakeSpace(size_t count)
 					maxCount += 32768;
 			}
 
+			if (maxCount > SIZE_MAX / sizeof(file_extent))
+				return B_NO_MEMORY;
+
 			file_extent* newArray = (file_extent *)realloc(oldArray,
 				maxCount * sizeof(file_extent));
 			if (newArray == NULL)
