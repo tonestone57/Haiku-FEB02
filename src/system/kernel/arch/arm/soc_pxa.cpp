@@ -156,5 +156,5 @@ PXATimer::PXATimer(uint32_t reg_base)
 	fRegBase[PXA_OSMR5] = UINT_MAX;
 	fRegBase[PXA_OSCR5] = 0;
 
-	install_io_interrupt_handler(PXA_TIMERS_INTERRUPT, &PXATimer::_InterruptWrapper, NULL, 0);
+	install_io_interrupt_handler(PXA_TIMERS_INTERRUPT, &PXATimer::_InterruptWrapper, this, 0);
 }

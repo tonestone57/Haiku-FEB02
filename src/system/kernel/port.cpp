@@ -154,6 +154,11 @@ struct Port : public KernelReferenceable {
 		write_condition.Init(this, "port write");
 	}
 
+	status_t InitCheck() const
+	{
+		return lock.name != NULL ? B_OK : B_NO_MEMORY;
+	}
+
 	virtual ~Port()
 	{
 		while (port_message* message = messages.RemoveHead())
@@ -1036,7 +1041,7 @@ create_port(int32 queueLength, const char* name)
 			return B_NO_MEMORY;
 		}
 
-		if (newPort->lock.name == NULL) {
+		if (newPort->InitCheck() != B_OK) {
 			delete newPort;
 			return B_NO_MEMORY;
 		}

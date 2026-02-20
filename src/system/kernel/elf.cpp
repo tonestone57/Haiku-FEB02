@@ -2257,7 +2257,7 @@ load_kernel_add_on(const char *path)
 	if (fd < 0)
 		return fd;
 
-	struct vnode *vnode;
+	struct vnode *vnode = NULL;
 	status = vfs_get_vnode_from_fd(fd, true, &vnode);
 	if (status < B_OK)
 		goto error0;
@@ -2738,6 +2738,8 @@ elf_add_memory_image_symbol(image_id id, const char* name, addr_t address,
 	if (name != NULL) {
 		size_t nameSize = strlen(name) + 1;
 		stringIndex = stringTableSize;
+		if (nameSize > SIZE_MAX - stringTableSize)
+			return B_NO_MEMORY;
 		stringTableSize += nameSize;
 		stringTable = (char*)realloc((char*)image->debug_string_table,
 			stringTableSize);
@@ -2749,6 +2751,8 @@ elf_add_memory_image_symbol(image_id id, const char* name, addr_t address,
 
 	// resize the symbol table
 	int32 symbolCount = image->num_debug_symbols + 1;
+	if (symbolCount > (int32)(SIZE_MAX / sizeof(elf_sym)))
+		return B_NO_MEMORY;
 	elf_sym* symbolTable = (elf_sym*)realloc(
 		(elf_sym*)image->debug_symbols, sizeof(elf_sym) * symbolCount);
 	if (symbolTable == NULL)

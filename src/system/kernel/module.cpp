@@ -1406,17 +1406,17 @@ ModuleNotificationService::_AddModuleNode(dev_t device, ino_t node, int fd,
 
 	ino_t directory;
 	vfs_vnode_to_node_ref(vnode, &device, &directory);
+	vfs_put_vnode(vnode);
 
 	KPath path;
 	status = path.InitCheck();
 	if (status == B_OK) {
 		status = vfs_entry_ref_to_path(device, directory, name, true,
 			path.LockBuffer(), path.BufferSize());
+		path.UnlockBuffer();
 	}
 	if (status != B_OK)
 		return status;
-
-	path.UnlockBuffer();
 
 	return _AddNode(device, node, path.Path(), B_WATCH_STAT, fModuleWatcher);
 }
@@ -1947,33 +1947,23 @@ module_init_post_boot_device(bool bootingFromBootLoaderVolume)
 
 				// set the new path
 				size_t pathLen = pathBuffer.Length();
-				char* newPath = (char*)realloc(pathBuffer.DetachBuffer(),
-					pathLen + 1);
+				char* detachedBuffer = pathBuffer.DetachBuffer();
+				char* newPath = (char*)realloc(detachedBuffer, pathLen + 1);
 				if (newPath == NULL) {
-					// We can't update the path, but we can't really fail here
-					// as we are in the middle of reinitializing modules.
-					// Just keep the old path and don't reinsert (it wasn't removed).
-					// Wait, we already removed it from sModuleImagesHash.
-					// We must insert it back or it's lost.
-					// Actually, realloc(pathBuffer.DetachBuffer()) operates on the buffer
-					// from pathBuffer. If it fails, we lost the new path buffer (leaked?)
-					// but image->path is still valid (we haven't freed it yet).
-					// But wait, the search logic above: `free(image->path)` was BEFORE realloc in the original code.
-					// So I must move `free(image->path)` after realloc check.
+					// realloc failed - detachedBuffer is still valid but not
+					// shrunk. We could still use it, but since we're in a
+					// low-memory situation probably, we just use the old path.
 					dprintf("module_init_post_boot_device() failed to realloc "
-						"path buffer for module image %p, \"%s\"\n", image, image->path);
-					// We removed it from hash, so we should put it back.
-					// But we also haven't updated the path.
-					// The image->path is still the old relative one.
-					// We can reinsert it with the old path.
-					image->next = imagesToReinsert;
-					imagesToReinsert = image;
+						"path buffer for module image %p, \"%s\"\n", image,
+						image->path);
+					free(detachedBuffer);
 				} else {
 					free(image->path);
 					image->path = newPath;
-					image->next = imagesToReinsert;
-					imagesToReinsert = image;
 				}
+
+				image->next = imagesToReinsert;
+				imagesToReinsert = image;
 			} else {
 				dprintf("module_init_post_boot_device() failed to normalize "
 					"path of module image %p, \"%s\"\n", image, image->path);

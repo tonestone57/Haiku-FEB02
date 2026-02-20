@@ -957,5 +957,8 @@ RISCV64VMPhysicalPageMapper::MemcpyPhysicalPage(phys_addr_t to,
 {
 	TRACE("RISCV64VMPhysicalPageMapper::MemcpyPhysicalPage(0x%" B_PRIxADDR
 		", 0x%" B_PRIxADDR ")\n", to, from);
-	user_memcpy(VirtFromPhys(to), VirtFromPhys(from), B_PAGE_SIZE);
+	if (user_memcpy(VirtFromPhys(to), VirtFromPhys(from), B_PAGE_SIZE) != B_OK) {
+		panic("RISCV64VMPhysicalPageMapper::MemcpyPhysicalPage(0x%" B_PRIxADDR
+			", 0x%" B_PRIxADDR ") user_memcpy failed", to, from);
+	}
 }
