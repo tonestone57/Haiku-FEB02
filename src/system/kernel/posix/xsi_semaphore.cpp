@@ -1217,8 +1217,9 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 
 			// We are back to life. Find out why!
 			// Make sure the set hasn't been deleted or worst yet replaced.
-			if (setHashLocker.Lock() != B_OK)
-				return B_ERROR;
+			status_t lockStatus = setHashLocker.Lock();
+			if (lockStatus != B_OK)
+				return lockStatus;
 
 			semaphoreSet = sSemaphoreHashTable.Lookup(semaphoreID);
 			if (result == EIDRM || semaphoreSet == NULL || (semaphoreSet != NULL
@@ -1236,10 +1237,10 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 				result = B_INTERRUPTED;
 				notDone = false;
 			} else {
-				if (setLocker.Lock() != B_OK) {
-					setHashLocker.Unlock();
-					return B_ERROR;
-				}
+				lockStatus = setLocker.Lock();
+				if (lockStatus != B_OK)
+					return lockStatus;
+
 				setHashLocker.Unlock();
 			}
 		} else {
