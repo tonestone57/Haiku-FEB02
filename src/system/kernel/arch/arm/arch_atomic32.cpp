@@ -6,10 +6,15 @@
  *		Ithamar R. Adema, ithamar@upgrade-android.com
  */
 
+#include <errno.h>
+
 #include <KernelExport.h>
 
 #include <kernel.h>
+#include <team.h>
+#include <thread.h>
 #include <user_atomic.h>
+#include <user_debugger.h>
 
 #include <util/AutoLock.h>
 
@@ -90,6 +95,19 @@ atomic_get(int32 *value)
 	return oldValue;
 }
 
+
+static void
+atomic_access_violation(void* address)
+{
+	if (user_debug_exception_occurred(B_SEGMENT_VIOLATION, SIGSEGV)) {
+		Thread* thread = thread_get_current_thread();
+		Signal signal(SIGSEGV, SEGV_MAPERR, EFAULT, thread->team->id);
+		signal.SetAddress(address);
+		send_signal_to_thread(thread, signal, 0);
+	}
+}
+
+
 void
 _user_atomic_set(int32 *value, int32 newValue)
 {
@@ -101,7 +119,7 @@ _user_atomic_set(int32 *value, int32 newValue)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return;
 }
 
@@ -116,7 +134,7 @@ _user_atomic_get_and_set(int32 *value, int32 newValue)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return -1;
 }
 
@@ -131,7 +149,7 @@ _user_atomic_test_and_set(int32 *value, int32 newValue, int32 testAgainst)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return -1;
 }
 
@@ -146,7 +164,7 @@ _user_atomic_add(int32 *value, int32 addValue)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return -1;
 }
 
@@ -161,7 +179,7 @@ _user_atomic_and(int32 *value, int32 andValue)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return -1;
 }
 
@@ -176,7 +194,7 @@ _user_atomic_or(int32 *value, int32 orValue)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return -1;
 }
 
@@ -191,7 +209,7 @@ _user_atomic_get(int32 *value)
 	}
 
 access_violation:
-	// XXX kill application
+	atomic_access_violation(value);
 	return -1;
 }
 
