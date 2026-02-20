@@ -199,7 +199,7 @@ void
 PrecacheIO::IOFinished(status_t status, bool partialTransfer,
 	generic_size_t bytesTransferred)
 {
-	if (fCache->Lock() != B_OK) {
+	if (!fCache->Lock()) {
 		delete this;
 		return;
 	}
@@ -302,7 +302,7 @@ reserve_pages(file_cache_ref* ref, vm_page_reservation* reservation,
 {
 	if (low_resource_state(B_KERNEL_RESOURCE_PAGES) != B_NO_LOW_RESOURCE) {
 		VMCache* cache = ref->cache;
-		if (cache->Lock() == B_OK) {
+		if (cache->Lock()) {
 			if (cache->consumers.IsEmpty() && cache->areas.IsEmpty()
 			&& access_is_sequential(ref)) {
 			// we are not mapped, and we're accessed sequentially
@@ -466,7 +466,7 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 
 		dprintf("file_cache: read pages failed: %s\n", strerror(status));
 
-		if (cache->Lock() != B_OK)
+		if (!cache->Lock())
 			panic("read_into_cache: failed to lock cache");
 
 		for (int32 i = 0; i < pageIndex; i++) {
@@ -495,7 +495,7 @@ read_into_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	}
 
 	reserve_pages(ref, reservation, reservePages, false);
-	if (cache->Lock() != B_OK)
+	if (!cache->Lock())
 		panic("read_into_cache: failed to lock cache");
 
 	// make the pages accessible in the cache
@@ -534,7 +534,7 @@ read_from_file(file_cache_ref* ref, void* cookie, off_t offset,
 	if (status == B_OK)
 		reserve_pages(ref, reservation, reservePages, false);
 
-	if (ref->cache->Lock() != B_OK)
+	if (!ref->cache->Lock())
 		panic("read_from_file: failed to lock cache");
 
 	return status;
@@ -708,7 +708,7 @@ write_to_cache(file_cache_ref* ref, void* cookie, off_t offset,
 	if (status == B_OK)
 		reserve_pages(ref, reservation, reservePages, true);
 
-	if (ref->cache->Lock() != B_OK)
+	if (!ref->cache->Lock())
 		panic("write_to_cache: failed to lock cache");
 
 	// make the pages accessible in the cache
@@ -793,7 +793,7 @@ write_to_file(file_cache_ref* ref, void* cookie, off_t offset, int32 pageOffset,
 	if (status == B_OK)
 		reserve_pages(ref, reservation, reservePages, true);
 
-	if (ref->cache->Lock() != B_OK)
+	if (!ref->cache->Lock())
 		panic("write_to_file: failed to lock cache");
 
 	return status;
@@ -1156,7 +1156,7 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 	vm_page_reservation reservation;
 	vm_page_reserve_pages(&reservation, pagesCount, VM_PRIORITY_USER);
 
-	if (cache->Lock() != B_OK) {
+	if (!cache->Lock()) {
 		vm_page_unreserve_pages(&reservation);
 		cache->ReleaseRef();
 		return;
@@ -1189,7 +1189,7 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 			// we must not have the cache locked during I/O
 			cache->Unlock();
 			io->ReadAsync();
-			if (cache->Lock() != B_OK)
+			if (!cache->Lock())
 				panic("cache_prefetch_vnode: failed to lock cache");
 
 			bytesToRead = 0;

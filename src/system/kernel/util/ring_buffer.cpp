@@ -178,6 +178,9 @@ create_ring_buffer_etc(void* memory, size_t size, uint32 flags)
 		return NULL;
 
 	if (memory == NULL) {
+		if (size == 0)
+			return NULL;
+
 		ring_buffer* buffer = (ring_buffer*)malloc(sizeof(ring_buffer) + size);
 		if (buffer == NULL)
 			return NULL;
@@ -188,7 +191,7 @@ create_ring_buffer_etc(void* memory, size_t size, uint32 flags)
 		return buffer;
 	}
 
-	if (size < sizeof(ring_buffer))
+	if (size <= sizeof(ring_buffer))
 		return NULL;
 
 	size -= sizeof(ring_buffer);

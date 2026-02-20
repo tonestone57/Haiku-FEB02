@@ -90,7 +90,7 @@ private:
 			CallbackList		fUnusedFunctionCallbacks;
 			ConditionVariable	fPendingCallbacksCondition;
 			DPCCallback*		fCallbackInProgress;
-			ConditionVariable*	fCallbackDoneCondition;
+			ConditionVariable	fCallbackDoneCondition;
 };
 
 

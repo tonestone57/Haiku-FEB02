@@ -774,7 +774,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 				= messageQueue->BlockAndUnlock(&queueEntry, &messageQueueLocker);
 			TRACE(("xsi_msgrcv: thread %d back to life\n", (int)thread_get_current_thread_id()));
 
-			if (messageQueueHashLocker.Lock() != B_OK)
+			if (!messageQueueHashLocker.Lock())
 				return B_ERROR;
 
 			messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
@@ -791,7 +791,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 				messageQueue->Dequeue(&queueEntry);
 				return B_INTERRUPTED;
 			} else {
-				if (messageQueueLocker.Lock() != B_OK) {
+				if (!messageQueueLocker.Lock()) {
 					messageQueueHashLocker.Unlock();
 					return B_ERROR;
 				}
@@ -896,7 +896,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 			result = messageQueue->BlockAndUnlock(&queueEntry, &messageQueueLocker);
 			TRACE(("xsi_msgsnd: thread %d back to life\n", (int)thread_get_current_thread_id()));
 
-			if (messageQueueHashLocker.Lock() != B_OK) {
+			if (!messageQueueHashLocker.Lock()) {
 				delete message;
 				return B_ERROR;
 			}
@@ -919,7 +919,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 				notSent = false;
 				result = B_INTERRUPTED;
 			} else {
-				if (messageQueueLocker.Lock() != B_OK) {
+				if (!messageQueueLocker.Lock()) {
 					messageQueueHashLocker.Unlock();
 					delete message;
 					return B_ERROR;

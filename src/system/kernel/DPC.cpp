@@ -70,12 +70,12 @@ DPCCallback::~DPCCallback()
 DPCQueue::DPCQueue()
 	:
 	fThreadID(-1),
-	fCallbackInProgress(NULL),
-	fCallbackDoneCondition(NULL)
+	fCallbackInProgress(NULL)
 {
 	B_INITIALIZE_SPINLOCK(&fLock);
 
 	fPendingCallbacksCondition.Init(this, "dpc queue");
+	fCallbackDoneCondition.Init(this, "dpc callback done");
 }
 
 
@@ -230,16 +230,9 @@ DPCQueue::Cancel(DPCCallback* callback)
 	// The callback is currently being executed. We need to wait for it to be
 	// done.
 
-	// Set the respective condition, if not set yet. For the unlikely case that
-	// there are multiple threads trying to cancel the callback at the same
-	// time, the condition variable of the first thread will be used.
-	ConditionVariable condition;
-	if (fCallbackDoneCondition == NULL)
-		fCallbackDoneCondition = &condition;
-
 	// add our wait entry
 	ConditionVariableEntry waitEntry;
-	fCallbackDoneCondition->Add(&waitEntry);
+	fCallbackDoneCondition.Add(&waitEntry);
 
 	// wait
 	locker.Unlock();
@@ -297,11 +290,8 @@ DPCQueue::_Thread()
 		fCallbackInProgress = NULL;
 
 		// wake up threads waiting for the callback to be done
-		ConditionVariable* doneCondition = fCallbackDoneCondition;
-		fCallbackDoneCondition = NULL;
 		locker.Unlock();
-		if (doneCondition != NULL)
-			doneCondition->NotifyAll();
+		fCallbackDoneCondition.NotifyAll();
 	}
 
 	return B_OK;
