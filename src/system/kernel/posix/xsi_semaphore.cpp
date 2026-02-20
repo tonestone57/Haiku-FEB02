@@ -798,8 +798,13 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 	atomic_add(&sXsiSemaphoreSetCount, 1);
 
 	MutexLocker semaphoreSetLocker(sXsiSemaphoreSetLock);
-	if (!semaphoreSetLocker.IsLocked())
+	if (!semaphoreSetLocker.IsLocked()) {
+		atomic_add(&sXsiSemaphoreCount, -numberOfSemaphores);
+		atomic_add(&sXsiSemaphoreSetCount, -1);
+		delete semaphoreSet;
+		delete ipcKey;
 		return B_ERROR;
+	}
 
 	semaphoreSet->SetID();
 	if (isPrivate) {
@@ -1217,9 +1222,8 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 
 			// We are back to life. Find out why!
 			// Make sure the set hasn't been deleted or worst yet replaced.
-			status_t lockStatus = setHashLocker.Lock();
-			if (lockStatus != B_OK)
-				return lockStatus;
+			if (!setHashLocker.Lock())
+				return B_ERROR;
 
 			semaphoreSet = sSemaphoreHashTable.Lookup(semaphoreID);
 			if (result == EIDRM || semaphoreSet == NULL || (semaphoreSet != NULL
@@ -1237,9 +1241,8 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 				result = B_INTERRUPTED;
 				notDone = false;
 			} else {
-				lockStatus = setLocker.Lock();
-				if (lockStatus != B_OK)
-					return lockStatus;
+				if (!setLocker.Lock())
+					return B_ERROR;
 
 				setHashLocker.Unlock();
 			}
