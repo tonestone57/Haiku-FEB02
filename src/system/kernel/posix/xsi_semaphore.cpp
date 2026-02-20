@@ -713,9 +713,6 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 	bool isPrivate = true;
 
 	MutexLocker ipcLocker(sIpcLock);
-	if (!ipcLocker.IsLocked())
-		return B_ERROR;
-
 	if (key != IPC_PRIVATE) {
 		isPrivate = false;
 		// Check if key already exist, if it does it already has a semaphore
@@ -730,9 +727,6 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 			int semaphoreSetID = ipcKey->SemaphoreSetID();
 
 			MutexLocker semaphoreSetLocker(sXsiSemaphoreSetLock);
-			if (!semaphoreSetLocker.IsLocked())
-				return B_ERROR;
-
 			semaphoreSet = sSemaphoreHashTable.Lookup(semaphoreSetID);
 			if (semaphoreSet == NULL) {
 				TRACE(("xsi_semget: calling process has no semaphore, "
@@ -798,14 +792,6 @@ _user_xsi_semget(key_t key, int numberOfSemaphores, int flags)
 	atomic_add(&sXsiSemaphoreSetCount, 1);
 
 	MutexLocker semaphoreSetLocker(sXsiSemaphoreSetLock);
-	if (!semaphoreSetLocker.IsLocked()) {
-		atomic_add(&sXsiSemaphoreCount, -numberOfSemaphores);
-		atomic_add(&sXsiSemaphoreSetCount, -1);
-		delete semaphoreSet;
-		delete ipcKey;
-		return B_ERROR;
-	}
-
 	semaphoreSet->SetID();
 	if (isPrivate) {
 		semaphoreSet->SetIpcKey((key_t)-1);
@@ -837,12 +823,7 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 	}
 
 	MutexLocker ipcHashLocker(sIpcLock);
-	if (!ipcHashLocker.IsLocked())
-		return B_ERROR;
-
 	MutexLocker setHashLocker(sXsiSemaphoreSetLock);
-	if (!setHashLocker.IsLocked())
-		return B_ERROR;
 	XsiSemaphoreSet *semaphoreSet = sSemaphoreHashTable.Lookup(semaphoreID);
 	if (semaphoreSet == NULL) {
 		TRACE(("xsi_semctl: semaphore set id %d not valid\n",
@@ -862,9 +843,6 @@ _user_xsi_semctl(int semaphoreID, int semaphoreNumber, int command,
 	// situation from happening while (hopefully) improving the
 	// concurrency.
 	MutexLocker setLocker(semaphoreSet->Lock());
-	if (!setLocker.IsLocked())
-		return B_ERROR;
-
 	if (command != IPC_RMID) {
 		setHashLocker.Unlock();
 		ipcHashLocker.Unlock();
@@ -1083,9 +1061,6 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 	}
 
 	MutexLocker setHashLocker(sXsiSemaphoreSetLock);
-	if (!setHashLocker.IsLocked())
-		return B_ERROR;
-
 	XsiSemaphoreSet *semaphoreSet = sSemaphoreHashTable.Lookup(semaphoreID);
 	if (semaphoreSet == NULL) {
 		TRACE(("xsi_semop: semaphore set id %d not valid\n",
@@ -1093,9 +1068,6 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 		return B_BAD_VALUE;
 	}
 	MutexLocker setLocker(semaphoreSet->Lock());
-	if (!setLocker.IsLocked())
-		return B_ERROR;
-
 	setHashLocker.Unlock();
 
 	BStackOrHeapArray<struct sembuf, 16> operations(numOps);
@@ -1222,9 +1194,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 
 			// We are back to life. Find out why!
 			// Make sure the set hasn't been deleted or worst yet replaced.
-			if (!setHashLocker.Lock())
-				return B_ERROR;
-
+			setHashLocker.Lock();
 			semaphoreSet = sSemaphoreHashTable.Lookup(semaphoreID);
 			if (result == EIDRM || semaphoreSet == NULL || (semaphoreSet != NULL
 					&& sequenceNumber != semaphoreSet->SequenceNumber())) {
@@ -1241,9 +1211,7 @@ _user_xsi_semop(int semaphoreID, struct sembuf *ops, size_t numOps)
 				result = B_INTERRUPTED;
 				notDone = false;
 			} else {
-				if (!setLocker.Lock())
-					return B_ERROR;
-
+				setLocker.Lock();
 				setHashLocker.Unlock();
 			}
 		} else {
