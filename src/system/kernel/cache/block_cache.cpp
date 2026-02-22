@@ -892,7 +892,8 @@ flush_pending_notifications(block_cache* cache)
 
 			copy.hook(copy.transaction_id, event, copy.data);
 
-			locker.Lock();
+			if (!locker.Lock())
+				panic("wait_for_notifications: failed to lock cache");
 		}
 
 		if (deleteAfterEvent)
@@ -2118,7 +2119,8 @@ put_cached_block(block_cache* cache, cached_block* block, WriteLocker* writeLock
 			&& memcmp(block->current_data, block->compare, cache->block_size) != 0) {
 		if (writeLocker != NULL && !writeLocker->IsLocked()) {
 			rw_lock_read_unlock(&cache->lock);
-			writeLocker->Lock();
+			if (!writeLocker->Lock())
+				panic("put_cached_block: failed to lock cache");
 		}
 
 		TRACE_ALWAYS("new block:\n");
@@ -4110,8 +4112,10 @@ block_cache_get_etc(void* _cache, off_t blockNumber, const void** _block)
 
 #if BLOCK_CACHE_DEBUG_CHANGED
 	if (block->compare == NULL) {
-		if (!writeLocker.IsLocked())
-			writeLocker.Lock();
+		if (!writeLocker.IsLocked()) {
+			if (!writeLocker.Lock())
+				return B_ERROR;
+		}
 
 		if (block->compare == NULL && !block->is_dirty) {
 			block->compare = cache->Allocate();

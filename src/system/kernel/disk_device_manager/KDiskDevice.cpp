@@ -378,9 +378,8 @@ KDiskDevice::_InitPartitionData()
 
 	char name[B_FILE_NAME_LENGTH];
 	if (ioctl(fFD, B_GET_DEVICE_NAME, name, sizeof(name)) == B_OK) {
-		fPartitionData.name = strdup(name);
-		if (fPartitionData.name == NULL) {
-			OUT("KDiskDevice::_InitPartitionData: failed to duplicate name\n");
+		if (SetName(name) != B_OK) {
+			OUT("KDiskDevice::_InitPartitionData: failed to set name\n");
 			// TODO: handle no memory (we can't really do anything about it here)
 		}
 	}

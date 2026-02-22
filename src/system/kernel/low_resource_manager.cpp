@@ -333,6 +333,8 @@ low_resource(uint32 resource, uint64 requirements, uint32 flags, uint32 timeout)
 	int32 newState = B_NO_LOW_RESOURCE;
 	{
 		RecursiveLocker locker(&sLowResourceLock);
+		if (!locker.IsLocked())
+			return;
 
 		switch (resource) {
 			case B_KERNEL_RESOURCE_PAGES:

@@ -1182,7 +1182,8 @@ cache_prefetch_vnode(struct vnode* vnode, off_t offset, size_t size)
 			if (io == NULL || io->Prepare(&reservation) != B_OK) {
 				cache->Unlock();
 				delete io;
-				cache->Lock();
+				if (!cache->Lock())
+					panic("cache_prefetch_vnode: failed to lock cache");
 				break;
 			}
 
