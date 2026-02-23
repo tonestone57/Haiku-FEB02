@@ -17,21 +17,24 @@ static int32 VHostCallback(VSTEffect* effect, int32 opcode, int32 index,
 
 //Trim string
 static void
-TrimString(BString *string) {
-	char* str = string->LockBuffer(256);
-    uint32 k = 0;
-    uint32 i = 0;
-    for(i=0; str[i]!='\0';) {
-        if (isspace(str[i])) {
-            k = i;
-            for(uint32 j = i; j < strlen(str) - 1; j++)
-                str[j] = str[j + 1];
-            str[strlen(str) - 1] = '\0';
-            i = k;
-        } else
-            i++;
-    }
-    string->UnlockBuffer();
+TrimString(BString *string)
+{
+	int32 length = string->Length();
+	if (length <= 0)
+		return;
+
+	char* str = string->LockBuffer(length);
+	if (str == NULL)
+		return;
+
+	int32 writeIndex = 0;
+	for (int32 readIndex = 0; str[readIndex] != '\0'; readIndex++) {
+		if (!isspace((unsigned char)str[readIndex]))
+			str[writeIndex++] = str[readIndex];
+	}
+	str[writeIndex] = '\0';
+
+	string->UnlockBuffer(writeIndex);
 }
 
 //VST Parameter class
