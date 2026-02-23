@@ -14,6 +14,7 @@
 #include <new>
 
 #ifdef ZSTD_ENABLED
+  #define ZSTD_STATIC_LINKING_ONLY
   #include <zstd.h>
   #include <zstd_errors.h>
 #endif
@@ -372,14 +373,25 @@ BZstdCompressionAlgorithm::CompressBuffer(const iovec& input, iovec& output,
 	const BCompressionParameters* parameters, iovec* scratch)
 {
 #ifdef B_ZSTD_COMPRESSION_SUPPORT
-	// TODO: Make use of scratch buffer (if available.)
 	const BZstdCompressionParameters* zstdParameters
 		= dynamic_cast<const BZstdCompressionParameters*>(parameters);
 	int compressionLevel = zstdParameters != NULL
 		? zstdParameters->CompressionLevel()
 		: B_ZSTD_COMPRESSION_DEFAULT;
 
-	size_t zstdError = ZSTD_compress(output.iov_base, output.iov_len,
+	ZSTD_CCtx* cctx;
+	CObjectDeleter<ZSTD_CCtx, size_t, ZSTD_freeCCtx> cctxDeleter;
+#if defined(ZSTD_STATIC_LINKING_ONLY)
+	if (scratch != NULL)
+		cctx = ZSTD_initStaticCCtx(scratch->iov_base, scratch->iov_len);
+	else
+#endif
+		cctxDeleter.SetTo(cctx = ZSTD_createCCtx());
+
+	if (cctx == NULL)
+		return B_NO_MEMORY;
+
+	size_t zstdError = ZSTD_compressCCtx(cctx, output.iov_base, output.iov_len,
 		input.iov_base, input.iov_len, compressionLevel);
 	if (ZSTD_isError(zstdError))
 		return _TranslateZstdError(zstdError);
