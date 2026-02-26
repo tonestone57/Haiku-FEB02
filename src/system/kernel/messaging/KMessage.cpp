@@ -758,10 +758,14 @@ status_t
 KMessage::_AddField(const char* name, type_code type, int32 elementSize,
 	KMessageField* field)
 {
+	size_t nameLen = strlen(name);
+	if (nameLen > INT_MAX - sizeof(FieldHeader))
+		return B_BAD_VALUE;
+
 	FieldHeader* fieldHeader;
 	int32 alignedSize;
-	status_t error = _AllocateSpace(sizeof(FieldHeader) + strlen(name), true,
-		true, (void**)&fieldHeader, &alignedSize);
+	status_t error = _AllocateSpace((int32)(sizeof(FieldHeader) + nameLen),
+		true, true, (void**)&fieldHeader, &alignedSize);
 	if (error != B_OK)
 		return error;
 	fieldHeader->type = type;

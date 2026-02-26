@@ -43,13 +43,16 @@ struct queued_message : DoublyLinkedListLinkImpl<queued_message> {
 		fInitStatus(B_NO_MEMORY),
 		length(_length)
 	{
-		message = (char *)malloc(sizeof(char) * _length);
-		if (message == NULL)
-			return;
+		if (_length > 0) {
+			message = (char *)malloc(sizeof(char) * _length);
+			if (message == NULL)
+				return;
+		} else
+			message = NULL;
 
 		if (user_memcpy(&type, _message, sizeof(long)) != B_OK
-			|| user_memcpy(message, (void *)((char *)_message + sizeof(long)),
-			_length) != B_OK) {
+			|| (_length > 0 && user_memcpy(message,
+				(void *)((char *)_message + sizeof(long)), _length) != B_OK)) {
 			free(message);
 			fInitStatus = B_BAD_ADDRESS;
 			return;
@@ -326,7 +329,10 @@ public:
 
 	void SetMessageQueueID(XsiMessageQueue *messageQueue)
 	{
-		fMessageQueueId = messageQueue->ID();
+		if (messageQueue != NULL)
+			fMessageQueueId = messageQueue->ID();
+		else
+			fMessageQueueId = -1;
 	}
 
 	Ipc*& Link()
@@ -642,6 +648,7 @@ _user_xsi_msgget(key_t key, int flags)
 	// Default assumptions
 	bool isPrivate = true;
 	bool create = true;
+	bool ipcKeyInserted = false;
 
 	if (key != IPC_PRIVATE) {
 		isPrivate = false;
@@ -661,7 +668,11 @@ _user_xsi_msgget(key_t key, int flags)
 						"for key %d\n", (int)key));
 					return B_NO_MEMORY;
 				}
-				sIpcHashTable.Insert(ipcKey);
+				if (sIpcHashTable.Insert(ipcKey) != B_OK) {
+					delete ipcKey;
+					return B_NO_MEMORY;
+				}
+				ipcKeyInserted = true;
 			}
 		} else {
 			// The IPC key exist and it already has a message queue
@@ -715,7 +726,18 @@ _user_xsi_msgget(key_t key, int flags)
 			messageQueue->SetIpcKey(key);
 			ipcKey->SetMessageQueueID(messageQueue);
 		}
-		sMessageQueueHashTable.Insert(messageQueue);
+		if (sMessageQueueHashTable.Insert(messageQueue) != B_OK) {
+			if (!isPrivate) {
+				if (ipcKeyInserted)
+					sIpcHashTable.Remove(ipcKey);
+				ipcKey->SetMessageQueueID(NULL);
+			}
+			delete messageQueue;
+			if (ipcKeyInserted)
+				delete ipcKey;
+			atomic_add(&sXsiMessageQueueCount, -1);
+			return B_NO_MEMORY;
+		}
 	}
 
 	return messageQueue->ID();
@@ -774,7 +796,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 				= messageQueue->BlockAndUnlock(&queueEntry, &messageQueueLocker);
 			TRACE(("xsi_msgrcv: thread %d back to life\n", (int)thread_get_current_thread_id()));
 
-			if (messageQueueHashLocker.Lock() != B_OK)
+			if (!messageQueueHashLocker.Lock())
 				return B_ERROR;
 
 			messageQueue = sMessageQueueHashTable.Lookup(messageQueueID);
@@ -791,7 +813,7 @@ _user_xsi_msgrcv(int messageQueueID, void *messagePointer,
 				messageQueue->Dequeue(&queueEntry);
 				return B_INTERRUPTED;
 			} else {
-				if (messageQueueLocker.Lock() != B_OK) {
+				if (!messageQueueLocker.Lock()) {
 					messageQueueHashLocker.Unlock();
 					return B_ERROR;
 				}
@@ -896,7 +918,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 			result = messageQueue->BlockAndUnlock(&queueEntry, &messageQueueLocker);
 			TRACE(("xsi_msgsnd: thread %d back to life\n", (int)thread_get_current_thread_id()));
 
-			if (messageQueueHashLocker.Lock() != B_OK) {
+			if (!messageQueueHashLocker.Lock()) {
 				delete message;
 				return B_ERROR;
 			}
@@ -919,7 +941,7 @@ _user_xsi_msgsnd(int messageQueueID, const void *messagePointer,
 				notSent = false;
 				result = B_INTERRUPTED;
 			} else {
-				if (messageQueueLocker.Lock() != B_OK) {
+				if (!messageQueueLocker.Lock()) {
 					messageQueueHashLocker.Unlock();
 					delete message;
 					return B_ERROR;

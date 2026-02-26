@@ -331,56 +331,62 @@ void
 low_resource(uint32 resource, uint64 requirements, uint32 flags, uint32 timeout)
 {
 	int32 newState = B_NO_LOW_RESOURCE;
-	switch (resource) {
-		case B_KERNEL_RESOURCE_PAGES:
-			if (requirements <= kCriticalPagesLimit)
-				newState = B_LOW_RESOURCE_CRITICAL;
-			else if (requirements <= kWarnPagesLimit)
-				newState = B_LOW_RESOURCE_WARNING;
-			else
-				newState = B_LOW_RESOURCE_NOTE;
+	{
+		RecursiveLocker locker(&sLowResourceLock);
+		if (!locker.IsLocked())
+			return;
 
-			if (sLowPagesState < newState)
-				sLowPagesState = newState;
-			break;
+		switch (resource) {
+			case B_KERNEL_RESOURCE_PAGES:
+				if (requirements <= kCriticalPagesLimit)
+					newState = B_LOW_RESOURCE_CRITICAL;
+				else if (requirements <= kWarnPagesLimit)
+					newState = B_LOW_RESOURCE_WARNING;
+				else
+					newState = B_LOW_RESOURCE_NOTE;
 
-		case B_KERNEL_RESOURCE_MEMORY: {
-			const off_t required = requirements;
-			if (required <= sCriticalMemoryLimit)
-				newState = B_LOW_RESOURCE_CRITICAL;
-			else if (required <= sWarnMemoryLimit)
-				newState = B_LOW_RESOURCE_WARNING;
-			else
-				newState = B_LOW_RESOURCE_NOTE;
+				if (sLowPagesState < newState)
+					sLowPagesState = newState;
+				break;
 
-			if (sLowMemoryState < newState)
-				sLowMemoryState = newState;
-			break;
+			case B_KERNEL_RESOURCE_MEMORY: {
+				const off_t required = requirements;
+				if (required <= sCriticalMemoryLimit)
+					newState = B_LOW_RESOURCE_CRITICAL;
+				else if (required <= sWarnMemoryLimit)
+					newState = B_LOW_RESOURCE_WARNING;
+				else
+					newState = B_LOW_RESOURCE_NOTE;
+
+				if (sLowMemoryState < newState)
+					sLowMemoryState = newState;
+				break;
+			}
+
+			case B_KERNEL_RESOURCE_SEMAPHORES:
+				if (requirements <= 4)
+					newState = B_LOW_RESOURCE_CRITICAL;
+				else if (requirements <= 32)
+					newState = B_LOW_RESOURCE_WARNING;
+				else
+					newState = B_LOW_RESOURCE_NOTE;
+
+				if (sLowSemaphoresState < newState)
+					sLowSemaphoresState = newState;
+				break;
+
+			case B_KERNEL_RESOURCE_ADDRESS_SPACE:
+				if (requirements <= (kCriticalPagesLimit * B_PAGE_SIZE))
+					newState = B_LOW_RESOURCE_CRITICAL;
+				else if (requirements <= (kWarnPagesLimit * B_PAGE_SIZE))
+					newState = B_LOW_RESOURCE_WARNING;
+				else
+					newState = B_LOW_RESOURCE_NOTE;
+
+				if (sLowSpaceState < newState)
+					sLowSpaceState = newState;
+				break;
 		}
-
-		case B_KERNEL_RESOURCE_SEMAPHORES:
-			if (requirements <= 4)
-				newState = B_LOW_RESOURCE_CRITICAL;
-			else if (requirements <= 32)
-				newState = B_LOW_RESOURCE_WARNING;
-			else
-				newState = B_LOW_RESOURCE_NOTE;
-
-			if (sLowSemaphoresState < newState)
-				sLowSemaphoresState = newState;
-			break;
-
-		case B_KERNEL_RESOURCE_ADDRESS_SPACE:
-			if (requirements <= (kCriticalPagesLimit * B_PAGE_SIZE))
-				newState = B_LOW_RESOURCE_CRITICAL;
-			else if (requirements <= (kWarnPagesLimit * B_PAGE_SIZE))
-				newState = B_LOW_RESOURCE_WARNING;
-			else
-				newState = B_LOW_RESOURCE_NOTE;
-
-			if (sLowSpaceState < newState)
-				sLowSpaceState = newState;
-			break;
 	}
 
 	ConditionVariableEntry entry;

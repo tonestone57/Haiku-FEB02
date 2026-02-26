@@ -36,6 +36,9 @@ static ssize_t
 read_from_buffer(struct ring_buffer *buffer, uint8 *data, ssize_t length,
 	bool user)
 {
+	if (length < 0)
+		return B_BAD_VALUE;
+
 	size_t available = buffer->in;
 
 	if ((size_t)length > available)
@@ -82,6 +85,9 @@ static ssize_t
 write_to_buffer(struct ring_buffer *buffer, const uint8 *data, ssize_t length,
 	bool user)
 {
+	if (length < 0)
+		return B_BAD_VALUE;
+
 	size_t left = space_left_in_buffer(buffer);
 	if ((size_t)length > left)
 		length = left;
@@ -124,12 +130,15 @@ static ssize_t
 buffer_peek(struct ring_buffer* buffer, size_t offset, void* data,
 	ssize_t length, bool user)
 {
+	if (length < 0)
+		return B_BAD_VALUE;
+
 	size_t available = buffer->in;
 
 	if (offset >= available || length == 0)
 		return 0;
 
-	if (offset + length > available)
+	if (offset + (size_t)length > available)
 		length = available - offset;
 
 	if ((offset += buffer->first) >= (size_t)buffer->size)
@@ -178,6 +187,9 @@ create_ring_buffer_etc(void* memory, size_t size, uint32 flags)
 		return NULL;
 
 	if (memory == NULL) {
+		if (size == 0)
+			return NULL;
+
 		ring_buffer* buffer = (ring_buffer*)malloc(sizeof(ring_buffer) + size);
 		if (buffer == NULL)
 			return NULL;
@@ -188,7 +200,7 @@ create_ring_buffer_etc(void* memory, size_t size, uint32 flags)
 		return buffer;
 	}
 
-	if (size < sizeof(ring_buffer))
+	if (size <= sizeof(ring_buffer))
 		return NULL;
 
 	size -= sizeof(ring_buffer);
